@@ -6,7 +6,11 @@ applications:
         preBuild:
           commands:
             - npm install
-            - npm install lightningcss-linux-x64-gnu --no-save
+            # Instalar binarios nativos de Linux para Tailwind v4
+            - npm install lightningcss-linux-x64-gnu @tailwindcss/oxide-linux-x64-gnu --no-save
+            # Copiar los .node donde el código los busca (postinstall no se ejecuta en Amplify)
+            - cp node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node node_modules/lightningcss/ 2>/dev/null || true
+            - cp node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node node_modules/@tailwindcss/oxide/ 2>/dev/null || true
         build:
           commands:
             - npm run build
