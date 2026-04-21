@@ -5,7 +5,7 @@ applications:
       phases:
         preBuild:
           commands:
-            - npm install
+            - npm install --include=dev
             # Instalar binarios nativos de Linux para Tailwind v4
             - npm install lightningcss-linux-x64-gnu @tailwindcss/oxide-linux-x64-gnu --no-save
             # Copiar los .node donde el código los busca (postinstall no se ejecuta en Amplify)
