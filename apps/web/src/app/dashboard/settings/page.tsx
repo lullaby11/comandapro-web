@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Save, Printer, Globe, Layers } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+const API = '';
 
 interface BusinessSettings {
   id: string;

@@ -6,7 +6,7 @@ import {
   Package, CheckCircle, Clock, Truck, XCircle, ShoppingBag,
 } from 'lucide-react';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+const API = '';
 
 const STATUS_INFO: Record<string, { label: string; color: string; icon: React.ElementType; step: number }> = {
   PENDING:   { label: 'Pedido recibido',     color: 'hsl(38 95% 56%)',  icon: Clock,        step: 1 },

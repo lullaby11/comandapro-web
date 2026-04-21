@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { ShoppingBag, Building2, User, Mail, Lock, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+const API = '';
 
 export default function RegisterPage() {
   const router = useRouter();

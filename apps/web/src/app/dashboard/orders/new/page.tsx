@@ -14,7 +14,7 @@ function apiHeaders() {
   const token = localStorage.getItem('token');
   return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
 }
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+const API = '';
 
 // ─── WebUSB Print ────────────────────────────────────────────────────────────
 async function printViaWebUSB(buffer: Uint8Array) {
