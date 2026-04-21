@@ -16,8 +16,9 @@ run:
   env:
     - name: NODE_ENV
       value: production
+    - name: ALLOWED_ORIGINS
+      value: "https://main.d33spjlfz445rx.amplifyapp.com"
   secrets:
     - name: DATABASE_URL
     - name: JWT_SECRET
     - name: APP_URL
-    - name: ALLOWED_ORIGINS
