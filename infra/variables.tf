@@ -80,7 +80,7 @@ variable "api_url" {
   description = <<-EOT
     URL pública de la API (App Runner).
     Dejar vacío en el primer apply. Después de obtener la URL,
-    ejecutar: terraform apply -var="api_url=https://xxxx.eu-west-1.awsapprunner.com"
+    ejecutar: terraform apply -var="api_url=https://x4ra2uy3w2.eu-west-1.awsapprunner.com"
   EOT
   type        = string
   default     = ""
