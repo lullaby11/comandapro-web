@@ -15,6 +15,11 @@
     "react-dom": "19.2.4",
     "react-hot-toast": "^2.6.0"
   },
+  "optionalDependencies": {
+    "lightningcss-linux-x64-gnu": "*",
+    "lightningcss-darwin-arm64": "*",
+    "lightningcss-darwin-x64": "*"
+  },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",

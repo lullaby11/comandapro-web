@@ -5,8 +5,8 @@ applications:
       phases:
         preBuild:
           commands:
-            - node --version
             - npm install
+            - npm install lightningcss-linux-x64-gnu --no-save
         build:
           commands:
             - npm run build
