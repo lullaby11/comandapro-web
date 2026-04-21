@@ -27,7 +27,10 @@ const PORT = process.env.PORT ?? 4000;
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') ?? ['http://localhost:3000'],
+    origin: process.env.ALLOWED_ORIGINS?.split(',') ?? [
+      'http://localhost:3000',
+      'https://main.d33spjlfz445rx.amplifyapp.com',
+    ],
     credentials: true,
   })
 );
