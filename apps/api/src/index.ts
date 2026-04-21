@@ -23,17 +23,11 @@ import trackingRoutes from './routes/tracking';
 const app = express();
 const PORT = process.env.PORT ?? 4000;
 
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,https://main.d33spjlfz445rx.amplifyapp.com')
-  .split(',')
-  .map((o) => o.trim())
-  .filter(Boolean);
-console.log('[startup] CORS allowed origins:', allowedOrigins);
-
 // ─── Seguridad & Middleware ───────────────────────────────────────────────────
 app.use(helmet());
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: true,
     credentials: true,
   })
 );
