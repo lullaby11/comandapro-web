@@ -1,0 +1,25 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: comandapro_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: comandapro
+      POSTGRES_PASSWORD: comandapro
+      POSTGRES_DB: comandapro_dev
+      POSTGRES_HOST_AUTH_METHOD: md5
+    ports:
+      - '5432:5432'
+    volumes:
+      - comandapro_pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U comandapro']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  comandapro_pgdata:

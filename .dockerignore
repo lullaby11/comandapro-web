@@ -1,0 +1,9 @@
+.turbo
+node_modules
+.git
+*.log
+.env
+.env.*
+infra
+apps/web
+apps/print-agent

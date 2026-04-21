@@ -1,0 +1,23 @@
+version: 1
+runtime: NODEJS_20
+
+build:
+  commands:
+    build:
+      - npm ci
+      - npx prisma generate
+      - npm run build
+
+run:
+  command: sh -c "npx prisma migrate deploy && node dist/index.js"
+  network:
+    port: 4000
+    env: PORT
+  env:
+    - name: NODE_ENV
+      value: production
+  secrets:
+    - name: DATABASE_URL
+    - name: JWT_SECRET
+    - name: APP_URL
+    - name: ALLOWED_ORIGINS

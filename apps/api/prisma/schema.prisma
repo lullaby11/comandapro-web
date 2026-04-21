@@ -1,0 +1,178 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// TENANT: Business (Local / Restaurante)
+// ─────────────────────────────────────────────
+model Business {
+  id             String   @id @default(cuid())
+  name           String
+  slug           String   @unique
+  logoUrl        String?
+  phone          String?
+  address        String?
+  // Configuración de impresión
+  paperWidth     Int      @default(80)        // 58 o 80 mm
+  printerMode    String   @default("webusb")  // "webusb" | "printserver"
+  printServerUrl String?                      // URL del agente local si printerMode = "printserver"
+  // Configuración de la comanda
+  currency       String   @default("EUR")
+  taxRate        Float    @default(0)         // % de IVA
+  // Timestamps
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relaciones
+  users     BusinessUser[]
+  products  Product[]
+  customers Customer[]
+  orders    Order[]
+
+  @@map("businesses")
+}
+
+// ─────────────────────────────────────────────
+// USUARIOS por tenant
+// ─────────────────────────────────────────────
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  businesses BusinessUser[]
+
+  @@map("users")
+}
+
+model BusinessUser {
+  id         String   @id @default(cuid())
+  userId     String
+  businessId String
+  role       Role     @default(STAFF)
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, businessId])
+  @@index([businessId])
+  @@map("business_users")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  STAFF
+}
+
+// ─────────────────────────────────────────────
+// PRODUCTOS (con stock por tenant)
+// ─────────────────────────────────────────────
+model Product {
+  id          String   @id @default(cuid())
+  businessId  String
+  name        String
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  stock       Int      @default(0)
+  imageUrl    String?
+  category    String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  business   Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  @@index([businessId])
+  @@index([businessId, active])
+  @@map("products")
+}
+
+// ─────────────────────────────────────────────
+// CLIENTES (por tenant, buscables por teléfono)
+// ─────────────────────────────────────────────
+model Customer {
+  id         String   @id @default(cuid())
+  businessId String
+  name       String
+  phone      String
+  email      String?
+  address    String?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  orders   Order[]
+
+  // Un teléfono es único por local
+  @@unique([businessId, phone])
+  @@index([businessId, phone])
+  @@map("customers")
+}
+
+// ─────────────────────────────────────────────
+// PEDIDOS
+// ─────────────────────────────────────────────
+model Order {
+  id            String      @id @default(cuid())
+  businessId    String
+  customerId    String
+  trackingToken String      @unique @default(cuid())
+  status        OrderStatus @default(PENDING)
+  total         Decimal     @db.Decimal(10, 2)
+  subtotal      Decimal     @db.Decimal(10, 2)
+  tax           Decimal     @db.Decimal(10, 2) @default(0)
+  notes         String?
+  deliveryAddress String?
+  printedAt     DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  business Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer Customer   @relation(fields: [customerId], references: [id])
+  items    OrderItem[]
+
+  @@index([businessId])
+  @@index([businessId, status])
+  @@index([trackingToken])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String
+  quantity  Int
+  unitPrice Decimal @db.Decimal(10, 2)
+  subtotal  Decimal @db.Decimal(10, 2)
+  notes     String?
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+enum OrderStatus {
+  PENDING     // Recibido
+  PREPARING   // En cocina
+  READY       // Listo para entregar
+  DELIVERED   // Entregado
+  CANCELLED   // Cancelado
+}
