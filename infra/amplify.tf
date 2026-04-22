@@ -2,8 +2,27 @@
 # (GitHub → OAuth app) porque los PAT no tienen permisos de webhook por defecto.
 # Terraform gestiona la app, las variables de entorno y la rama.
 
+resource "aws_iam_role" "amplify" {
+  name = "${var.project_name}-amplify-service-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "amplify.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "amplify_admin" {
+  role       = aws_iam_role.amplify.name
+  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess-Amplify"
+}
+
 resource "aws_amplify_app" "web" {
-  name = "${var.project_name}-web"
+  name                 = "${var.project_name}-web"
+  iam_service_role_arn = aws_iam_role.amplify.arn
 
   build_spec = file("${path.module}/../amplify.yml")
 
