@@ -33,7 +33,7 @@ resource "aws_apprunner_service" "api" {
         # Variables de entorno no sensibles
         runtime_environment_variables = {
           NODE_ENV        = "production"
-          APP_URL         = var.api_url != "" ? var.api_url : "https://placeholder.awsapprunner.com"
+          APP_URL         = var.frontend_url != "" ? var.frontend_url : "https://placeholder.amplifyapp.com"
           ALLOWED_ORIGINS = var.frontend_url != "" ? var.frontend_url : "https://placeholder.amplifyapp.com"
         }
 
