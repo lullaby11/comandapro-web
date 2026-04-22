@@ -68,7 +68,12 @@ export async function generateEscPosBuffer(
 
       enc = enc
         .align('center')
-        .image(await logoImage.getBufferAsync(Jimp.MIME_PNG), logoWidth, logoHeight, 'atkinson')
+        .image(
+          { data: logoImage.bitmap.data, width: logoImage.bitmap.width, height: logoImage.bitmap.height },
+          logoImage.bitmap.width,
+          logoImage.bitmap.height,
+          'atkinson'
+        )
         .newline();
     } catch (err) {
       console.warn('[PrinterService] No se pudo cargar el logo:', err);
@@ -174,7 +179,12 @@ export async function generateEscPosBuffer(
 
     const qrJimp = await Jimp.read(qrBuffer);
     enc = enc
-      .image(await qrJimp.getBufferAsync(Jimp.MIME_PNG), qrSize, qrSize, 'atkinson')
+      .image(
+        { data: qrJimp.bitmap.data, width: qrJimp.bitmap.width, height: qrJimp.bitmap.height },
+        qrJimp.bitmap.width,
+        qrJimp.bitmap.height,
+        'atkinson'
+      )
       .newline()
       .line(truncate(trackingUrl, lineWidth))
       .newline();

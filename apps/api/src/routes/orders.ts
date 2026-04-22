@@ -190,6 +190,7 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
 // POST /orders/:id/print — Genera buffer ESC/POS
 // ──────────────────────────────────────────────
 router.post('/:id/print', async (req: AuthenticatedRequest, res) => {
+  try {
   const order = await prisma.order.findFirst({
     where: { id: req.params.id, businessId: req.businessId! },
     include: {
@@ -250,6 +251,10 @@ router.post('/:id/print', async (req: AuthenticatedRequest, res) => {
   res.setHeader('Content-Type', 'application/octet-stream');
   res.setHeader('Content-Disposition', `attachment; filename="comanda-${order.id}.bin"`);
   res.send(Buffer.from(buffer));
+  } catch (err) {
+    console.error('[print] Error generando ticket:', (err as Error).message, (err as Error).stack);
+    res.status(500).json({ error: 'Error generando ticket de impresión' });
+  }
 });
 
 export default router;

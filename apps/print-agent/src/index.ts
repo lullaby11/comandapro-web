@@ -1,5 +1,8 @@
 import 'dotenv/config';
-import HID from 'node-hid';
+import { execFile } from 'child_process';
+import { writeFile, unlink } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
 
 const REQUIRED = [
   'PRINT_AGENT_API_URL',
@@ -19,15 +22,9 @@ const EMAIL = process.env.PRINT_AGENT_EMAIL!;
 const PASSWORD = process.env.PRINT_AGENT_PASSWORD!;
 const BUSINESS_SLUG = process.env.PRINT_AGENT_BUSINESS_SLUG!;
 const POLL_MS = Number(process.env.PRINT_AGENT_POLL_INTERVAL_MS ?? 5000);
-
-// USB Vendor/Product IDs — ajusta según tu modelo de impresora
-// Epson TM-T20: 0x04b8 / 0x0202
-// Star TSP100:  0x0519 / 0x0003
-const PRINTER_VENDOR_ID = parseInt(process.env.PRINTER_VENDOR_ID ?? '0x04b8', 16);
-const PRINTER_PRODUCT_ID = parseInt(process.env.PRINTER_PRODUCT_ID ?? '0x0202', 16);
+const PRINTER_NAME = process.env.PRINTER_NAME ?? 'Printer_USB_Printer_P';
 
 let jwtToken: string | null = null;
-let printer: HID.HID | null = null;
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -36,7 +33,7 @@ async function login(): Promise<boolean> {
     const res = await fetch(`${API_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: EMAIL, password: PASSWORD, slug: BUSINESS_SLUG }),
+      body: JSON.stringify({ email: EMAIL, password: PASSWORD, businessSlug: BUSINESS_SLUG }),
     });
     if (!res.ok) {
       console.error('[print-agent] Login failed:', res.status, await res.text());
@@ -54,28 +51,21 @@ async function login(): Promise<boolean> {
 
 // ── Printer ───────────────────────────────────────────────────────────────────
 
-function connectPrinter(): boolean {
-  try {
-    printer = new HID.HID(PRINTER_VENDOR_ID, PRINTER_PRODUCT_ID);
-    console.log(`[print-agent] Impresora conectada (VID=0x${PRINTER_VENDOR_ID.toString(16)} PID=0x${PRINTER_PRODUCT_ID.toString(16)})`);
-    printer.on('error', (err: Error) => {
-      console.error('[print-agent] Error impresora:', err.message);
-      printer = null;
-    });
-    return true;
-  } catch {
-    console.warn('[print-agent] Impresora no encontrada, reintentando...');
-    return false;
-  }
-}
-
-function sendToPrinter(buffer: Buffer): void {
-  if (!printer) throw new Error('Impresora no conectada');
-  const CHUNK = 63;
-  for (let i = 0; i < buffer.length; i += CHUNK) {
-    const chunk = [...buffer.subarray(i, i + CHUNK)];
-    printer.write([0x00, ...chunk]);
-  }
+function sendToPrinter(buffer: Buffer): Promise<void> {
+  return new Promise(async (resolve, reject) => {
+    const tmpFile = join(tmpdir(), `print-agent-${Date.now()}.bin`);
+    try {
+      await writeFile(tmpFile, buffer);
+      execFile('lp', ['-d', PRINTER_NAME, '-o', 'raw', tmpFile], (err) => {
+        unlink(tmpFile).catch(() => {});
+        if (err) reject(err);
+        else resolve();
+      });
+    } catch (err) {
+      unlink(tmpFile).catch(() => {});
+      reject(err);
+    }
+  });
 }
 
 // ── API calls ─────────────────────────────────────────────────────────────────
@@ -116,14 +106,9 @@ async function poll(): Promise<void> {
     if (!ok) return;
   }
 
-  if (!printer) {
-    connectPrinter();
-    if (!printer) return;
-  }
-
-  let orders: { id: string; trackingToken: string }[];
+  let orders: { id: string }[];
   try {
-    const result = await apiGet<{ orders: { id: string; trackingToken: string }[] }>(
+    const result = await apiGet<{ orders: { id: string }[] }>(
       '/api/orders?status=PENDING&notPrinted=true&limit=10'
     );
     orders = result.orders;
@@ -136,11 +121,10 @@ async function poll(): Promise<void> {
     try {
       const escBuffer = await apiPostRaw(`/api/orders/${order.id}/print`);
       if (!escBuffer) continue;
-      sendToPrinter(escBuffer);
+      await sendToPrinter(escBuffer);
       console.log(`[print-agent] ✓ Pedido ${order.id} impreso`);
     } catch (err) {
       console.error(`[print-agent] Error imprimiendo ${order.id}:`, (err as Error).message);
-      if ((err as Error).message.includes('no conectada')) printer = null;
     }
   }
 }
@@ -148,9 +132,10 @@ async function poll(): Promise<void> {
 // ── Start ─────────────────────────────────────────────────────────────────────
 
 console.log('[print-agent] Iniciando agente de impresión local...');
-console.log(`  API: ${API_URL}`);
-console.log(`  Local: ${BUSINESS_SLUG} | Intervalo: ${POLL_MS}ms`);
+console.log(`  API:      ${API_URL}`);
+console.log(`  Negocio:  ${BUSINESS_SLUG}`);
+console.log(`  Impresora: ${PRINTER_NAME}`);
+console.log(`  Intervalo: ${POLL_MS}ms`);
 
-connectPrinter();
 poll();
 setInterval(poll, POLL_MS);
