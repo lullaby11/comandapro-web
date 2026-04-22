@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, Plus, Minus, Trash2, Printer, UserPlus, Check, AlertCircle, Phone } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, Printer, UserPlus, Check, AlertCircle, Phone, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -35,6 +35,9 @@ export default function NewOrderPage() {
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [newCust, setNewCust]           = useState({ name: '', phone: '', address: '' });
   const [searchingCustomer, setSearchingCustomer] = useState(false);
+  const [suggestions, setSuggestions]   = useState<Customer[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Products
   const [products, setProducts]         = useState<Product[]>([]);
@@ -83,10 +86,62 @@ export default function NewOrderPage() {
     phoneRef.current?.focus();
   }, []);
 
-  // ── Customer search by phone ───────────────────────────────────────────────
+  // ── Live suggestions as user types ─────────────────────────────────────────
+  useEffect(() => {
+    if (phoneInput.length < 3) {
+      setSuggestions([]);
+      setShowDropdown(false);
+      return;
+    }
+    setSearchingCustomer(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `${API}/api/customers?phone=${encodeURIComponent(phoneInput)}&limit=6`,
+          { headers: apiHeaders() },
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setSuggestions(data.customers as Customer[]);
+          setShowDropdown(true);
+        }
+      } catch {
+        // silently ignore network errors during typing
+      } finally {
+        setSearchingCustomer(false);
+      }
+    }, 300);
+    return () => { clearTimeout(timer); setSearchingCustomer(false); };
+  }, [phoneInput]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
+
+  function selectSuggestion(c: Customer) {
+    setCustomer(c);
+    setPhoneInput(c.phone);
+    setShowDropdown(false);
+    setSuggestions([]);
+    setShowNewCustomer(false);
+  }
+
+  // ── Exact search (Enter / button) ──────────────────────────────────────────
   const searchCustomer = useCallback(async (phone: string) => {
     if (phone.length < 6) return;
+    // If we already have an exact suggestion, just use it
+    const exact = suggestions.find((s) => s.phone === phone);
+    if (exact) { selectSuggestion(exact); return; }
+
     setSearchingCustomer(true);
+    setShowDropdown(false);
     try {
       const res = await fetch(`${API}/api/customers/by-phone/${encodeURIComponent(phone)}`, {
         headers: apiHeaders(),
@@ -106,7 +161,8 @@ export default function NewOrderPage() {
     } finally {
       setSearchingCustomer(false);
     }
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestions]);
 
   // ── Create new customer ────────────────────────────────────────────────────
   async function createCustomer() {
@@ -241,6 +297,8 @@ export default function NewOrderPage() {
   function resetOrder() {
     setCustomer(null);
     setPhoneInput('');
+    setSuggestions([]);
+    setShowDropdown(false);
     setCart([]);
     setOrderNotes('');
     setIsPickup(false);
@@ -449,43 +507,99 @@ export default function NewOrderPage() {
                   )}
                 </div>
                 <button
-                  onClick={() => setCustomer(null)}
+                  onClick={() => { setCustomer(null); setPhoneInput(''); setSuggestions([]); setTimeout(() => phoneRef.current?.focus(), 50); }}
                   className="btn btn-sm btn-ghost"
                   style={{ padding: '0.25rem 0.5rem', flexShrink: 0 }}
                 >
-                  Cambiar
+                  <X size={13} /> Cambiar
                 </button>
               </div>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <div style={{ flex: 1, position: 'relative' }}>
-                  <Phone size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'hsl(220 18% 55%)' }} />
-                  <input
-                    ref={phoneRef}
-                    type="tel"
-                    placeholder="Teléfono del cliente"
-                    value={phoneInput}
-                    onChange={(e) => setPhoneInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && searchCustomer(phoneInput)}
-                    style={{ paddingLeft: '2rem', background: 'hsl(222 40% 13%)' }}
-                    id="customer-phone"
-                  />
-                </div>
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={() => searchCustomer(phoneInput)}
-                  disabled={searchingCustomer || phoneInput.length < 6}
-                  id="search-customer-btn"
-                  style={{ flexShrink: 0 }}
-                >
-                  {searchingCustomer ? (
-                    <span style={{ width: 14, height: 14, border: '2px solid white', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
-                  ) : (
+              {/* Phone input with live-search dropdown */}
+              <div ref={dropdownRef} style={{ position: 'relative' }}>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <div style={{ flex: 1, position: 'relative' }}>
+                    <Phone size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'hsl(220 18% 55%)' }} />
+                    {searchingCustomer && (
+                      <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, border: '2px solid hsl(262 83% 66%)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
+                    )}
+                    <input
+                      ref={phoneRef}
+                      type="tel"
+                      placeholder="Teléfono del cliente"
+                      value={phoneInput}
+                      onChange={(e) => { setPhoneInput(e.target.value); setShowNewCustomer(false); }}
+                      onKeyDown={(e) => e.key === 'Enter' && searchCustomer(phoneInput)}
+                      onFocus={() => suggestions.length > 0 && setShowDropdown(true)}
+                      style={{ paddingLeft: '2rem', paddingRight: searchingCustomer ? '2rem' : undefined, background: 'hsl(222 40% 13%)' }}
+                      id="customer-phone"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={() => searchCustomer(phoneInput)}
+                    disabled={searchingCustomer || phoneInput.length < 6}
+                    id="search-customer-btn"
+                    style={{ flexShrink: 0 }}
+                  >
                     <Search size={14} />
-                  )}
-                </button>
+                  </button>
+                </div>
+
+                {/* Autocomplete dropdown */}
+                {showDropdown && (suggestions.length > 0 || phoneInput.length >= 6) && (
+                  <div
+                    style={{
+                      position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 50,
+                      background: 'hsl(222 40% 12%)', border: '1px solid hsl(222 30% 22%)',
+                      borderRadius: 10, overflow: 'hidden', boxShadow: '0 8px 24px hsl(222 47% 5% / 0.7)',
+                    }}
+                  >
+                    {suggestions.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.625rem',
+                          width: '100%', padding: '0.625rem 0.875rem',
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          textAlign: 'left', color: 'inherit', borderBottom: '1px solid hsl(222 30% 18%)',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'hsl(262 83% 66% / 0.1)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                      >
+                        <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'hsl(262 83% 66% / 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '0.75rem', fontWeight: 700, color: 'hsl(262 83% 70%)' }}>
+                          {s.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{s.name}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'hsl(220 18% 55%)' }}>{s.phone}</div>
+                        </div>
+                      </button>
+                    ))}
+                    {suggestions.length === 0 && phoneInput.length >= 6 && (
+                      <button
+                        type="button"
+                        onMouseDown={(e) => { e.preventDefault(); setShowDropdown(false); setShowNewCustomer(true); setNewCust((p) => ({ ...p, phone: phoneInput })); }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.5rem',
+                          width: '100%', padding: '0.75rem 0.875rem',
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          color: 'hsl(38 95% 56%)', fontSize: '0.875rem', fontWeight: 600,
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'hsl(38 95% 56% / 0.08)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                      >
+                        <UserPlus size={14} />
+                        Crear nuevo cliente con este número
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {showNewCustomer && (

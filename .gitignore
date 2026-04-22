@@ -3,6 +3,7 @@ node_modules/
 dist/
 .next/
 .env
+.envrc
 .env.*
 !.env.example
 !.env.production
