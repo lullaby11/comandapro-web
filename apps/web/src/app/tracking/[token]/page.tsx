@@ -6,6 +6,33 @@ import {
   Package, CheckCircle, Clock, Truck, XCircle, ShoppingBag,
 } from 'lucide-react';
 
+function useCountdown(target: string | null) {
+  const [remaining, setRemaining] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!target) return;
+    function tick() {
+      const diff = new Date(target!).getTime() - Date.now();
+      setRemaining(diff > 0 ? diff : 0);
+    }
+    tick();
+    const iv = setInterval(tick, 1000);
+    return () => clearInterval(iv);
+  }, [target]);
+
+  return remaining;
+}
+
+function formatCountdown(ms: number) {
+  const totalSeconds = Math.floor(ms / 1000);
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (h > 0) return `${h}h ${m.toString().padStart(2, '0')}min`;
+  if (m > 0) return `${m}min ${s.toString().padStart(2, '0')}s`;
+  return `${s}s`;
+}
+
 const API = '';
 
 const STATUS_INFO: Record<string, { label: string; color: string; icon: React.ElementType; step: number }> = {
@@ -21,6 +48,7 @@ interface TrackingData {
   status: string;
   createdAt: string;
   updatedAt: string;
+  estimatedDeliveryAt: string | null;
   customerName: string;
   business: { name: string; logoUrl?: string; phone?: string };
   items: { productName: string; quantity: number; subtotal: number; productImage?: string }[];
@@ -78,6 +106,8 @@ export default function TrackingPage({ params }: { params: Promise<{ token: stri
   const StatusIcon = statusInfo.icon;
   const steps = ['PENDING', 'PREPARING', 'READY', 'DELIVERED'];
   const isCancelled = data.status === 'CANCELLED';
+  const countdown = useCountdown(data.estimatedDeliveryAt);
+  const isDelivered = data.status === 'DELIVERED';
 
   return (
     <div
@@ -130,6 +160,32 @@ export default function TrackingPage({ params }: { params: Promise<{ token: stri
             Última actualización: {new Date(data.updatedAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
           </div>
         </div>
+
+        {/* Estimated delivery countdown */}
+        {data.estimatedDeliveryAt && !isCancelled && !isDelivered && (
+          <div
+            className="card animate-fade-up"
+            style={{ marginBottom: '1.25rem', padding: '1.25rem 1.75rem', textAlign: 'center', border: '1px solid hsl(262 83% 66% / 0.3)' }}
+          >
+            <div style={{ fontSize: '0.75rem', color: 'hsl(220 18% 60%)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.375rem' }}>
+              Tiempo estimado de entrega
+            </div>
+            {countdown === null ? null : countdown === 0 ? (
+              <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'hsl(142 71% 45%)' }}>
+                ¡Tu pedido llega enseguida!
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: '2rem', fontWeight: 800, color: 'hsl(262 83% 70%)', letterSpacing: '-0.02em' }}>
+                  {formatCountdown(countdown)}
+                </div>
+                <div style={{ fontSize: '0.8125rem', color: 'hsl(220 18% 55%)', marginTop: '0.25rem' }}>
+                  Previsto para las {new Date(data.estimatedDeliveryAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Progress steps */}
         {!isCancelled && (

@@ -137,10 +137,11 @@ model Order {
   total         Decimal     @db.Decimal(10, 2)
   subtotal      Decimal     @db.Decimal(10, 2)
   tax           Decimal     @db.Decimal(10, 2) @default(0)
-  notes         String?
-  deliveryAddress String?
-  printedAt     DateTime?
-  createdAt     DateTime    @default(now())
+  notes               String?
+  deliveryAddress     String?
+  estimatedDeliveryAt DateTime?
+  printedAt           DateTime?
+  createdAt           DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
   business Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)

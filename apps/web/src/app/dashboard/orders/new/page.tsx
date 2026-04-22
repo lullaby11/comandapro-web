@@ -47,6 +47,11 @@ export default function NewOrderPage() {
   const [cart, setCart]                 = useState<CartItem[]>([]);
   const [orderNotes, setOrderNotes]     = useState('');
 
+  // Delivery time
+  const [deliveryMode, setDeliveryMode] = useState<'minutes' | 'time'>('minutes');
+  const [deliveryMinutes, setDeliveryMinutes] = useState('');
+  const [deliveryTime, setDeliveryTime] = useState('');
+
   // UI states
   const [submitting, setSubmitting]     = useState(false);
   const [printing, setPrinting]         = useState(false);
@@ -164,12 +169,24 @@ export default function NewOrderPage() {
 
     setSubmitting(true);
     try {
+      let estimatedDeliveryAt: string | undefined;
+      if (deliveryMode === 'minutes' && deliveryMinutes) {
+        estimatedDeliveryAt = new Date(Date.now() + Number(deliveryMinutes) * 60_000).toISOString();
+      } else if (deliveryMode === 'time' && deliveryTime) {
+        const [h, m] = deliveryTime.split(':').map(Number);
+        const d = new Date();
+        d.setHours(h, m, 0, 0);
+        if (d <= new Date()) d.setDate(d.getDate() + 1);
+        estimatedDeliveryAt = d.toISOString();
+      }
+
       const res = await fetch(`${API}/api/orders`, {
         method: 'POST',
         headers: apiHeaders(),
         body: JSON.stringify({
           customerId: customer.id,
           notes: orderNotes,
+          estimatedDeliveryAt,
           items: cart.map((i) => ({ productId: i.id, quantity: i.quantity })),
         }),
       });
@@ -222,6 +239,9 @@ export default function NewOrderPage() {
     setPhoneInput('');
     setCart([]);
     setOrderNotes('');
+    setDeliveryMode('minutes');
+    setDeliveryMinutes('');
+    setDeliveryTime('');
     setOrderId(null);
     setOrderDone(false);
     setShowNewCustomer(false);
@@ -571,6 +591,48 @@ export default function NewOrderPage() {
 
         {/* ── Footer: Total + Actions ── */}
         <div style={{ padding: '1.25rem', borderTop: '1px solid hsl(222 30% 20%)', background: 'hsl(222 47% 8%)' }}>
+          {/* Delivery time */}
+          <div style={{ marginBottom: '0.875rem' }}>
+            <div style={{ display: 'flex', gap: '0.375rem', marginBottom: '0.5rem' }}>
+              <button
+                type="button"
+                onClick={() => setDeliveryMode('minutes')}
+                className={`btn btn-sm ${deliveryMode === 'minutes' ? 'btn-primary' : 'btn-ghost'}`}
+                style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem' }}
+              >
+                En X minutos
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeliveryMode('time')}
+                className={`btn btn-sm ${deliveryMode === 'time' ? 'btn-primary' : 'btn-ghost'}`}
+                style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem' }}
+              >
+                A las HH:MM
+              </button>
+            </div>
+            {deliveryMode === 'minutes' ? (
+              <input
+                type="number"
+                placeholder="Minutos para la entrega (ej: 45)"
+                min="1"
+                max="240"
+                value={deliveryMinutes}
+                onChange={(e) => setDeliveryMinutes(e.target.value)}
+                style={{ background: 'hsl(222 40% 12%)', fontSize: '0.875rem' }}
+                id="delivery-minutes"
+              />
+            ) : (
+              <input
+                type="time"
+                value={deliveryTime}
+                onChange={(e) => setDeliveryTime(e.target.value)}
+                style={{ background: 'hsl(222 40% 12%)', fontSize: '0.875rem' }}
+                id="delivery-time"
+              />
+            )}
+          </div>
+
           {/* Notes */}
           <textarea
             placeholder="Notas del pedido (opcional)"

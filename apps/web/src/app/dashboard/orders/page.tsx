@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
   PlusCircle, Search, Clock, ChefHat, CheckCircle2,
-  Truck, XCircle, RefreshCw, Eye,
+  Truck, XCircle, RefreshCw, Eye, MessageCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -247,6 +247,17 @@ export default function OrdersPage() {
                     id={`view-${order.id}`}
                   >
                     <Eye size={14} />
+                  </a>
+                  <a
+                    href={`https://wa.me/${order.customer.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${order.customer.name}, puedes seguir tu pedido aquí: ${window.location.origin}/tracking/${order.trackingToken}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-ghost btn-sm"
+                    title="Enviar por WhatsApp"
+                    id={`whatsapp-${order.id}`}
+                    style={{ color: 'hsl(142 71% 45%)' }}
+                  >
+                    <MessageCircle size={14} />
                   </a>
                   {canAdvance && (
                     <button

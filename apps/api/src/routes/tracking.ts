@@ -27,6 +27,7 @@ router.get('/:token', async (req, res) => {
     status: order.status,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
+    estimatedDeliveryAt: order.estimatedDeliveryAt,
     customerName: order.customer.name,
     business: {
       name: order.business.name,
