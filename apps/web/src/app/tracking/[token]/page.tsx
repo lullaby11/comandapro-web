@@ -60,6 +60,7 @@ export default function TrackingPage({ params }: { params: Promise<{ token: stri
   const [data, setData]       = useState<TrackingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
+  const countdown             = useCountdown(data?.estimatedDeliveryAt ?? null);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -106,7 +107,6 @@ export default function TrackingPage({ params }: { params: Promise<{ token: stri
   const StatusIcon = statusInfo.icon;
   const steps = ['PENDING', 'PREPARING', 'READY', 'DELIVERED'];
   const isCancelled = data.status === 'CANCELLED';
-  const countdown = useCountdown(data.estimatedDeliveryAt);
   const isDelivered = data.status === 'DELIVERED';
 
   return (
