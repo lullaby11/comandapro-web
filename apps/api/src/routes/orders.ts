@@ -68,6 +68,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res) => {
 // ──────────────────────────────────────────────
 const createOrderSchema = z.object({
   customerId: z.string().cuid(),
+  isPickup: z.boolean().optional(),
   deliveryAddress: z.string().optional(),
   notes: z.string().optional(),
   estimatedDeliveryAt: z.string().datetime().optional(),
@@ -88,7 +89,7 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     return;
   }
 
-  const { customerId, items, notes, deliveryAddress, estimatedDeliveryAt } = parsed.data;
+  const { customerId, items, notes, deliveryAddress, estimatedDeliveryAt, isPickup } = parsed.data;
   const businessId = req.businessId!;
 
   // 1. Validar stock antes de la transacción
@@ -134,6 +135,7 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
       data: {
         businessId,
         customerId,
+        isPickup: isPickup ?? false,
         deliveryAddress,
         notes,
         estimatedDeliveryAt: estimatedDeliveryAt ? new Date(estimatedDeliveryAt) : undefined,

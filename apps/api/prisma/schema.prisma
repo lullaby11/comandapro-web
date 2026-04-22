@@ -138,6 +138,7 @@ model Order {
   subtotal      Decimal     @db.Decimal(10, 2)
   tax           Decimal     @db.Decimal(10, 2) @default(0)
   notes               String?
+  isPickup            Boolean   @default(false)
   deliveryAddress     String?
   estimatedDeliveryAt DateTime?
   printedAt           DateTime?

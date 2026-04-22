@@ -47,6 +47,9 @@ export default function NewOrderPage() {
   const [cart, setCart]                 = useState<CartItem[]>([]);
   const [orderNotes, setOrderNotes]     = useState('');
 
+  // Pickup / delivery
+  const [isPickup, setIsPickup] = useState(false);
+
   // Delivery time
   const [deliveryMode, setDeliveryMode] = useState<'minutes' | 'time'>('minutes');
   const [deliveryMinutes, setDeliveryMinutes] = useState('');
@@ -186,6 +189,7 @@ export default function NewOrderPage() {
         body: JSON.stringify({
           customerId: customer.id,
           notes: orderNotes,
+          isPickup,
           estimatedDeliveryAt,
           items: cart.map((i) => ({ productId: i.id, quantity: i.quantity })),
         }),
@@ -239,6 +243,7 @@ export default function NewOrderPage() {
     setPhoneInput('');
     setCart([]);
     setOrderNotes('');
+    setIsPickup(false);
     setDeliveryMode('minutes');
     setDeliveryMinutes('');
     setDeliveryTime('');
@@ -591,6 +596,34 @@ export default function NewOrderPage() {
 
         {/* ── Footer: Total + Actions ── */}
         <div style={{ padding: '1.25rem', borderTop: '1px solid hsl(222 30% 20%)', background: 'hsl(222 47% 8%)' }}>
+          {/* Pickup toggle */}
+          <button
+            type="button"
+            onClick={() => setIsPickup((v) => !v)}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              width: '100%', padding: '0.625rem 0.875rem', marginBottom: '0.75rem',
+              background: isPickup ? 'hsl(38 95% 56% / 0.12)' : 'hsl(222 40% 12%)',
+              border: `1px solid ${isPickup ? 'hsl(38 95% 56% / 0.5)' : 'hsl(222 30% 22%)'}`,
+              borderRadius: 8, cursor: 'pointer', transition: 'all 0.15s',
+            }}
+          >
+            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: isPickup ? 'hsl(38 95% 56%)' : 'hsl(220 18% 70%)' }}>
+              🏪 Recogida en local
+            </span>
+            <div style={{
+              width: 36, height: 20, borderRadius: 10, transition: 'background 0.2s',
+              background: isPickup ? 'hsl(38 95% 56%)' : 'hsl(222 30% 28%)',
+              position: 'relative', flexShrink: 0,
+            }}>
+              <div style={{
+                position: 'absolute', top: 2, left: isPickup ? 18 : 2,
+                width: 16, height: 16, borderRadius: '50%', background: 'white',
+                transition: 'left 0.2s',
+              }} />
+            </div>
+          </button>
+
           {/* Delivery time */}
           <div style={{ marginBottom: '0.875rem' }}>
             <div style={{ display: 'flex', gap: '0.375rem', marginBottom: '0.5rem' }}>

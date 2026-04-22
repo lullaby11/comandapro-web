@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
   PlusCircle, Search, Clock, ChefHat, CheckCircle2,
-  Truck, XCircle, RefreshCw, Eye, MessageCircle,
+  Truck, XCircle, RefreshCw, Eye, MessageCircle, Store,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -18,6 +18,7 @@ interface Order {
   total: number;
   createdAt: string;
   trackingToken: string;
+  isPickup: boolean;
   customer: { name: string; phone: string };
   items: Array<{ product: { name: string }; quantity: number }>;
 }
@@ -48,7 +49,8 @@ export default function OrdersPage() {
       const res = await fetch(`${API}/api/orders${params}`, { headers: apiHeaders() });
       if (!res.ok) throw new Error('Error cargando pedidos');
       const data = await res.json();
-      setOrders(data.orders);
+      const sorted = [...data.orders].sort((a: Order, b: Order) => Number(b.isPickup) - Number(a.isPickup));
+      setOrders(sorted);
       setTotal(data.total);
     } catch {
       toast.error('Error cargando pedidos');
@@ -187,6 +189,7 @@ export default function OrdersPage() {
                   alignItems: 'center',
                   gap: '1rem',
                   flexWrap: 'wrap',
+                  ...(order.isPickup && { borderColor: 'hsl(38 95% 56% / 0.6)', background: 'hsl(38 95% 56% / 0.05)' }),
                 }}
               >
                 {/* Status icon */}
@@ -216,6 +219,11 @@ export default function OrdersPage() {
                       #{order.id.slice(-8).toUpperCase()}
                     </span>
                     <span className={`badge ${cfg.className}`}>{cfg.label}</span>
+                    {order.isPickup && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.7rem', fontWeight: 700, color: 'hsl(38 95% 56%)', background: 'hsl(38 95% 56% / 0.15)', border: '1px solid hsl(38 95% 56% / 0.4)', borderRadius: 6, padding: '0.1rem 0.5rem' }}>
+                        <Store size={10} /> Recoge en local
+                      </span>
+                    )}
                   </div>
                   <div style={{ fontSize: '0.875rem', color: 'hsl(220 18% 75%)', fontWeight: 500 }}>
                     {order.customer.name} · {order.customer.phone}
