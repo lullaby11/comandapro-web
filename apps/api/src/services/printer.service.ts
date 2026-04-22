@@ -49,11 +49,10 @@ export async function generateEscPosBuffer(
   // Dots por línea: 58mm ≈ 384px / 80mm ≈ 576px
   const dotWidth = business.paperWidth === 58 ? 384 : 576;
 
-  const printerModel = business.paperWidth === 58 ? 'epson-tm-p20ii' : 'epson-tm-t20ii';
   const encoder = new ReceiptPrinterEncoder({
-    printerModel,
+    language: 'esc-pos',
     columns: lineWidth,
-  });
+  } as ConstructorParameters<typeof ReceiptPrinterEncoder>[0]);
 
   let enc = encoder.initialize();
 
