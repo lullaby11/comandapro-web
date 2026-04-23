@@ -157,10 +157,11 @@ export async function generateEscPosBuffer(
   // ──────────────────────────────────────────
   enc = enc.rule({ style: 'single', width: lineWidth });
 
-  const payLabel = order.paymentMethod === 'CASH' ? 'Efectivo' : 'Tarjeta';
+  const isCash = (order.paymentMethod ?? 'CASH') === 'CASH';
+  const payLabel = isCash ? 'Efectivo' : 'Tarjeta';
   enc = enc.line(rightAlign('Forma de pago:', payLabel, lineWidth));
 
-  if (order.paymentMethod === 'CASH' && order.cashGiven !== undefined) {
+  if (isCash && order.cashGiven != null) {
     const change = order.cashGiven - order.total;
     enc = enc
       .line(rightAlign('Entrega cliente:', formatCurrency(order.cashGiven, business.currency), lineWidth))

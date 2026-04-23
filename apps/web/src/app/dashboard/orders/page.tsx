@@ -29,7 +29,7 @@ interface Order {
   createdAt: string;
   trackingToken: string;
   isPickup: boolean;
-  paymentMethod: 'CASH' | 'CARD';
+  paymentMethod: 'CASH' | 'CARD' | null;
   cashGiven: number | null;
   customer: { name: string; phone: string };
   items: Array<{ product: { name: string }; quantity: number }>;
@@ -274,8 +274,8 @@ export default function OrdersPage() {
                     {new Date(order.createdAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
                   </div>
                   <div style={{ fontSize: '0.7rem', marginTop: 3, color: 'hsl(207 20% 55%)' }}>
-                    {order.paymentMethod === 'CASH' ? '💵 Efectivo' : '💳 Tarjeta'}
-                    {order.paymentMethod === 'CASH' && order.cashGiven != null && (
+                    {(order.paymentMethod ?? 'CASH') === 'CASH' ? '💵 Efectivo' : '💳 Tarjeta'}
+                    {(order.paymentMethod ?? 'CASH') === 'CASH' && order.cashGiven != null && (
                       <span style={{ marginLeft: 4, color: 'hsl(142 71% 45%)' }}>
                         · cambio {(order.cashGiven - Number(order.total)).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                       </span>
