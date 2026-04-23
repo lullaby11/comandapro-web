@@ -4,11 +4,21 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
   PlusCircle, Search, Clock, ChefHat, CheckCircle2,
-  Truck, XCircle, RefreshCw, Eye, MessageCircle, Store,
+  Truck, XCircle, RefreshCw, Eye, MessageCircle, Store, Printer,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const API = '';
+
+async function printViaWebUSB(buffer: Uint8Array) {
+  if (!navigator.usb) throw new Error('WebUSB no soportado. Usa Chrome o Edge.');
+  const device = await navigator.usb.requestDevice({ filters: [{ classCode: 0x07 }] });
+  await device.open();
+  if (device.configuration === null) await device.selectConfiguration(1);
+  await device.claimInterface(0);
+  await device.transferOut(1, buffer);
+  await device.close();
+}
 
 type OrderStatus = 'PENDING' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED';
 
@@ -42,6 +52,7 @@ export default function OrdersPage() {
   const [loading, setLoading]       = useState(true);
   const [filterStatus, setFilter]   = useState<OrderStatus | 'ALL'>('ALL');
   const [updating, setUpdating]     = useState<string | null>(null);
+  const [printing, setPrinting]     = useState<string | null>(null);
 
   const loadOrders = useCallback(async () => {
     try {
@@ -84,6 +95,24 @@ export default function OrdersPage() {
       toast.error('Error actualizando');
     } finally {
       setUpdating(null);
+    }
+  }
+
+  async function handlePrint(id: string) {
+    setPrinting(id);
+    try {
+      const res = await fetch(`${API}/api/orders/${id}/print`, {
+        method: 'POST',
+        headers: apiHeaders(),
+      });
+      if (!res.ok) throw new Error('Error generando comanda');
+      const buffer = new Uint8Array(await res.arrayBuffer());
+      await printViaWebUSB(buffer);
+      toast.success('¡Comanda enviada a la impresora!', { icon: '🖨️' });
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Error de impresión');
+    } finally {
+      setPrinting(null);
     }
   }
 
@@ -267,6 +296,19 @@ export default function OrdersPage() {
                   >
                     <MessageCircle size={14} />
                   </a>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => handlePrint(order.id)}
+                    disabled={printing === order.id}
+                    title="Imprimir comanda"
+                    id={`print-${order.id}`}
+                  >
+                    {printing === order.id ? (
+                      <span style={{ width: 14, height: 14, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
+                    ) : (
+                      <Printer size={14} />
+                    )}
+                  </button>
                   {canAdvance && (
                     <button
                       className="btn btn-primary btn-sm"
