@@ -10,10 +10,10 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'ComandaPro — Sistema de Pedidos a Domicilio',
+  title: 'Olyda — Gestión de Pedidos',
   description:
-    'Gestiona pedidos, stock e impresión térmica de comandas en tiempo real para tu local de comida a domicilio.',
-  keywords: ['comandas', 'pedidos', 'domicilio', 'impresión térmica', 'restaurante'],
+    'Gestiona pedidos, productos e impresión térmica en tiempo real para tu negocio de comida a domicilio.',
+  keywords: ['pedidos', 'domicilio', 'comandas', 'restaurante', 'gestión'],
 };
 
 export default function RootLayout({
@@ -29,9 +29,9 @@ export default function RootLayout({
           position="top-right"
           toastOptions={{
             style: {
-              background: 'hsl(222 47% 15%)',
-              color: 'hsl(220 30% 96%)',
-              border: '1px solid hsl(222 30% 22%)',
+              background: 'hsl(207 75% 11%)',
+              color: 'hsl(0 0% 98%)',
+              border: '1px solid hsl(207 40% 22%)',
               borderRadius: '0.75rem',
               fontSize: '0.9rem',
             },

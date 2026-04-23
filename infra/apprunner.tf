@@ -33,8 +33,10 @@ resource "aws_apprunner_service" "api" {
         # Variables de entorno no sensibles
         runtime_environment_variables = {
           NODE_ENV        = "production"
-          APP_URL         = var.frontend_url != "" ? var.frontend_url : "https://placeholder.amplifyapp.com"
-          ALLOWED_ORIGINS = var.frontend_url != "" ? var.frontend_url : "https://placeholder.amplifyapp.com"
+          APP_URL         = "https://${var.domain_name}"
+          ALLOWED_ORIGINS = "https://${var.domain_name},https://www.${var.domain_name}"
+          ASSETS_BUCKET   = aws_s3_bucket.assets.bucket
+          ASSETS_BASE_URL = "https://${aws_s3_bucket.assets.bucket}.s3.${var.aws_region}.amazonaws.com"
         }
 
         # Secrets leídos de SSM Parameter Store en tiempo de arranque
@@ -76,9 +78,11 @@ resource "aws_apprunner_service" "api" {
 
   tags = { Name = "${var.project_name}-api" }
 
-  # Evita que Terraform marque el apply como fallido si la imagen aún no existe en ECR.
-  # La primera imagen se sube manualmente antes de este recurso (ver DEPLOY.md → Paso 2a).
   lifecycle {
     ignore_changes = [source_configuration[0].image_repository[0].image_identifier]
   }
 }
+
+# NOTA: El dominio personalizado se configura manualmente desde la consola de App Runner
+# (Servicio → Custom domains → Link domain) porque el recurso
+# aws_apprunner_custom_domain_association también puede bloquear el apply.

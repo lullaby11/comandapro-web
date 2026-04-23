@@ -29,8 +29,8 @@ resource "aws_amplify_app" "web" {
   platform = "WEB_COMPUTE" # Necesario para Next.js SSR
 
   environment_variables = {
-    NEXT_PUBLIC_API_URL       = var.api_url != "" ? var.api_url : "https://placeholder.awsapprunner.com"
-    NEXT_PUBLIC_APP_URL       = "https://${var.frontend_branch}.${var.project_name}.amplifyapp.com"
+    NEXT_PUBLIC_API_URL       = "https://api.${var.domain_name}"
+    NEXT_PUBLIC_APP_URL       = "https://${var.domain_name}"
     AMPLIFY_MONOREPO_APP_ROOT = "apps/web"
   }
 
@@ -60,3 +60,7 @@ resource "aws_amplify_branch" "main" {
 
   tags = { Name = "${var.project_name}-amplify-${var.frontend_branch}" }
 }
+
+# NOTA: El dominio personalizado se configura manualmente desde la consola de Amplify
+# (App → Domain Management → Add domain) porque el recurso aws_amplify_domain_association
+# de Terraform bloquea el apply esperando la validación del certificado ACM.

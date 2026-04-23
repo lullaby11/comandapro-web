@@ -2,17 +2,18 @@
 
 @layer base {
   :root {
-    --bg: 222 47% 8%;
-    --surface: 222 47% 11%;
-    --surface2: 222 40% 15%;
-    --border: 222 30% 20%;
-    --primary: 262 83% 66%;
-    --accent: 38 95% 56%;
+    /* Olyda brand: #004177 → 207 100% 23% | #ff6a03 → 25 100% 51% */
+    --bg: 207 85% 7%;
+    --surface: 207 75% 11%;
+    --surface2: 207 60% 16%;
+    --border: 207 40% 22%;
+    --primary: 25 100% 51%;       /* #ff6a03 naranja — CTAs */
+    --accent: 207 100% 40%;       /* #004177 azul aclarado — acciones secundarias */
     --success: 142 71% 45%;
     --danger: 0 84% 60%;
     --warning: 38 92% 50%;
-    --text: 220 30% 96%;
-    --muted: 220 18% 65%;
+    --text: 0 0% 98%;             /* blanco */
+    --muted: 207 20% 65%;
     --radius: 0.75rem;
   }
 
@@ -34,7 +35,8 @@
   }
 
   ::selection {
-    background: hsl(var(--primary) / 0.3);
+    background: hsl(var(--primary) / 0.35);
+    color: white;
   }
 
   ::-webkit-scrollbar { width: 6px; }
@@ -94,7 +96,7 @@
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, hsl(var(--primary)), hsl(262 83% 55%));
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(25 100% 42%));
   color: white;
   box-shadow: 0 4px 16px hsl(var(--primary) / 0.35);
 }
@@ -105,8 +107,8 @@
 }
 
 .btn-accent {
-  background: linear-gradient(135deg, hsl(var(--accent)), hsl(35 95% 48%));
-  color: hsl(30 40% 15%);
+  background: linear-gradient(135deg, hsl(var(--accent)), hsl(207 100% 30%));
+  color: white;
   box-shadow: 0 4px 16px hsl(var(--accent) / 0.3);
 }
 

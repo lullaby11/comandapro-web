@@ -104,3 +104,9 @@ variable "frontend_url" {
   type        = string
   default     = ""
 }
+
+variable "domain_name" {
+  description = "Dominio principal de la aplicación (sin protocolo)"
+  type        = string
+  default     = "olyda.app"
+}
