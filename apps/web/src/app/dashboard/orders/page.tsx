@@ -29,6 +29,8 @@ interface Order {
   createdAt: string;
   trackingToken: string;
   isPickup: boolean;
+  paymentMethod: 'CASH' | 'CARD';
+  cashGiven: number | null;
   customer: { name: string; phone: string };
   items: Array<{ product: { name: string }; quantity: number }>;
 }
@@ -263,13 +265,21 @@ export default function OrdersPage() {
                   </div>
                 </div>
 
-                {/* Time + Total */}
+                {/* Time + Total + Payment */}
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
                   <div style={{ fontWeight: 800, fontSize: '1.0625rem', color: 'hsl(var(--primary))' }}>
                     {Number(order.total).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: 'hsl(220 18% 50%)', marginTop: 2 }}>
+                  <div style={{ fontSize: '0.75rem', color: 'hsl(207 20% 55%)', marginTop: 2 }}>
                     {new Date(order.createdAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                  <div style={{ fontSize: '0.7rem', marginTop: 3, color: 'hsl(207 20% 55%)' }}>
+                    {order.paymentMethod === 'CASH' ? '💵 Efectivo' : '💳 Tarjeta'}
+                    {order.paymentMethod === 'CASH' && order.cashGiven != null && (
+                      <span style={{ marginLeft: 4, color: 'hsl(142 71% 45%)' }}>
+                        · cambio {(order.cashGiven - Number(order.total)).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                      </span>
+                    )}
                   </div>
                 </div>
 

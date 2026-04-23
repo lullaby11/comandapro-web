@@ -30,6 +30,8 @@ export interface PrintOrderPayload {
     subtotal: number;
     tax: number;
     total: number;
+    paymentMethod: 'CASH' | 'CARD';
+    cashGiven?: number;
   };
   trackingUrl: string;
 }
@@ -149,6 +151,23 @@ export async function generateEscPosBuffer(
     .bold(true)
     .line(rightAlign('TOTAL:', formatCurrency(order.total, business.currency), lineWidth))
     .bold(false);
+
+  // ──────────────────────────────────────────
+  // PAGO
+  // ──────────────────────────────────────────
+  enc = enc.rule({ style: 'single', width: lineWidth });
+
+  const payLabel = order.paymentMethod === 'CASH' ? 'Efectivo' : 'Tarjeta';
+  enc = enc.line(rightAlign('Forma de pago:', payLabel, lineWidth));
+
+  if (order.paymentMethod === 'CASH' && order.cashGiven !== undefined) {
+    const change = order.cashGiven - order.total;
+    enc = enc
+      .line(rightAlign('Entrega cliente:', formatCurrency(order.cashGiven, business.currency), lineWidth))
+      .bold(true)
+      .line(rightAlign('CAMBIO:', formatCurrency(Math.max(change, 0), business.currency), lineWidth))
+      .bold(false);
+  }
 
   // ──────────────────────────────────────────
   // NOTAS

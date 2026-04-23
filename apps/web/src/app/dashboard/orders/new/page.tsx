@@ -53,6 +53,10 @@ export default function NewOrderPage() {
   // Pickup / delivery
   const [isPickup, setIsPickup] = useState(false);
 
+  // Payment
+  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'CARD'>('CASH');
+  const [cashGiven, setCashGiven]         = useState('');
+
   // Delivery time
   const [deliveryMode, setDeliveryMode] = useState<'minutes' | 'time'>('minutes');
   const [deliveryMinutes, setDeliveryMinutes] = useState('');
@@ -247,6 +251,8 @@ export default function NewOrderPage() {
           notes: orderNotes,
           isPickup,
           estimatedDeliveryAt,
+          paymentMethod,
+          cashGiven: paymentMethod === 'CASH' && cashGiven ? Number(cashGiven) : undefined,
           items: cart.map((i) => ({ productId: i.id, quantity: i.quantity })),
         }),
       });
@@ -786,9 +792,65 @@ export default function NewOrderPage() {
             value={orderNotes}
             onChange={(e) => setOrderNotes(e.target.value)}
             rows={2}
-            style={{ resize: 'none', marginBottom: '0.875rem', background: 'hsl(222 40% 12%)', fontSize: '0.875rem' }}
+            style={{ resize: 'none', marginBottom: '0.875rem', background: 'hsl(var(--surface2))', fontSize: '0.875rem' }}
             id="order-notes"
           />
+
+          {/* Payment method */}
+          <div style={{ marginBottom: '0.875rem' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'hsl(var(--muted))', marginBottom: '0.375rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Forma de pago
+            </div>
+            <div style={{ display: 'flex', gap: '0.375rem', marginBottom: '0.5rem' }}>
+              <button
+                type="button"
+                onClick={() => { setPaymentMethod('CASH'); setCashGiven(''); }}
+                className={`btn btn-sm ${paymentMethod === 'CASH' ? 'btn-primary' : 'btn-ghost'}`}
+                style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem' }}
+                id="payment-cash"
+              >
+                💵 Efectivo
+              </button>
+              <button
+                type="button"
+                onClick={() => { setPaymentMethod('CARD'); setCashGiven(''); }}
+                className={`btn btn-sm ${paymentMethod === 'CARD' ? 'btn-primary' : 'btn-ghost'}`}
+                style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem' }}
+                id="payment-card"
+              >
+                💳 Tarjeta
+              </button>
+            </div>
+            {paymentMethod === 'CASH' && (
+              <>
+                <input
+                  type="number"
+                  placeholder="Importe que entrega el cliente (€)"
+                  min="0"
+                  step="0.01"
+                  value={cashGiven}
+                  onChange={(e) => setCashGiven(e.target.value)}
+                  style={{ background: 'hsl(var(--surface2))', fontSize: '0.875rem', marginBottom: '0.375rem' }}
+                  id="cash-given"
+                />
+                {cashGiven && Number(cashGiven) > 0 && (
+                  <div style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '0.5rem 0.75rem', borderRadius: 8, fontSize: '0.875rem',
+                    background: Number(cashGiven) >= subtotal ? 'hsl(142 71% 15% / 0.3)' : 'hsl(0 84% 20% / 0.3)',
+                    border: `1px solid ${Number(cashGiven) >= subtotal ? 'hsl(142 71% 45% / 0.4)' : 'hsl(0 84% 60% / 0.4)'}`,
+                  }}>
+                    <span style={{ color: 'hsl(var(--muted))', fontWeight: 500 }}>Cambio</span>
+                    <span style={{ fontWeight: 700, color: Number(cashGiven) >= subtotal ? 'hsl(142 71% 45%)' : 'hsl(0 84% 60%)' }}>
+                      {Number(cashGiven) >= subtotal
+                        ? (Number(cashGiven) - subtotal).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })
+                        : 'Importe insuficiente'}
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
 
           {/* Total */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>

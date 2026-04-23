@@ -72,6 +72,8 @@ const createOrderSchema = z.object({
   deliveryAddress: z.string().optional(),
   notes: z.string().optional(),
   estimatedDeliveryAt: z.string().datetime().optional(),
+  paymentMethod: z.enum(['CASH', 'CARD']).optional().default('CASH'),
+  cashGiven: z.number().positive().optional(),
   items: z
     .array(
       z.object({
@@ -89,7 +91,7 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     return;
   }
 
-  const { customerId, items, notes, deliveryAddress, estimatedDeliveryAt, isPickup } = parsed.data;
+  const { customerId, items, notes, deliveryAddress, estimatedDeliveryAt, isPickup, paymentMethod, cashGiven } = parsed.data;
   const businessId = req.businessId!;
 
   // 1. Validar stock antes de la transacción
@@ -139,6 +141,8 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
         deliveryAddress,
         notes,
         estimatedDeliveryAt: estimatedDeliveryAt ? new Date(estimatedDeliveryAt) : undefined,
+        paymentMethod: paymentMethod ?? 'CASH',
+        cashGiven: cashGiven ?? undefined,
         subtotal,
         tax,
         total,
@@ -239,6 +243,8 @@ router.post('/:id/print', async (req: AuthenticatedRequest, res) => {
       subtotal: Number(order.subtotal),
       tax: Number(order.tax),
       total: Number(order.total),
+      paymentMethod: order.paymentMethod,
+      cashGiven: order.cashGiven ? Number(order.cashGiven) : undefined,
     },
     trackingUrl,
   };
