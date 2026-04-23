@@ -78,9 +78,9 @@ export default function SettingsPage() {
   if (loading || !settings) {
     return (
       <div style={{ padding: '2rem' }}>
-        <div style={{ height: 24, width: 200, background: 'hsl(222 40% 15%)', borderRadius: 8, marginBottom: '2rem' }} />
+        <div style={{ height: 24, width: 200, background: 'hsl(var(--surface2))', borderRadius: 8, marginBottom: '2rem' }} />
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} style={{ height: 44, borderRadius: 10, background: 'hsl(222 40% 15%)', marginBottom: '1rem', animation: 'pulse 1.5s infinite' }} />
+          <div key={i} style={{ height: 44, borderRadius: 10, background: 'hsl(var(--surface2))', marginBottom: '1rem', animation: 'pulse 1.5s infinite' }} />
         ))}
         <style>{`@keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.5} }`}</style>
       </div>
@@ -101,14 +101,14 @@ export default function SettingsPage() {
       {/* Header */}
       <div style={{ marginBottom: '2rem' }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.25rem' }}>Ajustes del local</h1>
-        <p style={{ color: 'hsl(220 18% 65%)', fontSize: '0.9rem' }}>Configura la información de tu restaurante, impresión y pagos.</p>
+        <p style={{ color: 'hsl(var(--muted))', fontSize: '0.9rem' }}>Configura la información de tu restaurante, impresión y pagos.</p>
       </div>
 
       <form onSubmit={handleSave}>
         {/* ── Info del local ── */}
         <div className="card" style={{ marginBottom: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '1.25rem' }}>
-            <Globe size={18} style={{ color: 'hsl(262 83% 66%)' }} />
+            <Globe size={18} style={{ color: 'hsl(var(--primary))' }} />
             <h2 style={{ fontWeight: 700 }}>Información del local</h2>
           </div>
           {field('Nombre del local', 'name', (
@@ -128,7 +128,7 @@ export default function SettingsPage() {
         {/* ── Impresión ── */}
         <div className="card" style={{ marginBottom: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '1.25rem' }}>
-            <Printer size={18} style={{ color: 'hsl(262 83% 66%)' }} />
+            <Printer size={18} style={{ color: 'hsl(var(--primary))' }} />
             <h2 style={{ fontWeight: 700 }}>Configuración de impresión</h2>
           </div>
 
@@ -189,7 +189,7 @@ export default function SettingsPage() {
         {/* ── Facturación ── */}
         <div className="card" style={{ marginBottom: '2rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '1.25rem' }}>
-            <Layers size={18} style={{ color: 'hsl(262 83% 66%)' }} />
+            <Layers size={18} style={{ color: 'hsl(var(--primary))' }} />
             <h2 style={{ fontWeight: 700 }}>Moneda e impuestos</h2>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>

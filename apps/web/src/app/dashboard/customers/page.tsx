@@ -158,9 +158,9 @@ export default function CustomersPage() {
               <div
                 style={{
                   width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
-                  background: 'hsl(262 83% 66% / 0.2)',
+                  background: 'hsl(var(--primary) / 0.2)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '1.1rem', fontWeight: 700, color: 'hsl(262 83% 66%)',
+                  fontSize: '1.1rem', fontWeight: 700, color: 'hsl(var(--primary))',
                 }}
               >
                 {c.name[0].toUpperCase()}

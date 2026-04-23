@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  ShoppingBag, PlusCircle, Package, Users, Settings,
+  PlusCircle, Package, Users, Settings,
   LogOut, ChevronRight, ClipboardList,
 } from 'lucide-react';
 
@@ -41,28 +41,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Brand */}
         <div
           style={{
-            padding: '1.5rem 1.25rem 1rem',
-            borderBottom: '1px solid hsl(222 30% 20%)',
+            padding: '1.25rem 1.25rem 1rem',
+            borderBottom: '1px solid hsl(var(--border))',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div
-              style={{
-                width: 40, height: 40, borderRadius: 12,
-                background: 'linear-gradient(135deg, hsl(262 83% 66%), hsl(262 83% 50%))',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0, boxShadow: '0 4px 12px hsl(262 83% 66% / 0.35)',
-              }}
-            >
-              <ShoppingBag size={20} color="white" />
-            </div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '0.9375rem', lineHeight: 1.2 }}>
-                Comanda<span style={{ color: 'hsl(262 83% 66%)' }}>Pro</span>
-              </div>
-              <div style={{ fontSize: '0.75rem', color: 'hsl(220 18% 55%)', marginTop: 2 }}>
-                {business.name ?? 'Mi local'}
-              </div>
+            <img src="/olyda.png" alt="Olyda" style={{ height: 32, width: 'auto', objectFit: 'contain', flexShrink: 0 }} />
+            <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted))', marginTop: 2 }}>
+              {business.name ?? 'Mi local'}
             </div>
           </div>
         </div>
@@ -92,23 +78,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div
           style={{
             padding: '0.75rem',
-            borderTop: '1px solid hsl(222 30% 20%)',
+            borderTop: '1px solid hsl(var(--border))',
           }}
         >
           <div
             style={{
               display: 'flex', alignItems: 'center', gap: '0.75rem',
               padding: '0.625rem 0.75rem', borderRadius: '0.625rem',
-              background: 'hsl(222 47% 13%)',
+              background: 'hsl(var(--surface))',
             }}
           >
             <div
               style={{
                 width: 32, height: 32, borderRadius: '50%',
-                background: 'hsl(262 83% 66% / 0.25)',
+                background: 'hsl(var(--primary) / 0.2)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: '0.8125rem', fontWeight: 700,
-                color: 'hsl(262 83% 66%)',
+                color: 'hsl(var(--primary))',
                 flexShrink: 0,
               }}
             >
@@ -118,7 +104,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div style={{ fontSize: '0.8125rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {user.name ?? 'Usuario'}
               </div>
-              <div style={{ fontSize: '0.6875rem', color: 'hsl(220 18% 55%)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '0.6875rem', color: 'hsl(var(--muted))', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {user.role ?? ''}
               </div>
             </div>
@@ -127,12 +113,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               title="Cerrar sesión"
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
-                color: 'hsl(220 18% 55%)', padding: 4, borderRadius: 6,
+                color: 'hsl(var(--muted))', padding: 4, borderRadius: 6,
                 display: 'flex', alignItems: 'center',
                 transition: 'color 0.15s',
               }}
               onMouseOver={(e) => (e.currentTarget.style.color = 'hsl(0 84% 60%)')}
-              onMouseOut={(e) => (e.currentTarget.style.color = 'hsl(220 18% 55%)')}
+              onMouseOut={(e) => (e.currentTarget.style.color = 'hsl(var(--muted))')}
             >
               <LogOut size={16} />
             </button>
@@ -141,7 +127,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* ── Main content ── */}
-      <main style={{ flex: 1, overflowY: 'auto', background: 'hsl(222 47% 8%)' }}>
+      <main style={{ flex: 1, overflowY: 'auto', background: 'hsl(var(--bg))' }}>
         {children}
       </main>
     </div>

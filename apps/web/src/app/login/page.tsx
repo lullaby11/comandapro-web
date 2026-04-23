@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { ShoppingBag, Lock, Mail, Building2, Eye, EyeOff } from 'lucide-react';
+import { Lock, Mail, Building2, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -53,31 +53,18 @@ export default function LoginPage() {
         alignItems: 'center',
         justifyContent: 'center',
         padding: '1.5rem',
-        background: 'radial-gradient(ellipse at 20% 60%, hsl(262 83% 66% / 0.12) 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, hsl(38 95% 56% / 0.08) 0%, transparent 50%), hsl(222 47% 8%)',
+        background: 'radial-gradient(ellipse at 20% 60%, hsl(var(--primary) / 0.1) 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, hsl(var(--accent) / 0.08) 0%, transparent 50%), hsl(var(--bg))',
       }}
     >
       <div style={{ width: '100%', maxWidth: '420px' }}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 64,
-              height: 64,
-              borderRadius: 18,
-              background: 'linear-gradient(135deg, hsl(262 83% 66%), hsl(262 83% 50%))',
-              boxShadow: '0 8px 32px hsl(262 83% 66% / 0.4)',
-              marginBottom: '1.25rem',
-            }}
-          >
-            <ShoppingBag size={32} color="white" />
-          </div>
-          <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.03em' }}>
-            Comanda<span style={{ color: 'hsl(262 83% 66%)' }}>Pro</span>
-          </h1>
-          <p style={{ color: 'hsl(220 18% 65%)', marginTop: '0.4rem', fontSize: '0.9375rem' }}>
+          <img
+            src="/olyda.png"
+            alt="Olyda"
+            style={{ height: 72, width: 'auto', objectFit: 'contain', marginBottom: '1.25rem' }}
+          />
+          <p style={{ color: 'hsl(var(--muted))', marginTop: '0.4rem', fontSize: '0.9375rem' }}>
             Sistema de gestión de pedidos
           </p>
         </div>
@@ -94,7 +81,7 @@ export default function LoginPage() {
               <div style={{ position: 'relative' }}>
                 <Building2
                   size={16}
-                  style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'hsl(220 18% 55%)' }}
+                  style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--muted))' }}
                 />
                 <input
                   id="businessSlug"
@@ -113,7 +100,7 @@ export default function LoginPage() {
               <div style={{ position: 'relative' }}>
                 <Mail
                   size={16}
-                  style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'hsl(220 18% 55%)' }}
+                  style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--muted))' }}
                 />
                 <input
                   id="email"
@@ -132,7 +119,7 @@ export default function LoginPage() {
               <div style={{ position: 'relative' }}>
                 <Lock
                   size={16}
-                  style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'hsl(220 18% 55%)' }}
+                  style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--muted))' }}
                 />
                 <input
                   id="password"
@@ -148,7 +135,7 @@ export default function LoginPage() {
                   onClick={() => setShowPassword(!showPassword)}
                   style={{
                     position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-                    background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(220 18% 55%)',
+                    background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(var(--muted))',
                     padding: 2,
                   }}
                 >
@@ -176,9 +163,9 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p style={{ textAlign: 'center', marginTop: '1.5rem', color: 'hsl(220 18% 55%)', fontSize: '0.8125rem' }}>
+        <p style={{ textAlign: 'center', marginTop: '1.5rem', color: 'hsl(var(--muted))', fontSize: '0.8125rem' }}>
           ¿Nuevo local?{' '}
-          <a href="/register" style={{ color: 'hsl(262 83% 66%)', fontWeight: 600, textDecoration: 'none' }}>
+          <a href="/register" style={{ color: 'hsl(var(--primary))', fontWeight: 600, textDecoration: 'none' }}>
             Regístralo aquí
           </a>
         </p>

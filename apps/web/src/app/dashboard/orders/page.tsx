@@ -196,7 +196,7 @@ export default function OrdersPage() {
                 <div
                   style={{
                     width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
-                    background: `hsl(${order.status === 'PENDING' ? '38 95% 56%' : order.status === 'PREPARING' ? '262 83% 66%' : order.status === 'READY' ? '142 71% 45%' : '220 18% 40%'} / 0.15)`,
+                    background: `hsl(${order.status === 'PENDING' ? '38 95% 56%' : order.status === 'PREPARING' ? '25 100% 51%' : order.status === 'READY' ? '142 71% 45%' : '220 18% 40%'} / 0.15)`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}
                 >
@@ -204,7 +204,7 @@ export default function OrdersPage() {
                     size={20}
                     style={{
                       color: order.status === 'PENDING' ? 'hsl(38 95% 56%)' :
-                             order.status === 'PREPARING' ? 'hsl(262 83% 66%)' :
+                             order.status === 'PREPARING' ? 'hsl(25 100% 51%)' :
                              order.status === 'READY' ? 'hsl(142 71% 45%)' :
                              order.status === 'CANCELLED' ? 'hsl(0 84% 60%)' :
                              'hsl(220 18% 55%)',
@@ -236,7 +236,7 @@ export default function OrdersPage() {
 
                 {/* Time + Total */}
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontWeight: 800, fontSize: '1.0625rem', color: 'hsl(262 83% 70%)' }}>
+                  <div style={{ fontWeight: 800, fontSize: '1.0625rem', color: 'hsl(var(--primary))' }}>
                     {Number(order.total).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'hsl(220 18% 50%)', marginTop: 2 }}>

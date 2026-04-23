@@ -161,7 +161,7 @@ export default function ProductsPage() {
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.875rem', marginBottom: '1.5rem' }}>
         {[
-          { label: 'Total productos', value: totalItems, icon: Package, color: 'hsl(262 83% 66%)' },
+          { label: 'Total productos', value: totalItems, icon: Package, color: 'hsl(var(--primary))' },
           { label: 'Stock bajo (≤5)', value: lowStock,   icon: TrendingDown, color: 'hsl(38 95% 56%)' },
           { label: 'Agotados',        value: outOfStock, icon: AlertTriangle, color: 'hsl(0 84% 60%)' },
         ].map(({ label, value, icon: Icon, color }) => (
@@ -231,7 +231,7 @@ export default function ProductsPage() {
                       <div style={{ fontWeight: 600, fontSize: '0.9375rem', marginBottom: '0.25rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {p.name}
                       </div>
-                      <div style={{ fontSize: '1rem', fontWeight: 800, color: 'hsl(262 83% 66%)', marginBottom: '0.375rem' }}>
+                      <div style={{ fontSize: '1rem', fontWeight: 800, color: 'hsl(var(--primary))', marginBottom: '0.375rem' }}>
                         {Number(p.price).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                       </div>
                       {/* Stock control */}

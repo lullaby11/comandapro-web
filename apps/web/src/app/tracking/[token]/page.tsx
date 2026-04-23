@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { use } from 'react';
 import {
-  Package, CheckCircle, Clock, Truck, XCircle, ShoppingBag,
+  Package, CheckCircle, Clock, Truck, XCircle,
 } from 'lucide-react';
 
 function useCountdown(target: string | null) {
@@ -37,7 +37,7 @@ const API = '';
 
 const STATUS_INFO: Record<string, { label: string; color: string; icon: React.ElementType; step: number }> = {
   PENDING:   { label: 'Pedido recibido',     color: 'hsl(38 95% 56%)',  icon: Clock,        step: 1 },
-  PREPARING: { label: 'En preparación',      color: 'hsl(262 83% 66%)', icon: Package,      step: 2 },
+  PREPARING: { label: 'En preparación',      color: 'hsl(25 100% 51%)',  icon: Package,      step: 2 },
   READY:     { label: 'Listo para entregar', color: 'hsl(142 71% 45%)', icon: CheckCircle,  step: 3 },
   DELIVERED: { label: 'Entregado',           color: 'hsl(142 71% 45%)', icon: Truck,        step: 4 },
   CANCELLED: { label: 'Cancelado',           color: 'hsl(0 84% 60%)',   icon: XCircle,      step: 0 },
@@ -87,7 +87,7 @@ export default function TrackingPage({ params }: { params: Promise<{ token: stri
   if (loading) {
     return (
       <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 48, height: 48, border: '3px solid hsl(262 83% 66%)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <div style={{ width: 48, height: 48, border: '3px solid hsl(25 100% 51%)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
@@ -98,7 +98,7 @@ export default function TrackingPage({ params }: { params: Promise<{ token: stri
       <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1rem', padding: '2rem' }}>
         <XCircle size={48} style={{ color: 'hsl(0 84% 60%)' }} />
         <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Pedido no encontrado</h1>
-        <p style={{ color: 'hsl(220 18% 65%)' }}>{error}</p>
+        <p style={{ color: 'hsl(207 20% 65%)' }}>{error}</p>
       </div>
     );
   }
@@ -113,7 +113,7 @@ export default function TrackingPage({ params }: { params: Promise<{ token: stri
     <div
       style={{
         minHeight: '100dvh',
-        background: 'radial-gradient(ellipse at 50% 0%, hsl(262 83% 66% / 0.12) 0%, transparent 60%), hsl(222 47% 8%)',
+        background: 'radial-gradient(ellipse at 50% 0%, hsl(25 100% 51% / 0.1) 0%, transparent 60%), hsl(207 85% 7%)',
         padding: '2rem 1rem',
       }}
     >
@@ -121,19 +121,9 @@ export default function TrackingPage({ params }: { params: Promise<{ token: stri
         
         {/* Business header */}
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }} className="animate-fade-up">
-          <div
-            style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 56, height: 56, borderRadius: 16,
-              background: 'linear-gradient(135deg, hsl(262 83% 66%), hsl(262 83% 50%))',
-              boxShadow: '0 8px 24px hsl(262 83% 66% / 0.35)',
-              marginBottom: '1rem',
-            }}
-          >
-            <ShoppingBag size={28} color="white" />
-          </div>
+          <img src="/olyda.png" alt="Olyda" style={{ height: 48, width: 'auto', objectFit: 'contain', marginBottom: '1rem' }} />
           <h1 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{data.business.name}</h1>
-          <p style={{ color: 'hsl(220 18% 65%)', marginTop: '0.25rem', fontSize: '0.875rem' }}>
+          <p style={{ color: 'hsl(207 20% 65%)', marginTop: '0.25rem', fontSize: '0.875rem' }}>
             Seguimiento del pedido · #{data.id.slice(-8).toUpperCase()}
           </p>
         </div>
@@ -156,7 +146,7 @@ export default function TrackingPage({ params }: { params: Promise<{ token: stri
           <div style={{ fontSize: '1.375rem', fontWeight: 800, color: statusInfo.color, marginBottom: '0.25rem' }}>
             {statusInfo.label}
           </div>
-          <div style={{ color: 'hsl(220 18% 65%)', fontSize: '0.875rem' }}>
+          <div style={{ color: 'hsl(207 20% 65%)', fontSize: '0.875rem' }}>
             Última actualización: {new Date(data.updatedAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
           </div>
         </div>
@@ -165,9 +155,9 @@ export default function TrackingPage({ params }: { params: Promise<{ token: stri
         {data.estimatedDeliveryAt && !isCancelled && !isDelivered && (
           <div
             className="card animate-fade-up"
-            style={{ marginBottom: '1.25rem', padding: '1.25rem 1.75rem', textAlign: 'center', border: '1px solid hsl(262 83% 66% / 0.3)' }}
+            style={{ marginBottom: '1.25rem', padding: '1.25rem 1.75rem', textAlign: 'center', border: '1px solid hsl(25 100% 51% / 0.25)' }}
           >
-            <div style={{ fontSize: '0.75rem', color: 'hsl(220 18% 60%)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.375rem' }}>
+            <div style={{ fontSize: '0.75rem', color: 'hsl(207 20% 65%)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.375rem' }}>
               Tiempo estimado de entrega
             </div>
             {countdown === null ? null : countdown === 0 ? (
@@ -176,10 +166,10 @@ export default function TrackingPage({ params }: { params: Promise<{ token: stri
               </div>
             ) : (
               <>
-                <div style={{ fontSize: '2rem', fontWeight: 800, color: 'hsl(262 83% 70%)', letterSpacing: '-0.02em' }}>
+                <div style={{ fontSize: '2rem', fontWeight: 800, color: 'hsl(25 100% 51%)', letterSpacing: '-0.02em' }}>
                   {formatCountdown(countdown)}
                 </div>
-                <div style={{ fontSize: '0.8125rem', color: 'hsl(220 18% 55%)', marginTop: '0.25rem' }}>
+                <div style={{ fontSize: '0.8125rem', color: 'hsl(207 20% 65%)', marginTop: '0.25rem' }}>
                   Previsto para las {new Date(data.estimatedDeliveryAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
                 </div>
               </>
@@ -204,7 +194,7 @@ export default function TrackingPage({ params }: { params: Promise<{ token: stri
                       <div
                         style={{
                           position: 'absolute', left: '50%', top: 18, width: '100%', height: 2,
-                          background: isDone ? 'hsl(142 71% 45%)' : 'hsl(222 30% 22%)',
+                          background: isDone ? 'hsl(142 71% 45%)' : 'hsl(207 40% 22%)',
                           transition: 'background 0.3s',
                         }}
                       />
@@ -214,15 +204,15 @@ export default function TrackingPage({ params }: { params: Promise<{ token: stri
                       style={{
                         width: 36, height: 36, borderRadius: '50%', display: 'flex',
                         alignItems: 'center', justifyContent: 'center', zIndex: 1,
-                        background: isActive ? (isCurrent ? statusInfo.color : 'hsl(142 71% 45%)') : 'hsl(222 40% 18%)',
-                        border: `2px solid ${isActive ? (isCurrent ? statusInfo.color : 'hsl(142 71% 45%)') : 'hsl(222 30% 22%)'}`,
+                        background: isActive ? (isCurrent ? statusInfo.color : 'hsl(142 71% 45%)') : 'hsl(207 60% 16%)',
+                        border: `2px solid ${isActive ? (isCurrent ? statusInfo.color : 'hsl(142 71% 45%)') : 'hsl(207 40% 22%)'}`,
                         transition: 'all 0.3s',
                         boxShadow: isCurrent ? `0 0 0 4px ${statusInfo.color}30` : 'none',
                       }}
                     >
-                      <StepIcon size={16} color={isActive ? 'white' : 'hsl(220 18% 50%)'} />
+                      <StepIcon size={16} color={isActive ? 'white' : 'hsl(207 20% 65%)'} />
                     </div>
-                    <span style={{ fontSize: '0.65rem', color: isActive ? 'hsl(var(--text))' : 'hsl(220 18% 50%)', textAlign: 'center', lineHeight: 1.2 }}>
+                    <span style={{ fontSize: '0.65rem', color: isActive ? 'hsl(var(--text))' : 'hsl(207 20% 65%)', textAlign: 'center', lineHeight: 1.2 }}>
                       {info.label}
                     </span>
                   </div>
@@ -243,23 +233,23 @@ export default function TrackingPage({ params }: { params: Promise<{ token: stri
                 key={i}
                 style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '0.625rem 0', borderBottom: '1px solid hsl(222 30% 18%)',
+                  padding: '0.625rem 0', borderBottom: '1px solid hsl(207 40% 22%)',
                 }}
               >
                 <span style={{ fontWeight: 500 }}>
-                  <span style={{ color: 'hsl(262 83% 66%)', marginRight: '0.5rem', fontWeight: 700 }}>
+                  <span style={{ color: 'hsl(25 100% 51%)', marginRight: '0.5rem', fontWeight: 700 }}>
                     {item.quantity}x
                   </span>
                   {item.productName}
                 </span>
-                <span style={{ color: 'hsl(220 18% 65%)', fontWeight: 600 }}>
+                <span style={{ color: 'hsl(207 20% 65%)', fontWeight: 600 }}>
                   {item.subtotal.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                 </span>
               </div>
             ))}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.5rem', fontWeight: 800, fontSize: '1.125rem' }}>
               <span>Total</span>
-              <span style={{ color: 'hsl(262 83% 66%)' }}>
+              <span style={{ color: 'hsl(25 100% 51%)' }}>
                 {data.total.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
               </span>
             </div>
@@ -267,7 +257,7 @@ export default function TrackingPage({ params }: { params: Promise<{ token: stri
         </div>
 
         {/* Footer */}
-        <p style={{ textAlign: 'center', color: 'hsl(220 18% 45%)', fontSize: '0.75rem', marginTop: '1.5rem' }}>
+        <p style={{ textAlign: 'center', color: 'hsl(207 20% 65%)', fontSize: '0.75rem', marginTop: '1.5rem' }}>
           Pedido realizado el {new Date(data.createdAt).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
           {' · '}Actualización automática cada 30 segundos
         </p>

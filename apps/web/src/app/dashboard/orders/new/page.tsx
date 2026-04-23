@@ -454,7 +454,7 @@ export default function NewOrderPage() {
                       style={{
                         position: 'absolute', top: 8, left: 8,
                         width: 22, height: 22, borderRadius: '50%',
-                        background: 'hsl(262 83% 66%)', color: 'white',
+                        background: 'hsl(var(--primary))', color: 'white',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontSize: '0.75rem', fontWeight: 700,
                       }}
@@ -467,7 +467,7 @@ export default function NewOrderPage() {
                     <div style={{ fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.25rem', lineHeight: 1.3 }}>
                       {product.name}
                     </div>
-                    <div style={{ fontSize: '1rem', fontWeight: 700, color: 'hsl(262 83% 66%)' }}>
+                    <div style={{ fontSize: '1rem', fontWeight: 700, color: 'hsl(var(--primary))' }}>
                       {product.price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                     </div>
                   </div>
@@ -523,7 +523,7 @@ export default function NewOrderPage() {
                   <div style={{ flex: 1, position: 'relative' }}>
                     <Phone size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'hsl(220 18% 55%)' }} />
                     {searchingCustomer && (
-                      <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, border: '2px solid hsl(262 83% 66%)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
+                      <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, border: '2px solid hsl(var(--primary))', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
                     )}
                     <input
                       ref={phoneRef}
@@ -569,10 +569,10 @@ export default function NewOrderPage() {
                           background: 'none', border: 'none', cursor: 'pointer',
                           textAlign: 'left', color: 'inherit', borderBottom: '1px solid hsl(222 30% 18%)',
                         }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = 'hsl(262 83% 66% / 0.1)')}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'hsl(var(--primary) / 0.1)')}
                         onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
                       >
-                        <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'hsl(262 83% 66% / 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '0.75rem', fontWeight: 700, color: 'hsl(262 83% 70%)' }}>
+                        <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'hsl(var(--primary) / 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--primary))' }}>
                           {s.name.charAt(0).toUpperCase()}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -674,14 +674,14 @@ export default function NewOrderPage() {
                     <div style={{ fontSize: '0.875rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {item.name}
                     </div>
-                    <div style={{ fontSize: '0.8125rem', color: 'hsl(262 83% 66%)' }}>
+                    <div style={{ fontSize: '0.8125rem', color: 'hsl(var(--primary))' }}>
                       {(item.price * item.quantity).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexShrink: 0 }}>
                     <button
                       onClick={() => updateQty(item.id, -1)}
-                      style={{ width: 26, height: 26, border: '1px solid hsl(222 30% 25%)', borderRadius: 6, background: 'none', cursor: 'pointer', color: 'hsl(220 18% 65%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      style={{ width: 26, height: 26, border: '1px solid hsl(var(--border))', borderRadius: 6, background: 'none', cursor: 'pointer', color: 'hsl(220 18% 65%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     >
                       <Minus size={12} />
                     </button>
@@ -691,7 +691,7 @@ export default function NewOrderPage() {
                     <button
                       onClick={() => addToCart(item)}
                       disabled={item.quantity >= item.stock}
-                      style={{ width: 26, height: 26, border: '1px solid hsl(222 30% 25%)', borderRadius: 6, background: 'none', cursor: 'pointer', color: 'hsl(262 83% 66%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      style={{ width: 26, height: 26, border: '1px solid hsl(var(--border))', borderRadius: 6, background: 'none', cursor: 'pointer', color: 'hsl(var(--primary))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     >
                       <Plus size={12} />
                     </button>
@@ -793,7 +793,7 @@ export default function NewOrderPage() {
           {/* Total */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <span style={{ color: 'hsl(220 18% 65%)', fontWeight: 600 }}>Total estimado</span>
-            <span style={{ fontSize: '1.5rem', fontWeight: 800, color: 'hsl(262 83% 70%)' }}>
+            <span style={{ fontSize: '1.5rem', fontWeight: 800, color: 'hsl(var(--primary))' }}>
               {subtotal.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
             </span>
           </div>

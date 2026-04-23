@@ -87,7 +87,7 @@ export default function DashboardPage() {
   const StatusIcon = ({ status }: { status: string }) => {
     switch (status) {
       case 'PENDING':   return <Clock size={14} style={{ color: 'hsl(38 95% 56%)' }} />;
-      case 'PREPARING': return <ChefHat size={14} style={{ color: 'hsl(262 83% 66%)' }} />;
+      case 'PREPARING': return <ChefHat size={14} style={{ color: 'hsl(var(--primary))' }} />;
       case 'READY':     return <CheckCircle2 size={14} style={{ color: 'hsl(142 71% 45%)' }} />;
       default: return null;
     }
@@ -112,8 +112,8 @@ export default function DashboardPage() {
         style={{
           display: 'flex', alignItems: 'center', gap: '1.25rem',
           padding: '1.25rem 1.5rem', marginBottom: '1.5rem',
-          background: 'linear-gradient(135deg, hsl(262 83% 20%), hsl(262 83% 15%))',
-          border: '1px solid hsl(262 83% 40% / 0.4)',
+          background: 'linear-gradient(135deg, hsl(207 85% 12%), hsl(207 85% 9%))',
+          border: '1px solid hsl(var(--primary) / 0.3)',
           textDecoration: 'none', cursor: 'pointer',
           transition: 'all 0.15s',
         }}
@@ -122,18 +122,18 @@ export default function DashboardPage() {
         <div
           style={{
             width: 52, height: 52, borderRadius: 14,
-            background: 'linear-gradient(135deg, hsl(262 83% 66%), hsl(262 83% 50%))',
+            background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(25 100% 42%))',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 6px 20px hsl(262 83% 66% / 0.4)', flexShrink: 0,
+            boxShadow: '0 6px 20px hsl(var(--primary) / 0.35)', flexShrink: 0,
           }}
         >
           <PlusCircle size={26} color="white" />
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 800, fontSize: '1.0625rem', marginBottom: '0.2rem' }}>Nueva comanda</div>
-          <div style={{ color: 'hsl(262 83% 75%)', fontSize: '0.875rem' }}>Empieza un pedido en menos de 30 segundos</div>
+          <div style={{ color: 'hsl(var(--primary))', fontSize: '0.875rem' }}>Empieza un pedido en menos de 30 segundos</div>
         </div>
-        <ArrowRight size={22} style={{ color: 'hsl(262 83% 66%)' }} />
+        <ArrowRight size={22} style={{ color: 'hsl(var(--primary))' }} />
       </Link>
 
       {/* Stats grid */}
@@ -147,7 +147,7 @@ export default function DashboardPage() {
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.875rem', marginBottom: '1.5rem' }}>
             {[
-              { label: 'Pedidos hoy',     value: stats.todayOrders,    icon: ShoppingBag, color: 'hsl(262 83% 66%)', suffix: '' },
+              { label: 'Pedidos hoy',     value: stats.todayOrders,    icon: ShoppingBag, color: 'hsl(var(--primary))', suffix: '' },
               { label: 'Ingresos hoy',    value: stats.todayRevenue,   icon: TrendingUp,  color: 'hsl(142 71% 45%)', suffix: ' €', isPrice: true },
               { label: 'Clientes',        value: stats.totalCustomers, icon: Users,       color: 'hsl(38 95% 56%)',  suffix: '' },
               { label: 'Sin stock',       value: stats.outOfStock,     icon: Package,     color: stats.outOfStock > 0 ? 'hsl(0 84% 60%)' : 'hsl(142 71% 45%)', suffix: '' },
@@ -174,7 +174,7 @@ export default function DashboardPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {[
                   { label: 'Pendientes',  count: stats.pendingOrders,   color: 'hsl(38 95% 56%)',  Icon: Clock },
-                  { label: 'Preparando', count: stats.preparingOrders, color: 'hsl(262 83% 66%)', Icon: ChefHat },
+                  { label: 'Preparando', count: stats.preparingOrders, color: 'hsl(var(--primary))', Icon: ChefHat },
                   { label: 'Listos',     count: stats.readyOrders,     color: 'hsl(142 71% 45%)', Icon: CheckCircle2 },
                 ].map(({ label, count, color, Icon }) => (
                   <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -209,7 +209,7 @@ export default function DashboardPage() {
               {stats.recentOrders.length === 0 ? (
                 <p style={{ color: 'hsl(220 18% 50%)', fontSize: '0.875rem', textAlign: 'center', padding: '1.5rem 0' }}>
                   Aún no hay pedidos hoy.{' '}
-                  <Link href="/dashboard/orders/new" style={{ color: 'hsl(262 83% 66%)', fontWeight: 600 }}>
+                  <Link href="/dashboard/orders/new" style={{ color: 'hsl(var(--primary))', fontWeight: 600 }}>
                     Crear el primero
                   </Link>
                 </p>
@@ -228,7 +228,7 @@ export default function DashboardPage() {
                         #{o.id.slice(-8).toUpperCase()}
                       </span>
                       <span style={{ fontSize: '0.8rem', color: 'hsl(220 18% 60%)' }}>{o.customer.name}</span>
-                      <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'hsl(262 83% 70%)' }}>
+                      <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'hsl(var(--primary))' }}>
                         {Number(o.total).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                       </span>
                     </div>
@@ -245,7 +245,7 @@ export default function DashboardPage() {
         {[
           { href: '/dashboard/products', label: 'Gestionar productos', desc: 'Actualizar precios y stock', icon: Package, color: 'hsl(38 95% 56%)' },
           { href: '/dashboard/customers', label: 'Ver clientes', desc: 'Historial y datos de contacto', icon: Users, color: 'hsl(142 71% 45%)' },
-          { href: '/dashboard/settings', label: 'Configuración', desc: 'Impresora, papel, moneda', icon: ShoppingBag, color: 'hsl(262 83% 66%)' },
+          { href: '/dashboard/settings', label: 'Configuración', desc: 'Impresora, papel, moneda', icon: ShoppingBag, color: 'hsl(var(--primary))' },
         ].map(({ href, label, desc, icon: Icon, color }) => (
           <Link
             key={href}

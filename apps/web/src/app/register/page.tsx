@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { ShoppingBag, Building2, User, Mail, Lock, ArrowLeft } from 'lucide-react';
+import { Building2, User, Mail, Lock, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
 const API = '';
@@ -65,19 +65,17 @@ export default function RegisterPage() {
       style={{
         minHeight: '100dvh', display: 'flex', alignItems: 'center',
         justifyContent: 'center', padding: '1.5rem',
-        background: 'radial-gradient(ellipse at 80% 20%, hsl(262 83% 66% / 0.1) 0%, transparent 55%), hsl(222 47% 8%)',
+        background: 'radial-gradient(ellipse at 80% 20%, hsl(var(--primary) / 0.1) 0%, transparent 55%), hsl(var(--bg))',
       }}
     >
       <div style={{ width: '100%', maxWidth: 480 }}>
         {/* Brand */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 56, height: 56, borderRadius: 16, background: 'linear-gradient(135deg, hsl(262 83% 66%), hsl(262 83% 50%))', boxShadow: '0 8px 24px hsl(262 83% 66% / 0.35)', marginBottom: '1rem' }}>
-            <ShoppingBag size={28} color="white" />
-          </div>
+          <img src="/olyda.png" alt="Olyda" style={{ height: 64, width: 'auto', objectFit: 'contain', marginBottom: '1rem' }} />
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>
-            Registra tu local en <span style={{ color: 'hsl(262 83% 66%)' }}>ComandaPro</span>
+            Registra tu local en <span style={{ color: 'hsl(var(--primary))' }}>Olyda</span>
           </h1>
-          <p style={{ color: 'hsl(220 18% 60%)', marginTop: '0.4rem', fontSize: '0.9rem' }}>
+          <p style={{ color: 'hsl(var(--muted))', marginTop: '0.4rem', fontSize: '0.9rem' }}>
             Comienza gratis, sin tarjeta de crédito
           </p>
         </div>
@@ -85,23 +83,23 @@ export default function RegisterPage() {
         <div className="card-glass animate-fade-up" style={{ padding: '2rem' }}>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {/* Business */}
-            <div style={{ paddingBottom: '0.5rem', borderBottom: '1px solid hsl(222 30% 20%)', marginBottom: '0.25rem' }}>
-              <p style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'hsl(262 83% 66%)', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            <div style={{ paddingBottom: '0.5rem', borderBottom: '1px solid hsl(var(--border))', marginBottom: '0.25rem' }}>
+              <p style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'hsl(var(--primary))', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                 Tu local
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
                 <div>
                   <label htmlFor="businessName">Nombre del restaurante / local *</label>
                   <div style={{ position: 'relative' }}>
-                    <Building2 size={15} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'hsl(220 18% 50%)' }} />
+                    <Building2 size={15} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--muted))' }} />
                     <input id="businessName" type="text" required value={form.businessName} onChange={(e) => handleName(e.target.value)} placeholder="Pizzería Bella Italia" style={{ paddingLeft: '2.1rem' }} />
                   </div>
                 </div>
                 <div>
                   <label htmlFor="businessSlug">URL del local (slug) *</label>
-                  <div style={{ display: 'flex', alignItems: 'center', border: '1px solid hsl(222 30% 20%)', borderRadius: 'var(--radius)', overflow: 'hidden', background: 'hsl(222 40% 15%)' }}>
-                    <span style={{ padding: '0.625rem 0.75rem', color: 'hsl(220 18% 45%)', fontSize: '0.875rem', flexShrink: 0, borderRight: '1px solid hsl(222 30% 20%)' }}>
-                      comandapro.app/
+                  <div style={{ display: 'flex', alignItems: 'center', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)', overflow: 'hidden', background: 'hsl(var(--surface2))' }}>
+                    <span style={{ padding: '0.625rem 0.75rem', color: 'hsl(var(--muted))', fontSize: '0.875rem', flexShrink: 0, borderRight: '1px solid hsl(var(--border))' }}>
+                      olyda.app/
                     </span>
                     <input
                       id="businessSlug"
@@ -126,14 +124,14 @@ export default function RegisterPage() {
                 <div>
                   <label htmlFor="userName">Tu nombre *</label>
                   <div style={{ position: 'relative' }}>
-                    <User size={15} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'hsl(220 18% 50%)' }} />
+                    <User size={15} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--muted))' }} />
                     <input id="userName" type="text" required value={form.userName} onChange={(e) => setForm({ ...form, userName: e.target.value })} placeholder="Giovanni Rossi" style={{ paddingLeft: '2.1rem' }} />
                   </div>
                 </div>
                 <div>
                   <label htmlFor="email">Email *</label>
                   <div style={{ position: 'relative' }}>
-                    <Mail size={15} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'hsl(220 18% 50%)' }} />
+                    <Mail size={15} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--muted))' }} />
                     <input id="email" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="admin@mi-local.com" style={{ paddingLeft: '2.1rem' }} />
                   </div>
                 </div>
@@ -141,14 +139,14 @@ export default function RegisterPage() {
                   <div>
                     <label htmlFor="password">Contraseña *</label>
                     <div style={{ position: 'relative' }}>
-                      <Lock size={15} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'hsl(220 18% 50%)' }} />
+                      <Lock size={15} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--muted))' }} />
                       <input id="password" type="password" required minLength={8} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Mín. 8 chars" style={{ paddingLeft: '2.1rem' }} />
                     </div>
                   </div>
                   <div>
                     <label htmlFor="confirmPassword">Confirmar *</label>
                     <div style={{ position: 'relative' }}>
-                      <Lock size={15} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'hsl(220 18% 50%)' }} />
+                      <Lock size={15} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--muted))' }} />
                       <input id="confirmPassword" type="password" required value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} placeholder="Repite" style={{ paddingLeft: '2.1rem' }} />
                     </div>
                   </div>
@@ -175,8 +173,8 @@ export default function RegisterPage() {
           </form>
         </div>
 
-        <p style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.8125rem', color: 'hsl(220 18% 55%)' }}>
-          <Link href="/login" style={{ color: 'hsl(262 83% 66%)', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <p style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.8125rem', color: 'hsl(var(--muted))' }}>
+          <Link href="/login" style={{ color: 'hsl(var(--primary))', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
             <ArrowLeft size={13} /> Volver al inicio de sesión
           </Link>
         </p>
