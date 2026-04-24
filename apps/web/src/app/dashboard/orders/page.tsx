@@ -69,7 +69,13 @@ export default function OrdersPage() {
       const res = await fetch(`${API}/api/orders${params}`, { headers: apiHeaders() });
       if (!res.ok) throw new Error('Error cargando pedidos');
       const data = await res.json();
-      const sorted = [...data.orders].sort((a: Order, b: Order) => Number(b.isPickup) - Number(a.isPickup));
+      const TERMINAL = new Set(['DELIVERED', 'CANCELLED']);
+      const sorted = [...data.orders].sort((a: Order, b: Order) => {
+        const aTerminal = TERMINAL.has(a.status) ? 1 : 0;
+        const bTerminal = TERMINAL.has(b.status) ? 1 : 0;
+        if (aTerminal !== bTerminal) return aTerminal - bTerminal;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
       setOrders(sorted);
       setTotal(data.total);
     } catch {
