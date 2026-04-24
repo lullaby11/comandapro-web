@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
   PlusCircle, Search, Clock, ChefHat, CheckCircle2,
-  Truck, XCircle, RefreshCw, Eye, MessageCircle, Store, Printer, Navigation,
+  Truck, XCircle, RefreshCw, Eye, MessageCircle, Store, Printer, Navigation, Trash2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -62,6 +62,8 @@ export default function OrdersPage() {
   const [filterStatus, setFilter]   = useState<OrderStatus | 'ALL'>('ALL');
   const [updating, setUpdating]     = useState<string | null>(null);
   const [printing, setPrinting]     = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Order | null>(null);
+  const [deleting, setDeleting]     = useState(false);
 
   const loadOrders = useCallback(async () => {
     try {
@@ -146,6 +148,25 @@ export default function OrdersPage() {
       toast.error('Error cancelando');
     } finally {
       setUpdating(null);
+    }
+  }
+
+  async function deleteOrder() {
+    if (!confirmDelete) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`${API}/api/orders/${confirmDelete.id}`, {
+        method: 'DELETE',
+        headers: apiHeaders(),
+      });
+      if (!res.ok) throw new Error();
+      toast.success('Pedido eliminado y stock restaurado');
+      setConfirmDelete(null);
+      loadOrders();
+    } catch {
+      toast.error('Error eliminando el pedido');
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -360,10 +381,75 @@ export default function OrdersPage() {
                       <XCircle size={14} />
                     </button>
                   )}
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setConfirmDelete(order)}
+                    disabled={isUpd}
+                    id={`delete-${order.id}`}
+                    title="Eliminar pedido"
+                    style={{ color: 'hsl(0 84% 60%)', borderColor: 'hsl(0 84% 60% / 0.3)' }}
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Modal de confirmación de borrado */}
+      {confirmDelete && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 100,
+            background: 'hsl(0 0% 0% / 0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '1rem',
+            backdropFilter: 'blur(4px)',
+          }}
+          onClick={() => !deleting && setConfirmDelete(null)}
+        >
+          <div
+            className="card"
+            style={{ maxWidth: 420, width: '100%', padding: '1.75rem' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+              <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'hsl(0 84% 60% / 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Trash2 size={18} style={{ color: 'hsl(0 84% 60%)' }} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '1rem' }}>Eliminar pedido</div>
+                <div style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted))' }}>
+                  #{confirmDelete.id.slice(-8).toUpperCase()} · {confirmDelete.customer.name}
+                </div>
+              </div>
+            </div>
+            <p style={{ fontSize: '0.9rem', color: 'hsl(var(--muted))', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+              Se eliminará el pedido permanentemente y se restaurará el stock de los productos incluidos. Esta acción no se puede deshacer.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => setConfirmDelete(null)}
+                disabled={deleting}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn btn-danger btn-sm"
+                onClick={deleteOrder}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <span style={{ width: 14, height: 14, border: '2px solid white', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
+                ) : (
+                  <><Trash2 size={14} /> Eliminar</>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

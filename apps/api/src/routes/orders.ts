@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../prisma/client';
 import { OrderStatus } from '@prisma/client';
 import { authMiddleware, AuthenticatedRequest } from '../middleware/auth.middleware';
-import { validateStock, deductStock } from '../services/stock.service';
+import { validateStock, deductStock, restoreStock } from '../services/stock.service';
 import { generateEscPosBuffer, PrintOrderPayload } from '../services/printer.service';
 
 const router = Router();
@@ -192,6 +192,28 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
   });
 
   res.json(updated);
+});
+
+// ──────────────────────────────────────────────
+// DELETE /orders/:id — Eliminar pedido y restaurar stock
+// ──────────────────────────────────────────────
+router.delete('/:id', async (req: AuthenticatedRequest, res) => {
+  const order = await prisma.order.findFirst({
+    where: { id: req.params.id, businessId: req.businessId! },
+    include: { items: { select: { productId: true, quantity: true } } },
+  });
+
+  if (!order) {
+    res.status(404).json({ error: 'Pedido no encontrado' });
+    return;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await restoreStock(tx, order.items);
+    await tx.order.delete({ where: { id: order.id } });
+  });
+
+  res.status(204).end();
 });
 
 // ──────────────────────────────────────────────
