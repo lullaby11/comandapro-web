@@ -244,7 +244,7 @@ export default function OrdersPage() {
       </div>
 
       {/* Filter tabs */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
         {filterTabs.map(({ value, label }) => (
           <button
             key={value}
@@ -256,6 +256,30 @@ export default function OrdersPage() {
           </button>
         ))}
       </div>
+
+      {/* Resumen de entregados */}
+      {(() => {
+        const delivered = orders.filter(o => o.status === 'DELIVERED');
+        if (delivered.length === 0) return null;
+        const sum = delivered.reduce((acc, o) => acc + Number(o.total), 0);
+        return (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '0.625rem',
+            marginBottom: '1.25rem', padding: '0.625rem 1rem',
+            background: 'hsl(142 71% 45% / 0.08)',
+            border: '1px solid hsl(142 71% 45% / 0.25)',
+            borderRadius: '0.625rem',
+          }}>
+            <Truck size={15} style={{ color: 'hsl(142 71% 45%)', flexShrink: 0 }} />
+            <span style={{ fontSize: '0.875rem', color: 'hsl(var(--muted))' }}>
+              {delivered.length} pedido{delivered.length !== 1 ? 's' : ''} entregado{delivered.length !== 1 ? 's' : ''}
+            </span>
+            <span style={{ marginLeft: 'auto', fontWeight: 700, fontSize: '1rem', color: 'hsl(142 71% 45%)' }}>
+              {sum.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+            </span>
+          </div>
+        );
+      })()}
 
       {/* Orders list */}
       {loading ? (
