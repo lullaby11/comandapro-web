@@ -39,15 +39,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* ── Sidebar ── */}
       <aside className="sidebar">
         {/* Brand */}
-        <div
-          style={{
-            padding: '1.25rem 1.25rem 1rem',
-            borderBottom: '1px solid hsl(var(--border))',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div className="sidebar-brand">
+          <div className="sidebar-brand-inner">
             <img src="/olyda.png" alt="Olyda" style={{ height: 32, width: 'auto', objectFit: 'contain', flexShrink: 0 }} />
-            <div style={{ fontSize: '0.75rem', color: 'hsl(var(--muted))', marginTop: 2 }}>
+            <div className="sidebar-brand-name">
               {business.name ?? 'Mi local'}
             </div>
           </div>
@@ -67,40 +62,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 className={`nav-item ${isActive ? 'active' : ''}`}
               >
                 <Icon size={18} />
-                <span style={{ flex: 1 }}>{label}</span>
-                {isActive && <ChevronRight size={14} style={{ opacity: 0.5 }} />}
+                <span className="nav-label">{label}</span>
+                {isActive && <span className="nav-chevron"><ChevronRight size={14} style={{ opacity: 0.5 }} /></span>}
               </Link>
             );
           })}
         </nav>
 
         {/* User / Logout */}
-        <div
-          style={{
-            padding: '0.75rem',
-            borderTop: '1px solid hsl(var(--border))',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex', alignItems: 'center', gap: '0.75rem',
-              padding: '0.625rem 0.75rem', borderRadius: '0.625rem',
-              background: 'hsl(var(--surface))',
-            }}
-          >
-            <div
-              style={{
-                width: 32, height: 32, borderRadius: '50%',
-                background: 'hsl(var(--primary) / 0.2)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '0.8125rem', fontWeight: 700,
-                color: 'hsl(var(--primary))',
-                flexShrink: 0,
-              }}
-            >
+        <div className="sidebar-user">
+          <div className="sidebar-user-inner">
+            <div className="sidebar-avatar">
               {(user.name ?? 'U')[0].toUpperCase()}
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="sidebar-user-info">
               <div style={{ fontSize: '0.8125rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {user.name ?? 'Usuario'}
               </div>
@@ -111,12 +86,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <button
               onClick={handleLogout}
               title="Cerrar sesión"
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: 'hsl(var(--muted))', padding: 4, borderRadius: 6,
-                display: 'flex', alignItems: 'center',
-                transition: 'color 0.15s',
-              }}
+              className="sidebar-logout"
               onMouseOver={(e) => (e.currentTarget.style.color = 'hsl(0 84% 60%)')}
               onMouseOut={(e) => (e.currentTarget.style.color = 'hsl(var(--muted))')}
             >
@@ -127,7 +97,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* ── Main content ── */}
-      <main style={{ flex: 1, overflowY: 'auto', background: 'hsl(var(--bg))' }}>
+      <main className="dashboard-main" style={{ flex: 1, overflowY: 'auto', background: 'hsl(var(--bg))' }}>
         {children}
       </main>
     </div>
