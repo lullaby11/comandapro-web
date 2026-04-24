@@ -15,12 +15,20 @@ router.use(authMiddleware);
 // GET /orders — Listar pedidos del local
 // ──────────────────────────────────────────────
 router.get('/', async (req: AuthenticatedRequest, res) => {
-  const { status, page = '1', limit = '20', notPrinted } = req.query;
+  const { status, page = '1', limit = '20', notPrinted, date } = req.query;
+
+  let dateFilter = {};
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const start = new Date(`${date}T00:00:00.000Z`);
+    const end   = new Date(`${date}T23:59:59.999Z`);
+    dateFilter = { createdAt: { gte: start, lte: end } };
+  }
 
   const where = {
     businessId: req.businessId!,
     ...(status ? { status: status as OrderStatus } : {}),
     ...(notPrinted === 'true' ? { printedAt: null } : {}),
+    ...dateFilter,
   };
 
   const [orders, total] = await Promise.all([

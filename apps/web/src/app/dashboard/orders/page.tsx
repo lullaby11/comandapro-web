@@ -60,6 +60,7 @@ export default function OrdersPage() {
   const [total, setTotal]           = useState(0);
   const [loading, setLoading]       = useState(true);
   const [filterStatus, setFilter]   = useState<OrderStatus | 'ALL'>('ALL');
+  const [filterDate, setFilterDate] = useState('');
   const [updating, setUpdating]     = useState<string | null>(null);
   const [printing, setPrinting]     = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Order | null>(null);
@@ -67,8 +68,11 @@ export default function OrdersPage() {
 
   const loadOrders = useCallback(async () => {
     try {
-      const params = filterStatus !== 'ALL' ? `?status=${filterStatus}` : '';
-      const res = await fetch(`${API}/api/orders${params}`, { headers: apiHeaders() });
+      const params = new URLSearchParams();
+      if (filterStatus !== 'ALL') params.set('status', filterStatus);
+      if (filterDate) params.set('date', filterDate);
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const res = await fetch(`${API}/api/orders${qs}`, { headers: apiHeaders() });
       if (!res.ok) throw new Error('Error cargando pedidos');
       const data = await res.json();
       const TERMINAL = new Set(['DELIVERED', 'CANCELLED']);
@@ -85,7 +89,7 @@ export default function OrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, [filterStatus]);
+  }, [filterStatus, filterDate]);
 
   useEffect(() => { loadOrders(); }, [loadOrders]);
 
@@ -185,9 +189,45 @@ export default function OrdersPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.2rem' }}>Pedidos</h1>
-          <p style={{ color: 'hsl(220 18% 65%)', fontSize: '0.9rem' }}>{total} pedido{total !== 1 ? 's' : ''} en total</p>
+          <p style={{ color: 'hsl(220 18% 65%)', fontSize: '0.9rem' }}>
+            {total} pedido{total !== 1 ? 's' : ''}
+            {filterDate && ` · ${new Date(filterDate + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}`}
+          </p>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Selector de fecha */}
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <input
+              type="date"
+              value={filterDate}
+              onChange={(e) => { setFilterDate(e.target.value); setLoading(true); }}
+              style={{
+                background: 'hsl(var(--surface2))',
+                border: `1px solid ${filterDate ? 'hsl(var(--primary))' : 'hsl(var(--border))'}`,
+                borderRadius: '0.5rem',
+                color: filterDate ? 'hsl(var(--text))' : 'hsl(var(--muted))',
+                padding: '0.375rem 0.875rem',
+                fontSize: '0.8125rem',
+                fontFamily: 'inherit',
+                outline: 'none',
+                cursor: 'pointer',
+                width: 'auto',
+              }}
+            />
+            {filterDate && (
+              <button
+                onClick={() => { setFilterDate(''); setLoading(true); }}
+                title="Quitar filtro de fecha"
+                style={{
+                  position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: 'hsl(var(--muted))', display: 'flex', padding: 2,
+                }}
+              >
+                <XCircle size={14} />
+              </button>
+            )}
+          </div>
           <button
             className="btn btn-ghost btn-sm"
             onClick={() => { setLoading(true); loadOrders(); }}
