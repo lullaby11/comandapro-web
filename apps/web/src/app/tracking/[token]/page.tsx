@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { use } from 'react';
 import {
-  Package, CheckCircle, Clock, Truck, XCircle,
+  Package, CheckCircle, Clock, Truck, XCircle, Navigation,
 } from 'lucide-react';
 
 function useCountdown(target: string | null) {
@@ -36,16 +36,18 @@ function formatCountdown(ms: number) {
 const API = '';
 
 const STATUS_INFO: Record<string, { label: string; color: string; icon: React.ElementType; step: number }> = {
-  PENDING:   { label: 'Pedido recibido',     color: 'hsl(38 95% 56%)',  icon: Clock,        step: 1 },
-  PREPARING: { label: 'En preparación',      color: 'hsl(25 100% 51%)',  icon: Package,      step: 2 },
-  READY:     { label: 'Listo para entregar', color: 'hsl(142 71% 45%)', icon: CheckCircle,  step: 3 },
-  DELIVERED: { label: 'Entregado',           color: 'hsl(142 71% 45%)', icon: Truck,        step: 4 },
-  CANCELLED: { label: 'Cancelado',           color: 'hsl(0 84% 60%)',   icon: XCircle,      step: 0 },
+  PENDING:          { label: 'Pedido recibido',     color: 'hsl(38 95% 56%)',  icon: Clock,        step: 1 },
+  PREPARING:        { label: 'En preparación',      color: 'hsl(25 100% 51%)', icon: Package,      step: 2 },
+  READY:            { label: 'Listo para entregar', color: 'hsl(142 71% 45%)', icon: CheckCircle,  step: 3 },
+  OUT_FOR_DELIVERY: { label: 'En reparto',          color: 'hsl(185 80% 45%)', icon: Navigation,   step: 4 },
+  DELIVERED:        { label: 'Entregado',           color: 'hsl(142 71% 45%)', icon: Truck,        step: 5 },
+  CANCELLED:        { label: 'Cancelado',           color: 'hsl(0 84% 60%)',   icon: XCircle,      step: 0 },
 };
 
 interface TrackingData {
   id: string;
   status: string;
+  isPickup: boolean;
   createdAt: string;
   updatedAt: string;
   estimatedDeliveryAt: string | null;
@@ -105,7 +107,9 @@ export default function TrackingPage({ params }: { params: Promise<{ token: stri
 
   const statusInfo = STATUS_INFO[data.status] ?? STATUS_INFO.PENDING;
   const StatusIcon = statusInfo.icon;
-  const steps = ['PENDING', 'PREPARING', 'READY', 'DELIVERED'];
+  const steps = data.isPickup
+    ? ['PENDING', 'PREPARING', 'READY', 'DELIVERED']
+    : ['PENDING', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED'];
   const isCancelled = data.status === 'CANCELLED';
   const isDelivered = data.status === 'DELIVERED';
 

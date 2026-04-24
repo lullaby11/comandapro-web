@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   ShoppingBag, Users, Package, TrendingUp,
-  PlusCircle, ArrowRight, Clock, CheckCircle2, ChefHat,
+  PlusCircle, ArrowRight, Clock, CheckCircle2, ChefHat, Navigation,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -21,6 +21,7 @@ interface DashboardStats {
   pendingOrders: number;
   preparingOrders: number;
   readyOrders: number;
+  outForDeliveryOrders: number;
   totalCustomers: number;
   outOfStock: number;
   recentOrders: Array<{
@@ -65,10 +66,11 @@ export default function DashboardPage() {
         setStats({
           todayOrders: todayOrders.length,
           todayRevenue,
-          pendingOrders:   ordersData.orders.filter((o: { status: string }) => o.status === 'PENDING').length,
-          preparingOrders: ordersData.orders.filter((o: { status: string }) => o.status === 'PREPARING').length,
-          readyOrders:     ordersData.orders.filter((o: { status: string }) => o.status === 'READY').length,
-          totalCustomers:  customersData.total,
+          pendingOrders:        ordersData.orders.filter((o: { status: string }) => o.status === 'PENDING').length,
+          preparingOrders:      ordersData.orders.filter((o: { status: string }) => o.status === 'PREPARING').length,
+          readyOrders:          ordersData.orders.filter((o: { status: string }) => o.status === 'READY').length,
+          outForDeliveryOrders: ordersData.orders.filter((o: { status: string }) => o.status === 'OUT_FOR_DELIVERY').length,
+          totalCustomers:       customersData.total,
           outOfStock:      productsData.filter((p) => p.stock === 0).length,
           recentOrders:    ordersData.orders.slice(0, 5),
         });
@@ -173,9 +175,10 @@ export default function DashboardPage() {
               <h2 style={{ fontWeight: 700, marginBottom: '1rem', fontSize: '0.9375rem' }}>Estado en vivo</h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {[
-                  { label: 'Pendientes',  count: stats.pendingOrders,   color: 'hsl(38 95% 56%)',  Icon: Clock },
-                  { label: 'Preparando', count: stats.preparingOrders, color: 'hsl(var(--primary))', Icon: ChefHat },
-                  { label: 'Listos',     count: stats.readyOrders,     color: 'hsl(142 71% 45%)', Icon: CheckCircle2 },
+                  { label: 'Pendientes',  count: stats.pendingOrders,        color: 'hsl(38 95% 56%)',    Icon: Clock },
+                  { label: 'Preparando',  count: stats.preparingOrders,      color: 'hsl(var(--primary))', Icon: ChefHat },
+                  { label: 'Listos',      count: stats.readyOrders,          color: 'hsl(142 71% 45%)',   Icon: CheckCircle2 },
+                  { label: 'En reparto',  count: stats.outForDeliveryOrders, color: 'hsl(185 80% 45%)',   Icon: Navigation },
                 ].map(({ label, count, color, Icon }) => (
                   <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem' }}>

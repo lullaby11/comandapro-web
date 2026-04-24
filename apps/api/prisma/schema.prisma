@@ -174,11 +174,12 @@ model OrderItem {
 }
 
 enum OrderStatus {
-  PENDING     // Recibido
-  PREPARING   // En cocina
-  READY       // Listo para entregar
-  DELIVERED   // Entregado
-  CANCELLED   // Cancelado
+  PENDING          // Recibido
+  PREPARING        // En cocina
+  READY            // Listo para entregar
+  OUT_FOR_DELIVERY // En reparto (solo domicilio)
+  DELIVERED        // Entregado
+  CANCELLED        // Cancelado
 }
 
 enum PaymentMethod {

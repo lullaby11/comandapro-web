@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
   PlusCircle, Search, Clock, ChefHat, CheckCircle2,
-  Truck, XCircle, RefreshCw, Eye, MessageCircle, Store, Printer,
+  Truck, XCircle, RefreshCw, Eye, MessageCircle, Store, Printer, Navigation,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -20,7 +20,7 @@ async function printViaWebUSB(buffer: Uint8Array) {
   await device.close();
 }
 
-type OrderStatus = 'PENDING' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED';
+type OrderStatus = 'PENDING' | 'PREPARING' | 'READY' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
 
 interface Order {
   id: string;
@@ -36,12 +36,19 @@ interface Order {
 }
 
 const STATUS_CONFIG: Record<OrderStatus, { label: string; className: string; icon: React.ElementType; next?: OrderStatus }> = {
-  PENDING:   { label: 'Pendiente',    className: 'badge-warning', icon: Clock,         next: 'PREPARING' },
-  PREPARING: { label: 'Preparando',   className: 'badge-primary', icon: ChefHat,       next: 'READY' },
-  READY:     { label: 'Listo',        className: 'badge-success', icon: CheckCircle2,  next: 'DELIVERED' },
-  DELIVERED: { label: 'Entregado',    className: 'badge-muted',   icon: Truck,         next: undefined },
-  CANCELLED: { label: 'Cancelado',    className: 'badge-danger',  icon: XCircle,       next: undefined },
+  PENDING:          { label: 'Pendiente',   className: 'badge-warning',  icon: Clock,         next: 'PREPARING' },
+  PREPARING:        { label: 'Preparando',  className: 'badge-primary',  icon: ChefHat,       next: 'READY' },
+  READY:            { label: 'Listo',       className: 'badge-success',  icon: CheckCircle2,  next: 'OUT_FOR_DELIVERY' },
+  OUT_FOR_DELIVERY: { label: 'En reparto',  className: 'badge-info',     icon: Navigation,    next: 'DELIVERED' },
+  DELIVERED:        { label: 'Entregado',   className: 'badge-muted',    icon: Truck,         next: undefined },
+  CANCELLED:        { label: 'Cancelado',   className: 'badge-danger',   icon: XCircle,       next: undefined },
 };
+
+// Los pedidos de recogida saltan de READY directamente a DELIVERED
+function getNextStatus(order: Order): OrderStatus | undefined {
+  if (order.status === 'READY' && order.isPickup) return 'DELIVERED';
+  return STATUS_CONFIG[order.status].next;
+}
 
 function apiHeaders() {
   const token = localStorage.getItem('token');
@@ -81,7 +88,7 @@ export default function OrdersPage() {
   }, [loadOrders]);
 
   async function advanceStatus(order: Order) {
-    const next = STATUS_CONFIG[order.status].next;
+    const next = getNextStatus(order);
     if (!next) return;
     setUpdating(order.id);
     try {
@@ -137,11 +144,12 @@ export default function OrdersPage() {
   }
 
   const filterTabs: Array<{ value: OrderStatus | 'ALL'; label: string }> = [
-    { value: 'ALL',       label: 'Todos' },
-    { value: 'PENDING',   label: 'Pendientes' },
-    { value: 'PREPARING', label: 'Preparando' },
-    { value: 'READY',     label: 'Listos' },
-    { value: 'DELIVERED', label: 'Entregados' },
+    { value: 'ALL',              label: 'Todos' },
+    { value: 'PENDING',          label: 'Pendientes' },
+    { value: 'PREPARING',        label: 'Preparando' },
+    { value: 'READY',            label: 'Listos' },
+    { value: 'OUT_FOR_DELIVERY', label: 'En reparto' },
+    { value: 'DELIVERED',        label: 'Entregados' },
   ];
 
   return (
@@ -203,10 +211,11 @@ export default function OrdersPage() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
           {orders.map((order, idx) => {
-            const cfg   = STATUS_CONFIG[order.status];
-            const Icon  = cfg.icon;
-            const isUpd = updating === order.id;
-            const canAdvance = !!cfg.next;
+            const cfg      = STATUS_CONFIG[order.status];
+            const Icon     = cfg.icon;
+            const isUpd    = updating === order.id;
+            const nextSt   = getNextStatus(order);
+            const canAdvance = !!nextSt;
             const canCancel  = order.status !== 'DELIVERED' && order.status !== 'CANCELLED';
 
             return (
@@ -227,7 +236,7 @@ export default function OrdersPage() {
                 <div
                   style={{
                     width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
-                    background: `hsl(${order.status === 'PENDING' ? '38 95% 56%' : order.status === 'PREPARING' ? '25 100% 51%' : order.status === 'READY' ? '142 71% 45%' : '220 18% 40%'} / 0.15)`,
+                    background: `hsl(${order.status === 'PENDING' ? '38 95% 56%' : order.status === 'PREPARING' ? '25 100% 51%' : order.status === 'READY' ? '142 71% 45%' : order.status === 'OUT_FOR_DELIVERY' ? '185 80% 45%' : '220 18% 40%'} / 0.15)`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}
                 >
@@ -237,6 +246,7 @@ export default function OrdersPage() {
                       color: order.status === 'PENDING' ? 'hsl(38 95% 56%)' :
                              order.status === 'PREPARING' ? 'hsl(25 100% 51%)' :
                              order.status === 'READY' ? 'hsl(142 71% 45%)' :
+                             order.status === 'OUT_FOR_DELIVERY' ? 'hsl(185 80% 45%)' :
                              order.status === 'CANCELLED' ? 'hsl(0 84% 60%)' :
                              'hsl(220 18% 55%)',
                     }}
@@ -329,7 +339,7 @@ export default function OrdersPage() {
                       {isUpd ? (
                         <span style={{ width: 14, height: 14, border: '2px solid white', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
                       ) : (
-                        <>→ {STATUS_CONFIG[cfg.next!].label}</>
+                        <>→ {STATUS_CONFIG[nextSt!].label}</>
                       )}
                     </button>
                   )}

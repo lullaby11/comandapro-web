@@ -170,7 +170,7 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
 // PATCH /orders/:id/status — Actualizar estado
 // ──────────────────────────────────────────────
 router.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
-  const schema = z.object({ status: z.enum(['PENDING', 'PREPARING', 'READY', 'DELIVERED', 'CANCELLED']) });
+  const schema = z.object({ status: z.enum(['PENDING', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED']) });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.flatten() });
