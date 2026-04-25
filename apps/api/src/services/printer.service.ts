@@ -29,6 +29,8 @@ export interface PrintOrderPayload {
     }>;
     subtotal: number;
     tax: number;
+    shippingCost: number;
+    shippingRateName?: string;
     total: number;
     paymentMethod: 'CASH' | 'CARD';
     cashGiven?: number;
@@ -146,6 +148,11 @@ export async function generateEscPosBuffer(
   enc = enc
     .line(rightAlign('Subtotal:', formatCurrency(order.subtotal, business.currency), lineWidth))
     .line(rightAlign('IVA:',      formatCurrency(order.tax,      business.currency), lineWidth));
+
+  if (order.shippingCost > 0) {
+    const shippingLabel = order.shippingRateName ? `Envío (${order.shippingRateName}):` : 'Envío:';
+    enc = enc.line(rightAlign(shippingLabel, formatCurrency(order.shippingCost, business.currency), lineWidth));
+  }
 
   enc = enc
     .bold(true)

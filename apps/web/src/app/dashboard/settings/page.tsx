@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Printer, Globe, Layers } from 'lucide-react';
+import { Save, Printer, Globe, Layers, Truck, Plus, Trash2, Pencil, Check, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const API = '';
@@ -19,10 +19,24 @@ interface BusinessSettings {
   taxRate: number;
 }
 
+interface ShippingRate {
+  id: string;
+  name: string;
+  price: number;
+  active: boolean;
+}
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<BusinessSettings | null>(null);
   const [loading, setLoading]   = useState(true);
   const [saving, setSaving]     = useState(false);
+
+  const [shippingRates, setShippingRates]       = useState<ShippingRate[]>([]);
+  const [loadingRates, setLoadingRates]         = useState(true);
+  const [newRate, setNewRate]                   = useState({ name: '', price: '' });
+  const [addingRate, setAddingRate]             = useState(false);
+  const [editingRateId, setEditingRateId]       = useState<string | null>(null);
+  const [editingRate, setEditingRate]           = useState({ name: '', price: '' });
 
   function apiHeaders() {
     const token = localStorage.getItem('token');
@@ -32,17 +46,75 @@ export default function SettingsPage() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(`${API}/api/settings`, { headers: apiHeaders() });
-        if (!res.ok) throw new Error('Error cargando ajustes');
-        setSettings(await res.json());
+        const [settingsRes, ratesRes] = await Promise.all([
+          fetch(`${API}/api/settings`, { headers: apiHeaders() }),
+          fetch(`${API}/api/shipping-rates`, { headers: apiHeaders() }),
+        ]);
+        if (!settingsRes.ok) throw new Error('Error cargando ajustes');
+        setSettings(await settingsRes.json());
+        if (ratesRes.ok) setShippingRates(await ratesRes.json());
       } catch {
         toast.error('Error cargando ajustes');
       } finally {
         setLoading(false);
+        setLoadingRates(false);
       }
     }
     load();
   }, []);
+
+  async function addShippingRate() {
+    if (!newRate.name || newRate.price === '') return;
+    setAddingRate(true);
+    try {
+      const res = await fetch(`${API}/api/shipping-rates`, {
+        method: 'POST',
+        headers: apiHeaders(),
+        body: JSON.stringify({ name: newRate.name, price: Number(newRate.price) }),
+      });
+      if (!res.ok) throw new Error('Error creando tarifa');
+      const rate = await res.json();
+      setShippingRates((prev) => [...prev, rate]);
+      setNewRate({ name: '', price: '' });
+      toast.success('Tarifa añadida');
+    } catch {
+      toast.error('Error creando tarifa');
+    } finally {
+      setAddingRate(false);
+    }
+  }
+
+  async function saveEditingRate() {
+    if (!editingRateId) return;
+    try {
+      const res = await fetch(`${API}/api/shipping-rates/${editingRateId}`, {
+        method: 'PATCH',
+        headers: apiHeaders(),
+        body: JSON.stringify({ name: editingRate.name, price: Number(editingRate.price) }),
+      });
+      if (!res.ok) throw new Error('Error actualizando tarifa');
+      const updated = await res.json();
+      setShippingRates((prev) => prev.map((r) => (r.id === editingRateId ? updated : r)));
+      setEditingRateId(null);
+      toast.success('Tarifa actualizada');
+    } catch {
+      toast.error('Error actualizando tarifa');
+    }
+  }
+
+  async function deleteShippingRate(id: string) {
+    try {
+      const res = await fetch(`${API}/api/shipping-rates/${id}`, {
+        method: 'DELETE',
+        headers: apiHeaders(),
+      });
+      if (!res.ok) throw new Error('Error eliminando tarifa');
+      setShippingRates((prev) => prev.filter((r) => r.id !== id));
+      toast.success('Tarifa eliminada');
+    } catch {
+      toast.error('Error eliminando tarifa');
+    }
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -232,6 +304,136 @@ export default function SettingsPage() {
           {saving ? 'Guardando…' : 'Guardar ajustes'}
         </button>
       </form>
+
+      {/* ── Tarifas de envío ── */}
+      <div className="card" style={{ marginTop: '2rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '1.25rem' }}>
+          <Truck size={18} style={{ color: 'hsl(var(--primary))' }} />
+          <h2 style={{ fontWeight: 700 }}>Tarifas de envío</h2>
+        </div>
+
+        {loadingRates ? (
+          <div style={{ color: 'hsl(var(--muted))', fontSize: '0.875rem' }}>Cargando tarifas…</div>
+        ) : (
+          <>
+            {shippingRates.length === 0 && (
+              <p style={{ color: 'hsl(var(--muted))', fontSize: '0.875rem', marginBottom: '1rem' }}>
+                No hay tarifas de envío configuradas.
+              </p>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', marginBottom: '1.25rem' }}>
+              {shippingRates.map((rate) => (
+                <div
+                  key={rate.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.75rem',
+                    background: 'hsl(var(--surface2))', borderRadius: 10,
+                    padding: '0.75rem 1rem', border: '1px solid hsl(var(--border))',
+                  }}
+                >
+                  {editingRateId === rate.id ? (
+                    <>
+                      <input
+                        type="text"
+                        value={editingRate.name}
+                        onChange={(e) => setEditingRate({ ...editingRate, name: e.target.value })}
+                        style={{ flex: 1, fontSize: '0.875rem' }}
+                        id={`edit-rate-name-${rate.id}`}
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={editingRate.price}
+                        onChange={(e) => setEditingRate({ ...editingRate, price: e.target.value })}
+                        style={{ width: 90, fontSize: '0.875rem' }}
+                        id={`edit-rate-price-${rate.id}`}
+                      />
+                      <button
+                        className="btn btn-sm btn-primary"
+                        onClick={saveEditingRate}
+                        id={`save-rate-${rate.id}`}
+                        style={{ padding: '0.25rem 0.5rem' }}
+                      >
+                        <Check size={14} />
+                      </button>
+                      <button
+                        className="btn btn-sm btn-ghost"
+                        onClick={() => setEditingRateId(null)}
+                        style={{ padding: '0.25rem 0.5rem' }}
+                      >
+                        <X size={14} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ flex: 1, fontWeight: 600, fontSize: '0.875rem' }}>{rate.name}</span>
+                      <span style={{ fontSize: '0.875rem', color: 'hsl(var(--primary))', fontWeight: 700, minWidth: 60, textAlign: 'right' }}>
+                        {Number(rate.price).toLocaleString('es-ES', { style: 'currency', currency: settings?.currency ?? 'EUR' })}
+                      </span>
+                      <button
+                        className="btn btn-sm btn-ghost"
+                        onClick={() => { setEditingRateId(rate.id); setEditingRate({ name: rate.name, price: String(rate.price) }); }}
+                        id={`edit-rate-${rate.id}`}
+                        style={{ padding: '0.25rem 0.5rem' }}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        className="btn btn-sm btn-ghost"
+                        onClick={() => deleteShippingRate(rate.id)}
+                        id={`delete-rate-${rate.id}`}
+                        style={{ padding: '0.25rem 0.5rem', color: 'hsl(0 84% 60%)' }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Añadir nueva tarifa */}
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted))' }}>Nombre</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Zona centro, Express…"
+                  value={newRate.name}
+                  onChange={(e) => setNewRate({ ...newRate, name: e.target.value })}
+                  style={{ marginTop: '0.25rem' }}
+                  id="new-rate-name"
+                />
+              </div>
+              <div style={{ width: 100 }}>
+                <label style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted))' }}>Precio</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={newRate.price}
+                  onChange={(e) => setNewRate({ ...newRate, price: e.target.value })}
+                  style={{ marginTop: '0.25rem' }}
+                  id="new-rate-price"
+                />
+              </div>
+              <button
+                className="btn btn-primary"
+                onClick={addShippingRate}
+                disabled={addingRate || !newRate.name || newRate.price === ''}
+                id="add-rate-btn"
+                style={{ flexShrink: 0 }}
+              >
+                <Plus size={16} />
+                Añadir
+              </button>
+            </div>
+          </>
+        )}
+      </div>
 
       <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }`}</style>
     </div>

@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, Plus, Minus, Trash2, Printer, UserPlus, Check, AlertCircle, Phone, X } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, Printer, UserPlus, Check, AlertCircle, Phone, X, Truck } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-interface Customer { id: string; name: string; phone: string; address?: string }
-interface Product  { id: string; name: string; price: number; stock: number; category?: string; imageUrl?: string; active: boolean }
-interface CartItem extends Product { quantity: number }
+interface Customer     { id: string; name: string; phone: string; address?: string }
+interface Product      { id: string; name: string; price: number; stock: number; category?: string; imageUrl?: string; active: boolean }
+interface CartItem     extends Product { quantity: number }
+interface ShippingRate { id: string; name: string; price: number; active: boolean }
 
 // ─── API Helper ──────────────────────────────────────────────────────────────
 function apiHeaders() {
@@ -52,6 +53,8 @@ export default function NewOrderPage() {
 
   // Pickup / delivery
   const [isPickup, setIsPickup] = useState(false);
+  const [shippingRates, setShippingRates]       = useState<ShippingRate[]>([]);
+  const [selectedShippingRateId, setSelectedShippingRateId] = useState<string>('');
 
   // Payment
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'CARD'>('CASH');
@@ -70,23 +73,30 @@ export default function NewOrderPage() {
 
   const phoneRef = useRef<HTMLInputElement>(null);
 
-  // ── Load products ──────────────────────────────────────────────────────────
+  // ── Load products & shipping rates ────────────────────────────────────────
   useEffect(() => {
-    async function loadProducts() {
+    async function loadData() {
       try {
-        const res = await fetch(`${API}/api/products?active=true`, { headers: apiHeaders() });
-        if (!res.ok) throw new Error('Error cargando productos');
-        const data: Product[] = await res.json();
+        const [prodRes, ratesRes] = await Promise.all([
+          fetch(`${API}/api/products?active=true`, { headers: apiHeaders() }),
+          fetch(`${API}/api/shipping-rates`, { headers: apiHeaders() }),
+        ]);
+        if (!prodRes.ok) throw new Error('Error cargando productos');
+        const data: Product[] = await prodRes.json();
         setProducts(data);
         const cats = ['all', ...Array.from(new Set(data.map((p) => p.category ?? 'Sin categoría')))];
         setCategories(cats);
+        if (ratesRes.ok) {
+          const rates: ShippingRate[] = await ratesRes.json();
+          setShippingRates(rates.filter((r) => r.active));
+        }
       } catch {
         toast.error('Error cargando productos');
       } finally {
         setLoadingProducts(false);
       }
     }
-    loadProducts();
+    loadData();
     phoneRef.current?.focus();
   }, []);
 
@@ -224,6 +234,9 @@ export default function NewOrderPage() {
 
   const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
+  const selectedRate = shippingRates.find((r) => r.id === selectedShippingRateId);
+  const shippingCost = !isPickup && selectedRate ? selectedRate.price : 0;
+  const totalWithShipping = subtotal + shippingCost;
 
   // ── Submit order ────────────────────────────────────────────────────────────
   async function submitOrder(print = false) {
@@ -253,6 +266,7 @@ export default function NewOrderPage() {
           estimatedDeliveryAt,
           paymentMethod,
           cashGiven: paymentMethod === 'CASH' && cashGiven ? Number(cashGiven) : undefined,
+          shippingRateId: !isPickup && selectedShippingRateId ? selectedShippingRateId : undefined,
           items: cart.map((i) => ({ productId: i.id, quantity: i.quantity })),
         }),
       });
@@ -308,6 +322,7 @@ export default function NewOrderPage() {
     setCart([]);
     setOrderNotes('');
     setIsPickup(false);
+    setSelectedShippingRateId('');
     setDeliveryMode('minutes');
     setDeliveryMinutes('');
     setDeliveryTime('');
@@ -744,6 +759,29 @@ export default function NewOrderPage() {
             </div>
           </button>
 
+          {/* Shipping rate selector (solo si no es recogida y hay tarifas) */}
+          {!isPickup && shippingRates.length > 0 && (
+            <div style={{ marginBottom: '0.75rem' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'hsl(var(--muted))', marginBottom: '0.375rem', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                <Truck size={12} />
+                Tipo de envío
+              </div>
+              <select
+                value={selectedShippingRateId}
+                onChange={(e) => setSelectedShippingRateId(e.target.value)}
+                style={{ background: 'hsl(222 40% 12%)', fontSize: '0.875rem' }}
+                id="shipping-rate-select"
+              >
+                <option value="">Sin tarifa de envío</option>
+                {shippingRates.map((rate) => (
+                  <option key={rate.id} value={rate.id}>
+                    {rate.name} — {rate.price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Delivery time */}
           <div style={{ marginBottom: '0.875rem' }}>
             <div style={{ display: 'flex', gap: '0.375rem', marginBottom: '0.5rem' }}>
@@ -837,13 +875,13 @@ export default function NewOrderPage() {
                   <div style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     padding: '0.5rem 0.75rem', borderRadius: 8, fontSize: '0.875rem',
-                    background: Number(cashGiven) >= subtotal ? 'hsl(142 71% 15% / 0.3)' : 'hsl(0 84% 20% / 0.3)',
-                    border: `1px solid ${Number(cashGiven) >= subtotal ? 'hsl(142 71% 45% / 0.4)' : 'hsl(0 84% 60% / 0.4)'}`,
+                    background: Number(cashGiven) >= totalWithShipping ? 'hsl(142 71% 15% / 0.3)' : 'hsl(0 84% 20% / 0.3)',
+                    border: `1px solid ${Number(cashGiven) >= totalWithShipping ? 'hsl(142 71% 45% / 0.4)' : 'hsl(0 84% 60% / 0.4)'}`,
                   }}>
                     <span style={{ color: 'hsl(var(--muted))', fontWeight: 500 }}>Cambio</span>
-                    <span style={{ fontWeight: 700, color: Number(cashGiven) >= subtotal ? 'hsl(142 71% 45%)' : 'hsl(0 84% 60%)' }}>
-                      {Number(cashGiven) >= subtotal
-                        ? (Number(cashGiven) - subtotal).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })
+                    <span style={{ fontWeight: 700, color: Number(cashGiven) >= totalWithShipping ? 'hsl(142 71% 45%)' : 'hsl(0 84% 60%)' }}>
+                      {Number(cashGiven) >= totalWithShipping
+                        ? (Number(cashGiven) - totalWithShipping).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })
                         : 'Importe insuficiente'}
                     </span>
                   </div>
@@ -853,11 +891,27 @@ export default function NewOrderPage() {
           </div>
 
           {/* Total */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <span style={{ color: 'hsl(220 18% 65%)', fontWeight: 600 }}>Total estimado</span>
-            <span style={{ fontSize: '1.5rem', fontWeight: 800, color: 'hsl(var(--primary))' }}>
-              {subtotal.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
-            </span>
+          <div style={{ marginBottom: '1rem' }}>
+            {shippingCost > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem', color: 'hsl(220 18% 55%)', marginBottom: '0.25rem' }}>
+                <span>Productos</span>
+                <span>{subtotal.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+              </div>
+            )}
+            {shippingCost > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem', color: 'hsl(220 18% 55%)', marginBottom: '0.375rem' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <Truck size={11} /> {selectedRate?.name}
+                </span>
+                <span>{shippingCost.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</span>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: 'hsl(220 18% 65%)', fontWeight: 600 }}>Total estimado</span>
+              <span style={{ fontSize: '1.5rem', fontWeight: 800, color: 'hsl(var(--primary))' }}>
+                {totalWithShipping.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+              </span>
+            </div>
           </div>
 
           {/* Action buttons */}

@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(npx tsc *)",
-      "Bash(aws apprunner *)"
+      "Bash(aws apprunner *)",
+      "Bash(npx prisma *)"
     ]
   }
 }

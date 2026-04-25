@@ -33,10 +33,11 @@ model Business {
   updatedAt      DateTime @updatedAt
 
   // Relaciones
-  users     BusinessUser[]
-  products  Product[]
-  customers Customer[]
-  orders    Order[]
+  users          BusinessUser[]
+  products       Product[]
+  customers      Customer[]
+  orders         Order[]
+  shippingRates  ShippingRate[]
 
   @@map("businesses")
 }
@@ -137,6 +138,8 @@ model Order {
   total         Decimal       @db.Decimal(10, 2)
   subtotal      Decimal       @db.Decimal(10, 2)
   tax           Decimal       @db.Decimal(10, 2) @default(0)
+  shippingCost  Decimal       @db.Decimal(10, 2) @default(0)
+  shippingRateId String?
   notes               String?
   isPickup            Boolean       @default(false)
   deliveryAddress     String?
@@ -147,14 +150,34 @@ model Order {
   createdAt           DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  business Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  customer Customer   @relation(fields: [customerId], references: [id])
-  items    OrderItem[]
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer     Customer      @relation(fields: [customerId], references: [id])
+  items        OrderItem[]
+  shippingRate ShippingRate? @relation(fields: [shippingRateId], references: [id])
 
   @@index([businessId])
   @@index([businessId, status])
   @@index([trackingToken])
   @@map("orders")
+}
+
+// ─────────────────────────────────────────────
+// TARIFAS DE ENVÍO (por tenant)
+// ─────────────────────────────────────────────
+model ShippingRate {
+  id         String   @id @default(cuid())
+  businessId String
+  name       String
+  price      Decimal  @db.Decimal(10, 2)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  orders   Order[]
+
+  @@index([businessId])
+  @@map("shipping_rates")
 }
 
 model OrderItem {

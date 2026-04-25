@@ -82,6 +82,7 @@ const createOrderSchema = z.object({
   estimatedDeliveryAt: z.string().datetime().optional(),
   paymentMethod: z.enum(['CASH', 'CARD']).optional().default('CASH'),
   cashGiven: z.number().positive().optional(),
+  shippingRateId: z.string().cuid().optional(),
   items: z
     .array(
       z.object({
@@ -99,7 +100,7 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     return;
   }
 
-  const { customerId, items, notes, deliveryAddress, estimatedDeliveryAt, isPickup, paymentMethod, cashGiven } = parsed.data;
+  const { customerId, items, notes, deliveryAddress, estimatedDeliveryAt, isPickup, paymentMethod, cashGiven, shippingRateId } = parsed.data;
   const businessId = req.businessId!;
 
   // 1. Validar stock antes de la transacción
@@ -126,6 +127,20 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     select: { taxRate: true, currency: true },
   });
 
+  // Obtener coste de envío si se indicó una tarifa
+  let shippingCost = 0;
+  if (shippingRateId) {
+    const rate = await prisma.shippingRate.findFirst({
+      where: { id: shippingRateId, businessId, active: true },
+      select: { price: true },
+    });
+    if (!rate) {
+      res.status(400).json({ error: 'Tarifa de envío no válida' });
+      return;
+    }
+    shippingCost = Number(rate.price);
+  }
+
   const orderItems = items.map((item) => {
     const product = productMap.get(item.productId)!;
     const unitPrice = Number(product.price);
@@ -135,7 +150,7 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
 
   const subtotal = orderItems.reduce((sum, i) => sum + i.subtotal, 0);
   const tax = subtotal * ((business?.taxRate ?? 0) / 100);
-  const total = subtotal + tax;
+  const total = subtotal + tax + shippingCost;
 
   // 4. Crear pedido + descontar stock en transacción atómica
   const order = await prisma.$transaction(async (tx) => {
@@ -151,6 +166,8 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
         estimatedDeliveryAt: estimatedDeliveryAt ? new Date(estimatedDeliveryAt) : undefined,
         paymentMethod: paymentMethod ?? 'CASH',
         cashGiven: cashGiven ?? undefined,
+        shippingRateId: shippingRateId ?? undefined,
+        shippingCost,
         subtotal,
         tax,
         total,
@@ -167,6 +184,7 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
         customer: true,
         items: { include: { product: true } },
         business: true,
+        shippingRate: true,
       },
     });
   });
@@ -235,6 +253,7 @@ router.post('/:id/print', async (req: AuthenticatedRequest, res) => {
       customer: true,
       items: { include: { product: true } },
       business: true,
+      shippingRate: true,
     },
   });
 
@@ -272,6 +291,8 @@ router.post('/:id/print', async (req: AuthenticatedRequest, res) => {
       })),
       subtotal: Number(order.subtotal),
       tax: Number(order.tax),
+      shippingCost: Number(order.shippingCost),
+      shippingRateName: order.shippingRate?.name ?? undefined,
       total: Number(order.total),
       paymentMethod: order.paymentMethod,
       cashGiven: order.cashGiven ? Number(order.cashGiven) : undefined,
