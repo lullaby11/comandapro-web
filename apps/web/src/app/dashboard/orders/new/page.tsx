@@ -235,7 +235,7 @@ export default function NewOrderPage() {
   const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
   const selectedRate = shippingRates.find((r) => r.id === selectedShippingRateId);
-  const shippingCost = !isPickup && selectedRate ? selectedRate.price : 0;
+  const shippingCost = !isPickup && selectedRate ? Number(selectedRate.price) : 0;
   const totalWithShipping = subtotal + shippingCost;
 
   // ── Submit order ────────────────────────────────────────────────────────────
@@ -775,7 +775,7 @@ export default function NewOrderPage() {
                 <option value="">Sin tarifa de envío</option>
                 {shippingRates.map((rate) => (
                   <option key={rate.id} value={rate.id}>
-                    {rate.name} — {rate.price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                    {rate.name} — {Number(rate.price).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                   </option>
                 ))}
               </select>
