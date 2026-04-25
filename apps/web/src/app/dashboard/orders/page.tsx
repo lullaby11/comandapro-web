@@ -61,6 +61,7 @@ export default function OrdersPage() {
   const [loading, setLoading]       = useState(true);
   const [filterStatus, setFilter]   = useState<OrderStatus | 'ALL'>('ALL');
   const [filterDate, setFilterDate] = useState('');
+  const [pageSize, setPageSize]     = useState(20);
   const [updating, setUpdating]     = useState<string | null>(null);
   const [printing, setPrinting]     = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Order | null>(null);
@@ -71,6 +72,7 @@ export default function OrdersPage() {
       const params = new URLSearchParams();
       if (filterStatus !== 'ALL') params.set('status', filterStatus);
       if (filterDate) params.set('date', filterDate);
+      params.set('limit', String(pageSize));
       const qs = params.toString() ? `?${params.toString()}` : '';
       const res = await fetch(`${API}/api/orders${qs}`, { headers: apiHeaders() });
       if (!res.ok) throw new Error('Error cargando pedidos');
@@ -89,7 +91,7 @@ export default function OrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, [filterStatus, filterDate]);
+  }, [filterStatus, filterDate, pageSize]);
 
   useEffect(() => { loadOrders(); }, [loadOrders]);
 
@@ -228,6 +230,26 @@ export default function OrdersPage() {
               </button>
             )}
           </div>
+          {/* Selector de cantidad */}
+          <select
+            value={pageSize}
+            onChange={(e) => { setPageSize(Number(e.target.value)); setLoading(true); }}
+            style={{
+              background: 'hsl(var(--surface2))',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: '0.5rem',
+              color: 'hsl(var(--text))',
+              padding: '0.375rem 0.75rem',
+              fontSize: '0.8125rem',
+              fontFamily: 'inherit',
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <option value={20}>20 pedidos</option>
+            <option value={50}>50 pedidos</option>
+            <option value={100}>100 pedidos</option>
+          </select>
           <button
             className="btn btn-ghost btn-sm"
             onClick={() => { setLoading(true); loadOrders(); }}
