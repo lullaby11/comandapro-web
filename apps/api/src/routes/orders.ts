@@ -283,6 +283,7 @@ router.post('/:id/print', async (req: AuthenticatedRequest, res) => {
       trackingToken: order.trackingToken,
       notes: order.notes ?? undefined,
       createdAt: order.createdAt,
+      estimatedDeliveryAt: order.estimatedDeliveryAt ?? undefined,
       items: order.items.map((item) => ({
         productName: item.product.name,
         quantity: item.quantity,

@@ -21,6 +21,7 @@ export interface PrintOrderPayload {
     trackingToken: string;
     notes?: string;
     createdAt: Date;
+    estimatedDeliveryAt?: Date;
     items: Array<{
       productName: string;
       quantity: number;
@@ -119,8 +120,13 @@ export async function generateEscPosBuffer(
   enc = enc
     .newline()
     .line(`Pedido : #${order.id.slice(-8).toUpperCase()}`)
-    .line(`Fecha  : ${dateStr}`)
-    .rule({ style: 'single', width: lineWidth });
+    .line(`Fecha  : ${dateStr}`);
+
+  if (order.estimatedDeliveryAt) {
+    enc = enc.line(`Entrega: ${formatTime(order.estimatedDeliveryAt)}`);
+  }
+
+  enc = enc.rule({ style: 'single', width: lineWidth });
 
   // ──────────────────────────────────────────
   // ARTÍCULOS
@@ -256,6 +262,15 @@ function formatDate(date: Date): string {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'Europe/Madrid',
+  }).format(date);
+}
+
+function formatTime(date: Date): string {
+  return new Intl.DateTimeFormat('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Madrid',
   }).format(date);
 }
 
