@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, Plus, Minus, Trash2, Printer, UserPlus, Check, AlertCircle, Phone, X, Truck } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, Printer, UserPlus, Check, AlertCircle, Phone, X, Truck, User } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -31,7 +31,8 @@ async function printViaWebUSB(buffer: Uint8Array) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function NewOrderPage() {
   // Customer
-  const [phoneInput, setPhoneInput]     = useState('');
+  const [searchMode, setSearchMode]     = useState<'phone' | 'name'>('phone');
+  const [searchInput, setSearchInput]   = useState('');
   const [customer, setCustomer]         = useState<Customer | null>(null);
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [newCust, setNewCust]           = useState({ name: '', phone: '', address: '' });
@@ -102,7 +103,8 @@ export default function NewOrderPage() {
 
   // ── Live suggestions as user types ─────────────────────────────────────────
   useEffect(() => {
-    if (phoneInput.length < 3) {
+    const minLength = searchMode === 'name' ? 2 : 3;
+    if (searchInput.length < minLength) {
       setSuggestions([]);
       setShowDropdown(false);
       return;
@@ -110,8 +112,11 @@ export default function NewOrderPage() {
     setSearchingCustomer(true);
     const timer = setTimeout(async () => {
       try {
+        const param = searchMode === 'name'
+          ? `name=${encodeURIComponent(searchInput)}`
+          : `phone=${encodeURIComponent(searchInput)}`;
         const res = await fetch(
-          `${API}/api/customers?phone=${encodeURIComponent(phoneInput)}&limit=6`,
+          `${API}/api/customers?${param}&limit=6`,
           { headers: apiHeaders() },
         );
         if (res.ok) {
@@ -126,7 +131,7 @@ export default function NewOrderPage() {
       }
     }, 300);
     return () => { clearTimeout(timer); setSearchingCustomer(false); };
-  }, [phoneInput]);
+  }, [searchInput, searchMode]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -141,16 +146,15 @@ export default function NewOrderPage() {
 
   function selectSuggestion(c: Customer) {
     setCustomer(c);
-    setPhoneInput(c.phone);
+    setSearchInput(c.phone);
     setShowDropdown(false);
     setSuggestions([]);
     setShowNewCustomer(false);
   }
 
-  // ── Exact search (Enter / button) ──────────────────────────────────────────
-  const searchCustomer = useCallback(async (phone: string) => {
+  // ── Exact search by phone (Enter / button) ─────────────────────────────────
+  const searchCustomerByPhone = useCallback(async (phone: string) => {
     if (phone.length < 6) return;
-    // If we already have an exact suggestion, just use it
     const exact = suggestions.find((s) => s.phone === phone);
     if (exact) { selectSuggestion(exact); return; }
 
@@ -316,7 +320,7 @@ export default function NewOrderPage() {
 
   function resetOrder() {
     setCustomer(null);
-    setPhoneInput('');
+    setSearchInput('');
     setSuggestions([]);
     setShowDropdown(false);
     setCart([]);
@@ -528,7 +532,7 @@ export default function NewOrderPage() {
                   )}
                 </div>
                 <button
-                  onClick={() => { setCustomer(null); setPhoneInput(''); setSuggestions([]); setTimeout(() => phoneRef.current?.focus(), 50); }}
+                  onClick={() => { setCustomer(null); setSearchInput(''); setSuggestions([]); setTimeout(() => phoneRef.current?.focus(), 50); }}
                   className="btn btn-sm btn-ghost"
                   style={{ padding: '0.25rem 0.5rem', flexShrink: 0 }}
                 >
@@ -538,40 +542,65 @@ export default function NewOrderPage() {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-              {/* Phone input with live-search dropdown */}
+              {/* Mode toggle */}
+              <div style={{ display: 'flex', gap: '0.375rem' }}>
+                <button
+                  type="button"
+                  onClick={() => { setSearchMode('phone'); setSearchInput(''); setSuggestions([]); setShowDropdown(false); setTimeout(() => phoneRef.current?.focus(), 50); }}
+                  className={`btn btn-sm ${searchMode === 'phone' ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem' }}
+                >
+                  <Phone size={12} /> Teléfono
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setSearchMode('name'); setSearchInput(''); setSuggestions([]); setShowDropdown(false); setTimeout(() => phoneRef.current?.focus(), 50); }}
+                  className={`btn btn-sm ${searchMode === 'name' ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{ flex: 1, justifyContent: 'center', fontSize: '0.8rem' }}
+                >
+                  <User size={12} /> Nombre
+                </button>
+              </div>
+
+              {/* Search input with live-search dropdown */}
               <div ref={dropdownRef} style={{ position: 'relative' }}>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <div style={{ flex: 1, position: 'relative' }}>
-                    <Phone size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'hsl(220 18% 55%)' }} />
+                    {searchMode === 'phone'
+                      ? <Phone size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'hsl(220 18% 55%)' }} />
+                      : <User  size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'hsl(220 18% 55%)' }} />
+                    }
                     {searchingCustomer && (
                       <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, border: '2px solid hsl(var(--primary))', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
                     )}
                     <input
                       ref={phoneRef}
-                      type="tel"
-                      placeholder="Teléfono del cliente"
-                      value={phoneInput}
-                      onChange={(e) => { setPhoneInput(e.target.value); setShowNewCustomer(false); }}
-                      onKeyDown={(e) => e.key === 'Enter' && searchCustomer(phoneInput)}
+                      type={searchMode === 'phone' ? 'tel' : 'text'}
+                      placeholder={searchMode === 'phone' ? 'Teléfono del cliente' : 'Nombre del cliente'}
+                      value={searchInput}
+                      onChange={(e) => { setSearchInput(e.target.value); setShowNewCustomer(false); }}
+                      onKeyDown={(e) => e.key === 'Enter' && searchMode === 'phone' && searchCustomerByPhone(searchInput)}
                       onFocus={() => suggestions.length > 0 && setShowDropdown(true)}
                       style={{ paddingLeft: '2rem', paddingRight: searchingCustomer ? '2rem' : undefined, background: 'hsl(222 40% 13%)' }}
-                      id="customer-phone"
+                      id="customer-search"
                       autoComplete="off"
                     />
                   </div>
-                  <button
-                    className="btn btn-primary btn-sm"
-                    onClick={() => searchCustomer(phoneInput)}
-                    disabled={searchingCustomer || phoneInput.length < 6}
-                    id="search-customer-btn"
-                    style={{ flexShrink: 0 }}
-                  >
-                    <Search size={14} />
-                  </button>
+                  {searchMode === 'phone' && (
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => searchCustomerByPhone(searchInput)}
+                      disabled={searchingCustomer || searchInput.length < 6}
+                      id="search-customer-btn"
+                      style={{ flexShrink: 0 }}
+                    >
+                      <Search size={14} />
+                    </button>
+                  )}
                 </div>
 
                 {/* Autocomplete dropdown */}
-                {showDropdown && (suggestions.length > 0 || phoneInput.length >= 6) && (
+                {showDropdown && (suggestions.length > 0 || (searchMode === 'phone' && searchInput.length >= 6)) && (
                   <div
                     style={{
                       position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 50,
@@ -602,10 +631,10 @@ export default function NewOrderPage() {
                         </div>
                       </button>
                     ))}
-                    {suggestions.length === 0 && phoneInput.length >= 6 && (
+                    {suggestions.length === 0 && searchMode === 'phone' && searchInput.length >= 6 && (
                       <button
                         type="button"
-                        onMouseDown={(e) => { e.preventDefault(); setShowDropdown(false); setShowNewCustomer(true); setNewCust((p) => ({ ...p, phone: phoneInput })); }}
+                        onMouseDown={(e) => { e.preventDefault(); setShowDropdown(false); setShowNewCustomer(true); setNewCust((p) => ({ ...p, phone: searchInput })); }}
                         style={{
                           display: 'flex', alignItems: 'center', gap: '0.5rem',
                           width: '100%', padding: '0.75rem 0.875rem',
