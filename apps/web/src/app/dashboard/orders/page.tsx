@@ -27,6 +27,7 @@ interface Order {
   status: OrderStatus;
   total: number;
   createdAt: string;
+  estimatedDeliveryAt: string | null;
   trackingToken: string;
   isPickup: boolean;
   paymentMethod: 'CASH' | 'CARD' | null;
@@ -393,8 +394,15 @@ export default function OrdersPage() {
                   <div style={{ fontWeight: 800, fontSize: '1.0625rem', color: 'hsl(var(--primary))' }}>
                     {Number(order.total).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: 'hsl(207 20% 55%)', marginTop: 2 }}>
-                    {new Date(order.createdAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                  <div style={{ fontSize: '0.75rem', color: 'hsl(207 20% 55%)', marginTop: 2, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem' }}>
+                    <span title="Hora de recepción">
+                      📥 {new Date(order.createdAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    {order.estimatedDeliveryAt && (
+                      <span title="Hora de entrega" style={{ color: 'hsl(25 100% 55%)' }}>
+                        🕐 {new Date(order.estimatedDeliveryAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
                   </div>
                   <div style={{ fontSize: '0.7rem', marginTop: 3, color: 'hsl(207 20% 55%)' }}>
                     {(order.paymentMethod ?? 'CASH') === 'CASH' ? '💵 Efectivo' : '💳 Tarjeta'}

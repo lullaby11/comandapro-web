@@ -147,34 +147,79 @@ export default function TrackingPage({ params }: { params: Promise<{ token: stri
             size={48}
             style={{ color: statusInfo.color, margin: '0 auto 1rem', display: 'block' }}
           />
-          <div style={{ fontSize: '1.375rem', fontWeight: 800, color: statusInfo.color, marginBottom: '0.25rem' }}>
+          <div style={{ fontSize: '1.375rem', fontWeight: 800, color: statusInfo.color, marginBottom: '0.75rem' }}>
             {statusInfo.label}
           </div>
-          <div style={{ color: 'hsl(207 20% 65%)', fontSize: '0.875rem' }}>
-            Última actualización: {new Date(data.updatedAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+          {/* Reception + Delivery times */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '0.7rem', color: 'hsl(207 20% 50%)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.2rem' }}>
+                Recepción
+              </div>
+              <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'hsl(207 20% 80%)' }}>
+                {new Date(data.createdAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            </div>
+            {data.estimatedDeliveryAt && (
+              <>
+                <div style={{ alignSelf: 'center', color: 'hsl(207 20% 40%)', fontSize: '1.25rem' }}>→</div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'hsl(207 20% 50%)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.2rem' }}>
+                    Entrega
+                  </div>
+                  <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'hsl(25 100% 60%)' }}>
+                    {new Date(data.estimatedDeliveryAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Estimated delivery countdown */}
+        {/* Countdown clock */}
         {data.estimatedDeliveryAt && !isCancelled && !isDelivered && (
           <div
             className="card animate-fade-up"
-            style={{ marginBottom: '1.25rem', padding: '1.25rem 1.75rem', textAlign: 'center', border: '1px solid hsl(25 100% 51% / 0.25)' }}
+            style={{ marginBottom: '1.25rem', padding: '1.5rem 1.75rem', textAlign: 'center', border: '1px solid hsl(25 100% 51% / 0.3)' }}
           >
-            <div style={{ fontSize: '0.75rem', color: 'hsl(207 20% 65%)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.375rem' }}>
-              Tiempo estimado de entrega
+            <div style={{ fontSize: '0.7rem', color: 'hsl(207 20% 55%)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.625rem' }}>
+              Tiempo restante
             </div>
             {countdown === null ? null : countdown === 0 ? (
-              <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'hsl(142 71% 45%)' }}>
+              <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'hsl(142 71% 45%)' }}>
                 ¡Tu pedido llega enseguida!
               </div>
             ) : (
               <>
-                <div style={{ fontSize: '2rem', fontWeight: 800, color: 'hsl(25 100% 51%)', letterSpacing: '-0.02em' }}>
-                  {formatCountdown(countdown)}
+                {/* Clock face */}
+                <div style={{ position: 'relative', width: 120, height: 120, margin: '0 auto 0.75rem' }}>
+                  <svg viewBox="0 0 120 120" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
+                    <circle cx="60" cy="60" r="52" fill="none" stroke="hsl(207 40% 18%)" strokeWidth="8" />
+                    <circle
+                      cx="60" cy="60" r="52"
+                      fill="none"
+                      stroke="hsl(25 100% 51%)"
+                      strokeWidth="8"
+                      strokeLinecap="round"
+                      strokeDasharray={`${2 * Math.PI * 52}`}
+                      strokeDashoffset={`${2 * Math.PI * 52 * (1 - Math.min(countdown / (60 * 60 * 1000), 1))}`}
+                      style={{ transition: 'stroke-dashoffset 1s linear' }}
+                    />
+                  </svg>
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'hsl(25 100% 60%)', lineHeight: 1, letterSpacing: '-0.03em' }}>
+                      {formatCountdown(countdown)}
+                    </div>
+                  </div>
                 </div>
-                <div style={{ fontSize: '0.8125rem', color: 'hsl(207 20% 65%)', marginTop: '0.25rem' }}>
-                  Previsto para las {new Date(data.estimatedDeliveryAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                <div style={{ fontSize: '0.8125rem', color: 'hsl(207 20% 55%)' }}>
+                  Previsto para las{' '}
+                  <span style={{ color: 'hsl(25 100% 60%)', fontWeight: 600 }}>
+                    {new Date(data.estimatedDeliveryAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
                 </div>
               </>
             )}
