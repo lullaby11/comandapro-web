@@ -19,6 +19,7 @@ import customersRoutes from './routes/customers';
 import settingsRoutes from './routes/settings';
 import trackingRoutes from './routes/tracking';
 import shippingRatesRoutes from './routes/shipping-rates';
+import servicesRoutes from './routes/services';
 
 const app = express();
 const PORT = process.env.PORT ?? 4000;
@@ -47,6 +48,7 @@ app.use('/api/customers', customersRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/tracking', trackingRoutes);
 app.use('/api/shipping-rates', shippingRatesRoutes);
+app.use('/api/services', servicesRoutes);
 
 // ─── Error Handler ───────────────────────────────────────────────────────────
 app.use(

@@ -38,6 +38,7 @@ model Business {
   customers      Customer[]
   orders         Order[]
   shippingRates  ShippingRate[]
+  services       Service[]
 
   @@map("businesses")
 }
@@ -133,6 +134,7 @@ model Order {
   id            String        @id @default(cuid())
   businessId    String
   customerId    String
+  serviceId     String?
   trackingToken String        @unique @default(cuid())
   status        OrderStatus   @default(PENDING)
   total         Decimal       @db.Decimal(10, 2)
@@ -154,11 +156,30 @@ model Order {
   customer     Customer      @relation(fields: [customerId], references: [id])
   items        OrderItem[]
   shippingRate ShippingRate? @relation(fields: [shippingRateId], references: [id])
+  service      Service?      @relation(fields: [serviceId], references: [id])
 
   @@index([businessId])
   @@index([businessId, status])
+  @@index([businessId, serviceId])
   @@index([trackingToken])
   @@map("orders")
+}
+
+// ─────────────────────────────────────────────
+// SERVICIOS (turnos de trabajo)
+// ─────────────────────────────────────────────
+model Service {
+  id         String    @id @default(cuid())
+  businessId String
+  startedAt  DateTime  @default(now())
+  endedAt    DateTime?
+  createdAt  DateTime  @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  orders   Order[]
+
+  @@index([businessId])
+  @@map("services")
 }
 
 // ─────────────────────────────────────────────

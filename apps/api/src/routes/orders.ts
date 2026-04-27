@@ -12,23 +12,22 @@ const router = Router();
 router.use(authMiddleware);
 
 // ──────────────────────────────────────────────
-// GET /orders — Listar pedidos del local
+// GET /orders — Listar pedidos del servicio activo
 // ──────────────────────────────────────────────
 router.get('/', async (req: AuthenticatedRequest, res) => {
-  const { status, page = '1', limit = '20', notPrinted, date } = req.query;
+  const { status, page = '1', limit = '20', notPrinted } = req.query;
 
-  let dateFilter = {};
-  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    const start = new Date(`${date}T00:00:00.000Z`);
-    const end   = new Date(`${date}T23:59:59.999Z`);
-    dateFilter = { createdAt: { gte: start, lte: end } };
-  }
+  // Filtrar solo por el servicio activo
+  const activeService = await prisma.service.findFirst({
+    where: { businessId: req.businessId!, endedAt: null },
+    select: { id: true },
+  });
 
   const where = {
     businessId: req.businessId!,
+    serviceId: activeService?.id ?? '__no_service__',
     ...(status ? { status: status as OrderStatus } : {}),
     ...(notPrinted === 'true' ? { printedAt: null } : {}),
-    ...dateFilter,
   };
 
   const [orders, total] = await Promise.all([
@@ -103,6 +102,17 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
   const { customerId, items, notes, deliveryAddress, estimatedDeliveryAt, isPickup, paymentMethod, cashGiven, shippingRateId } = parsed.data;
   const businessId = req.businessId!;
 
+  // 0. Verificar que hay un servicio activo
+  const activeService = await prisma.service.findFirst({
+    where: { businessId, endedAt: null },
+    select: { id: true },
+  });
+
+  if (!activeService) {
+    res.status(409).json({ error: 'No hay ningún servicio activo. Inicia un servicio antes de crear pedidos.' });
+    return;
+  }
+
   // 1. Validar stock antes de la transacción
   const stockValidation = await validateStock(businessId, items);
   if (!stockValidation.valid) {
@@ -160,6 +170,7 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
       data: {
         businessId,
         customerId,
+        serviceId: activeService.id,
         isPickup: isPickup ?? false,
         deliveryAddress,
         notes,

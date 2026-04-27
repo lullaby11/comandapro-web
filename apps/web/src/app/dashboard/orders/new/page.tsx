@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, Plus, Minus, Trash2, Printer, UserPlus, Check, AlertCircle, Phone, X, Truck, User } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Search, Plus, Minus, Trash2, Printer, UserPlus, Check, AlertCircle, Phone, X, Truck, User, Play } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -30,6 +31,12 @@ async function printViaWebUSB(buffer: Uint8Array) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function NewOrderPage() {
+  const router = useRouter();
+
+  // Service check
+  const [serviceChecked, setServiceChecked] = useState(false);
+  const [hasActiveService, setHasActiveService] = useState(false);
+
   // Customer
   const [searchMode, setSearchMode]     = useState<'phone' | 'name'>('phone');
   const [searchInput, setSearchInput]   = useState('');
@@ -73,6 +80,22 @@ export default function NewOrderPage() {
   const [orderDone, setOrderDone]       = useState(false);
 
   const phoneRef = useRef<HTMLInputElement>(null);
+
+  // ── Check active service ──────────────────────────────────────────────────
+  useEffect(() => {
+    async function checkService() {
+      try {
+        const res = await fetch(`${API}/api/services/active`, { headers: apiHeaders() });
+        if (res.ok) {
+          const data = await res.json();
+          setHasActiveService(!!data.service);
+        }
+      } finally {
+        setServiceChecked(true);
+      }
+    }
+    checkService();
+  }, []);
 
   // ── Load products & shipping rates ────────────────────────────────────────
   useEffect(() => {
@@ -344,6 +367,37 @@ export default function NewOrderPage() {
       p.name.toLowerCase().includes(productSearch.toLowerCase());
     return matchCat && matchSearch;
   });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // NO ACTIVE SERVICE
+  // ─────────────────────────────────────────────────────────────────────────
+  if (serviceChecked && !hasActiveService) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', padding: '2rem' }}>
+        <div className="card animate-fade-up" style={{ maxWidth: 440, width: '100%', textAlign: 'center', padding: '3rem 2rem' }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: '50%', margin: '0 auto 1.5rem',
+            background: 'hsl(220 18% 20%)', border: '2px solid hsl(220 18% 30%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Play size={28} style={{ color: 'hsl(220 18% 55%)' }} />
+          </div>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.75rem' }}>
+            Sin servicio activo
+          </h2>
+          <p style={{ fontSize: '0.9rem', color: 'hsl(var(--muted))', marginBottom: '2rem', lineHeight: 1.6 }}>
+            No se pueden crear pedidos hasta que se inicie un servicio. Ve a la lista de pedidos para iniciarlo.
+          </p>
+          <button
+            className="btn btn-primary"
+            onClick={() => router.push('/dashboard/orders')}
+          >
+            Ir a Pedidos
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // ORDER DONE STATE

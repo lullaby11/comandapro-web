@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   PlusCircle, Search, Clock, ChefHat, CheckCircle2,
   Truck, XCircle, RefreshCw, Eye, MessageCircle, Store, Printer, Navigation, Trash2,
+  Play, StopCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -21,6 +22,12 @@ async function printViaWebUSB(buffer: Uint8Array) {
 }
 
 type OrderStatus = 'PENDING' | 'PREPARING' | 'READY' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
+
+interface Service {
+  id: string;
+  startedAt: string;
+  endedAt: string | null;
+}
 
 interface Order {
   id: string;
@@ -45,7 +52,6 @@ const STATUS_CONFIG: Record<OrderStatus, { label: string; className: string; ico
   CANCELLED:        { label: 'Cancelado',   className: 'badge-danger',   icon: XCircle,       next: undefined },
 };
 
-// Los pedidos de recogida saltan de READY directamente a DELIVERED
 function getNextStatus(order: Order): OrderStatus | undefined {
   if (order.status === 'READY' && order.isPickup) return 'DELIVERED';
   return STATUS_CONFIG[order.status].next;
@@ -56,23 +62,43 @@ function apiHeaders() {
   return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
 }
 
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
 export default function OrdersPage() {
-  const [orders, setOrders]         = useState<Order[]>([]);
-  const [total, setTotal]           = useState(0);
-  const [loading, setLoading]       = useState(true);
-  const [filterStatus, setFilter]   = useState<OrderStatus | 'ALL'>('ALL');
-  const [filterDate, setFilterDate] = useState('');
-  const [pageSize, setPageSize]     = useState(20);
-  const [updating, setUpdating]     = useState<string | null>(null);
-  const [printing, setPrinting]     = useState<string | null>(null);
+  const [service, setService]           = useState<Service | null | undefined>(undefined);
+  const [orders, setOrders]             = useState<Order[]>([]);
+  const [total, setTotal]               = useState(0);
+  const [loading, setLoading]           = useState(true);
+  const [filterStatus, setFilter]       = useState<OrderStatus | 'ALL'>('ALL');
+  const [pageSize, setPageSize]         = useState(20);
+  const [updating, setUpdating]         = useState<string | null>(null);
+  const [printing, setPrinting]         = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Order | null>(null);
-  const [deleting, setDeleting]     = useState(false);
+  const [deleting, setDeleting]         = useState(false);
+  const [serviceLoading, setServiceLoading] = useState(false);
+  const [confirmEndService, setConfirmEndService] = useState(false);
+
+  const loadService = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/api/services/active`, { headers: apiHeaders() });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setService(data.service);
+    } catch {
+      setService(null);
+    }
+  }, []);
 
   const loadOrders = useCallback(async () => {
     try {
       const params = new URLSearchParams();
       if (filterStatus !== 'ALL') params.set('status', filterStatus);
-      if (filterDate) params.set('date', filterDate);
       params.set('limit', String(pageSize));
       const qs = params.toString() ? `?${params.toString()}` : '';
       const res = await fetch(`${API}/api/orders${qs}`, { headers: apiHeaders() });
@@ -92,15 +118,60 @@ export default function OrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, [filterStatus, filterDate, pageSize]);
+  }, [filterStatus, pageSize]);
 
+  useEffect(() => { loadService(); }, [loadService]);
   useEffect(() => { loadOrders(); }, [loadOrders]);
 
-  // Auto-refresh each 30s
   useEffect(() => {
     const iv = setInterval(loadOrders, 30_000);
     return () => clearInterval(iv);
   }, [loadOrders]);
+
+  async function startService() {
+    setServiceLoading(true);
+    try {
+      const res = await fetch(`${API}/api/services/start`, {
+        method: 'POST',
+        headers: apiHeaders(),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? 'Error iniciando servicio');
+      }
+      toast.success('Servicio iniciado');
+      await loadService();
+      setLoading(true);
+      loadOrders();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Error iniciando servicio');
+    } finally {
+      setServiceLoading(false);
+    }
+  }
+
+  async function endService() {
+    setConfirmEndService(false);
+    setServiceLoading(true);
+    try {
+      const res = await fetch(`${API}/api/services/end`, {
+        method: 'POST',
+        headers: apiHeaders(),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? 'Error finalizando servicio');
+      }
+      toast.success('Servicio finalizado. Todos los pedidos marcados como entregados.');
+      await loadService();
+      setLoading(true);
+      loadOrders();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Error finalizando servicio');
+    } finally {
+      setServiceLoading(false);
+    }
+  }
 
   async function advanceStatus(order: Order) {
     const next = getNextStatus(order);
@@ -186,52 +257,76 @@ export default function OrdersPage() {
     { value: 'DELIVERED',        label: 'Entregados' },
   ];
 
+  const serviceActive = service !== null && service !== undefined && !service?.endedAt;
+
   return (
     <div style={{ padding: '2rem 1.5rem', maxWidth: 1100, margin: '0 auto' }}>
+
+      {/* ── Banner de servicio ── */}
+      {service !== undefined && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '1rem',
+          marginBottom: '1.5rem', padding: '1rem 1.25rem',
+          background: serviceActive
+            ? 'hsl(142 71% 45% / 0.08)'
+            : 'hsl(220 18% 20% / 0.6)',
+          border: `1px solid ${serviceActive ? 'hsl(142 71% 45% / 0.3)' : 'hsl(220 18% 30%)'}`,
+          borderRadius: '0.75rem',
+          flexWrap: 'wrap',
+        }}>
+          <div style={{
+            width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
+            background: serviceActive ? 'hsl(142 71% 45%)' : 'hsl(220 18% 45%)',
+            boxShadow: serviceActive ? '0 0 8px hsl(142 71% 45% / 0.6)' : 'none',
+          }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {serviceActive ? (
+              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'hsl(142 71% 55%)' }}>
+                Servicio activo · iniciado {formatDateTime(service!.startedAt)}
+              </span>
+            ) : (
+              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'hsl(220 18% 55%)' }}>
+                Sin servicio activo — los pedidos no se pueden crear hasta iniciar uno
+              </span>
+            )}
+          </div>
+          {serviceActive ? (
+            <button
+              className="btn btn-danger btn-sm"
+              onClick={() => setConfirmEndService(true)}
+              disabled={serviceLoading}
+            >
+              {serviceLoading ? (
+                <span style={{ width: 14, height: 14, border: '2px solid white', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
+              ) : (
+                <><StopCircle size={14} /> Finalizar servicio</>
+              )}
+            </button>
+          ) : (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={startService}
+              disabled={serviceLoading}
+            >
+              {serviceLoading ? (
+                <span style={{ width: 14, height: 14, border: '2px solid white', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
+              ) : (
+                <><Play size={14} /> Iniciar servicio</>
+              )}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.2rem' }}>Pedidos</h1>
           <p style={{ color: 'hsl(220 18% 65%)', fontSize: '0.9rem' }}>
-            {total} pedido{total !== 1 ? 's' : ''}
-            {filterDate && ` · ${new Date(filterDate + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}`}
+            {total} pedido{total !== 1 ? 's' : ''} en el servicio actual
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Selector de fecha */}
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <input
-              type="date"
-              value={filterDate}
-              onChange={(e) => { setFilterDate(e.target.value); setLoading(true); }}
-              style={{
-                background: 'hsl(var(--surface2))',
-                border: `1px solid ${filterDate ? 'hsl(var(--primary))' : 'hsl(var(--border))'}`,
-                borderRadius: '0.5rem',
-                color: filterDate ? 'hsl(var(--text))' : 'hsl(var(--muted))',
-                padding: '0.375rem 0.875rem',
-                fontSize: '0.8125rem',
-                fontFamily: 'inherit',
-                outline: 'none',
-                cursor: 'pointer',
-                width: 'auto',
-              }}
-            />
-            {filterDate && (
-              <button
-                onClick={() => { setFilterDate(''); setLoading(true); }}
-                title="Quitar filtro de fecha"
-                style={{
-                  position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  color: 'hsl(var(--muted))', display: 'flex', padding: 2,
-                }}
-              >
-                <XCircle size={14} />
-              </button>
-            )}
-          </div>
-          {/* Selector de cantidad */}
           <select
             value={pageSize}
             onChange={(e) => { setPageSize(Number(e.target.value)); setLoading(true); }}
@@ -259,10 +354,17 @@ export default function OrdersPage() {
             <RefreshCw size={15} />
             Actualizar
           </button>
-          <Link href="/dashboard/orders/new" className="btn btn-primary btn-sm" id="new-order-link">
-            <PlusCircle size={15} />
-            Nueva comanda
-          </Link>
+          {serviceActive ? (
+            <Link href="/dashboard/orders/new" className="btn btn-primary btn-sm" id="new-order-link">
+              <PlusCircle size={15} />
+              Nueva comanda
+            </Link>
+          ) : (
+            <button className="btn btn-primary btn-sm" disabled title="Inicia un servicio para crear pedidos" id="new-order-link">
+              <PlusCircle size={15} />
+              Nueva comanda
+            </button>
+          )}
         </div>
       </div>
 
@@ -304,191 +406,237 @@ export default function OrdersPage() {
         );
       })()}
 
-      {/* Orders list */}
-      {loading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} style={{ height: 96, borderRadius: 12, background: 'hsl(222 40% 13%)', animation: 'pulse 1.5s infinite' }} />
-          ))}
+      {/* Sin servicio activo */}
+      {!serviceActive && service !== undefined && (
+        <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem', color: 'hsl(220 18% 55%)' }}>
+          <Play size={40} style={{ margin: '0 auto 1rem', opacity: 0.3 }} />
+          <p style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>No hay ningún servicio activo</p>
+          <p style={{ fontSize: '0.875rem', opacity: 0.7 }}>Pulsa "Iniciar servicio" para comenzar a recibir pedidos</p>
         </div>
-      ) : orders.length === 0 ? (
-        <div
-          className="card"
-          style={{ textAlign: 'center', padding: '4rem 2rem', color: 'hsl(220 18% 55%)' }}
-        >
-          <Search size={40} style={{ margin: '0 auto 1rem', opacity: 0.3 }} />
-          <p style={{ fontSize: '1rem' }}>No hay pedidos{filterStatus !== 'ALL' ? ` con estado "${STATUS_CONFIG[filterStatus as OrderStatus]?.label}"` : ''}</p>
-          <Link href="/dashboard/orders/new" className="btn btn-primary btn-sm" style={{ marginTop: '1.5rem', display: 'inline-flex' }}>
-            <PlusCircle size={14} /> Crear el primero
-          </Link>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-          {orders.map((order, idx) => {
-            const cfg      = STATUS_CONFIG[order.status];
-            const Icon     = cfg.icon;
-            const isUpd    = updating === order.id;
-            const nextSt   = getNextStatus(order);
-            const canAdvance = !!nextSt;
-            const canCancel  = order.status !== 'DELIVERED' && order.status !== 'CANCELLED';
+      )}
 
-            return (
-              <div
-                key={order.id}
-                className="card animate-fade-up"
-                style={{
-                  padding: '1rem 1.25rem',
-                  animationDelay: `${idx * 40}ms`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '1rem',
-                  flexWrap: 'wrap',
-                  ...(order.isPickup && { borderColor: 'hsl(38 95% 56% / 0.6)', background: 'hsl(38 95% 56% / 0.05)' }),
-                }}
-              >
-                {/* Status icon */}
+      {/* Orders list */}
+      {serviceActive && (
+        loading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} style={{ height: 96, borderRadius: 12, background: 'hsl(222 40% 13%)', animation: 'pulse 1.5s infinite' }} />
+            ))}
+          </div>
+        ) : orders.length === 0 ? (
+          <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem', color: 'hsl(220 18% 55%)' }}>
+            <Search size={40} style={{ margin: '0 auto 1rem', opacity: 0.3 }} />
+            <p style={{ fontSize: '1rem' }}>No hay pedidos{filterStatus !== 'ALL' ? ` con estado "${STATUS_CONFIG[filterStatus as OrderStatus]?.label}"` : ''}</p>
+            <Link href="/dashboard/orders/new" className="btn btn-primary btn-sm" style={{ marginTop: '1.5rem', display: 'inline-flex' }}>
+              <PlusCircle size={14} /> Crear el primero
+            </Link>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+            {orders.map((order, idx) => {
+              const cfg      = STATUS_CONFIG[order.status];
+              const Icon     = cfg.icon;
+              const isUpd    = updating === order.id;
+              const nextSt   = getNextStatus(order);
+              const canAdvance = !!nextSt;
+              const canCancel  = order.status !== 'DELIVERED' && order.status !== 'CANCELLED';
+
+              return (
                 <div
+                  key={order.id}
+                  className="card animate-fade-up"
                   style={{
+                    padding: '1rem 1.25rem',
+                    animationDelay: `${idx * 40}ms`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1rem',
+                    flexWrap: 'wrap',
+                    ...(order.isPickup && { borderColor: 'hsl(38 95% 56% / 0.6)', background: 'hsl(38 95% 56% / 0.05)' }),
+                  }}
+                >
+                  {/* Status icon */}
+                  <div style={{
                     width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
                     background: `hsl(${order.status === 'PENDING' ? '38 95% 56%' : order.status === 'PREPARING' ? '25 100% 51%' : order.status === 'READY' ? '142 71% 45%' : order.status === 'OUT_FOR_DELIVERY' ? '185 80% 45%' : '220 18% 40%'} / 0.15)`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}
-                >
-                  <Icon
-                    size={20}
-                    style={{
+                  }}>
+                    <Icon size={20} style={{
                       color: order.status === 'PENDING' ? 'hsl(38 95% 56%)' :
                              order.status === 'PREPARING' ? 'hsl(25 100% 51%)' :
                              order.status === 'READY' ? 'hsl(142 71% 45%)' :
                              order.status === 'OUT_FOR_DELIVERY' ? 'hsl(185 80% 45%)' :
                              order.status === 'CANCELLED' ? 'hsl(0 84% 60%)' :
                              'hsl(220 18% 55%)',
-                    }}
-                  />
-                </div>
+                    }} />
+                  </div>
 
-                {/* Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.9375rem' }}>
-                      #{order.id.slice(-8).toUpperCase()}
-                    </span>
-                    <span className={`badge ${cfg.className}`}>{cfg.label}</span>
-                    {order.isPickup && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.7rem', fontWeight: 700, color: 'hsl(38 95% 56%)', background: 'hsl(38 95% 56% / 0.15)', border: '1px solid hsl(38 95% 56% / 0.4)', borderRadius: 6, padding: '0.1rem 0.5rem' }}>
-                        <Store size={10} /> Recoge en local
+                  {/* Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 700, fontSize: '0.9375rem' }}>
+                        #{order.id.slice(-8).toUpperCase()}
                       </span>
-                    )}
+                      <span className={`badge ${cfg.className}`}>{cfg.label}</span>
+                      {order.isPickup && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.7rem', fontWeight: 700, color: 'hsl(38 95% 56%)', background: 'hsl(38 95% 56% / 0.15)', border: '1px solid hsl(38 95% 56% / 0.4)', borderRadius: 6, padding: '0.1rem 0.5rem' }}>
+                          <Store size={10} /> Recoge en local
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '0.875rem', color: 'hsl(220 18% 75%)', fontWeight: 500 }}>
+                      {order.customer.name} · {order.customer.phone}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'hsl(220 18% 50%)', marginTop: '0.2rem' }}>
+                      {order.items.slice(0, 3).map((i) => `${i.quantity}× ${i.product.name}`).join(', ')}
+                      {order.items.length > 3 && ` +${order.items.length - 3} más`}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '0.875rem', color: 'hsl(220 18% 75%)', fontWeight: 500 }}>
-                    {order.customer.name} · {order.customer.phone}
-                  </div>
-                  <div style={{ fontSize: '0.8rem', color: 'hsl(220 18% 50%)', marginTop: '0.2rem' }}>
-                    {order.items.slice(0, 3).map((i) => `${i.quantity}× ${i.product.name}`).join(', ')}
-                    {order.items.length > 3 && ` +${order.items.length - 3} más`}
-                  </div>
-                </div>
 
-                {/* Time + Total + Payment */}
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontWeight: 800, fontSize: '1.0625rem', color: 'hsl(var(--primary))' }}>
-                    {Number(order.total).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'hsl(207 20% 55%)', marginTop: 2, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem' }}>
-                    <span title="Hora de recepción">
-                      📥 {new Date(order.createdAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                    {order.estimatedDeliveryAt && (
-                      <span title="Hora de entrega" style={{ color: 'hsl(25 100% 55%)' }}>
-                        🕐 {new Date(order.estimatedDeliveryAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                  {/* Time + Total + Payment */}
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontWeight: 800, fontSize: '1.0625rem', color: 'hsl(var(--primary))' }}>
+                      {Number(order.total).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'hsl(207 20% 55%)', marginTop: 2, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem' }}>
+                      <span title="Hora de recepción">
+                        📥 {formatTime(order.createdAt)}
                       </span>
-                    )}
+                      {order.estimatedDeliveryAt && (
+                        <span title="Hora de entrega" style={{ color: 'hsl(25 100% 55%)' }}>
+                          🕐 {formatTime(order.estimatedDeliveryAt)}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', marginTop: 3, color: 'hsl(207 20% 55%)' }}>
+                      {(order.paymentMethod ?? 'CASH') === 'CASH' ? '💵 Efectivo' : '💳 Tarjeta'}
+                      {(order.paymentMethod ?? 'CASH') === 'CASH' && order.cashGiven != null && (
+                        <span style={{ marginLeft: 4, color: 'hsl(142 71% 45%)' }}>
+                          · cambio {(order.cashGiven - Number(order.total)).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '0.7rem', marginTop: 3, color: 'hsl(207 20% 55%)' }}>
-                    {(order.paymentMethod ?? 'CASH') === 'CASH' ? '💵 Efectivo' : '💳 Tarjeta'}
-                    {(order.paymentMethod ?? 'CASH') === 'CASH' && order.cashGiven != null && (
-                      <span style={{ marginLeft: 4, color: 'hsl(142 71% 45%)' }}>
-                        · cambio {(order.cashGiven - Number(order.total)).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
-                      </span>
-                    )}
-                  </div>
-                </div>
 
-                {/* Actions */}
-                <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
-                  <a
-                    href={`/tracking/${order.trackingToken}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-ghost btn-sm"
-                    title="Ver tracking"
-                    id={`view-${order.id}`}
-                  >
-                    <Eye size={14} />
-                  </a>
-                  <a
-                    href={`https://wa.me/${order.customer.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${order.customer.name}, puedes seguir tu pedido aquí: ${window.location.origin}/tracking/${order.trackingToken}`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-ghost btn-sm"
-                    title="Enviar por WhatsApp"
-                    id={`whatsapp-${order.id}`}
-                    style={{ color: 'hsl(142 71% 45%)' }}
-                  >
-                    <MessageCircle size={14} />
-                  </a>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => handlePrint(order.id)}
-                    disabled={printing === order.id}
-                    title="Imprimir comanda"
-                    id={`print-${order.id}`}
-                  >
-                    {printing === order.id ? (
-                      <span style={{ width: 14, height: 14, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
-                    ) : (
-                      <Printer size={14} />
-                    )}
-                  </button>
-                  {canAdvance && (
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={() => advanceStatus(order)}
-                      disabled={isUpd}
-                      id={`advance-${order.id}`}
+                  {/* Actions */}
+                  <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                    <a
+                      href={`/tracking/${order.trackingToken}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-ghost btn-sm"
+                      title="Ver tracking"
+                      id={`view-${order.id}`}
                     >
-                      {isUpd ? (
-                        <span style={{ width: 14, height: 14, border: '2px solid white', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
+                      <Eye size={14} />
+                    </a>
+                    <a
+                      href={`https://wa.me/${order.customer.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${order.customer.name}, puedes seguir tu pedido aquí: ${window.location.origin}/tracking/${order.trackingToken}`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-ghost btn-sm"
+                      title="Enviar por WhatsApp"
+                      id={`whatsapp-${order.id}`}
+                      style={{ color: 'hsl(142 71% 45%)' }}
+                    >
+                      <MessageCircle size={14} />
+                    </a>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => handlePrint(order.id)}
+                      disabled={printing === order.id}
+                      title="Imprimir comanda"
+                      id={`print-${order.id}`}
+                    >
+                      {printing === order.id ? (
+                        <span style={{ width: 14, height: 14, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
                       ) : (
-                        <>→ {STATUS_CONFIG[nextSt!].label}</>
+                        <Printer size={14} />
                       )}
                     </button>
-                  )}
-                  {canCancel && (
+                    {canAdvance && (
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => advanceStatus(order)}
+                        disabled={isUpd}
+                        id={`advance-${order.id}`}
+                      >
+                        {isUpd ? (
+                          <span style={{ width: 14, height: 14, border: '2px solid white', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
+                        ) : (
+                          <>→ {STATUS_CONFIG[nextSt!].label}</>
+                        )}
+                      </button>
+                    )}
+                    {canCancel && (
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={() => cancelOrder(order.id)}
+                        disabled={isUpd}
+                        id={`cancel-${order.id}`}
+                        title="Cancelar"
+                      >
+                        <XCircle size={14} />
+                      </button>
+                    )}
                     <button
-                      className="btn btn-danger btn-sm"
-                      onClick={() => cancelOrder(order.id)}
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setConfirmDelete(order)}
                       disabled={isUpd}
-                      id={`cancel-${order.id}`}
-                      title="Cancelar"
+                      id={`delete-${order.id}`}
+                      title="Eliminar pedido"
+                      style={{ color: 'hsl(0 84% 60%)', borderColor: 'hsl(0 84% 60% / 0.3)' }}
                     >
-                      <XCircle size={14} />
+                      <Trash2 size={14} />
                     </button>
-                  )}
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => setConfirmDelete(order)}
-                    disabled={isUpd}
-                    id={`delete-${order.id}`}
-                    title="Eliminar pedido"
-                    style={{ color: 'hsl(0 84% 60%)', borderColor: 'hsl(0 84% 60% / 0.3)' }}
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
+      )}
+
+      {/* Modal confirmar finalizar servicio */}
+      {confirmEndService && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 100,
+            background: 'hsl(0 0% 0% / 0.6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '1rem',
+            backdropFilter: 'blur(4px)',
+          }}
+          onClick={() => setConfirmEndService(false)}
+        >
+          <div
+            className="card"
+            style={{ maxWidth: 420, width: '100%', padding: '1.75rem' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+              <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'hsl(0 84% 60% / 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <StopCircle size={18} style={{ color: 'hsl(0 84% 60%)' }} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '1rem' }}>Finalizar servicio</div>
+                <div style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted))' }}>
+                  Iniciado {service ? formatDateTime(service.startedAt) : ''}
                 </div>
               </div>
-            );
-          })}
+            </div>
+            <p style={{ fontSize: '0.9rem', color: 'hsl(var(--muted))', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+              Al finalizar el servicio, <strong>todos los pedidos activos se marcarán como entregados</strong> y dejarán de aparecer en el listado. Esta acción no se puede deshacer.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => setConfirmEndService(false)}>
+                Cancelar
+              </button>
+              <button className="btn btn-danger btn-sm" onClick={endService}>
+                <StopCircle size={14} /> Finalizar servicio
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
