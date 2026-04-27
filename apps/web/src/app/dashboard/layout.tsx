@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   PlusCircle, Package, Users, Settings,
-  LogOut, ChevronRight, ClipboardList,
+  LogOut, ChevronRight, ClipboardList, BarChart2,
 } from 'lucide-react';
 
 const navItems = [
@@ -12,6 +12,7 @@ const navItems = [
   { href: '/dashboard/orders', label: 'Pedidos', icon: ClipboardList },
   { href: '/dashboard/products', label: 'Productos', icon: Package },
   { href: '/dashboard/customers', label: 'Clientes', icon: Users },
+  { href: '/dashboard/stats', label: 'Estadísticas', icon: BarChart2 },
   { href: '/dashboard/settings', label: 'Ajustes', icon: Settings },
 ];
 
