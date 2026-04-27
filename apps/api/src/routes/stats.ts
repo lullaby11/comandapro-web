@@ -256,21 +256,24 @@ router.get('/period', async (req: AuthenticatedRequest, res) => {
   const toDate   = to   ? new Date(`${to}T23:59:59.999Z`)   : new Date();
   const fromDate = from ? new Date(`${from}T00:00:00.000Z`) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
+  // Prisma.raw is safe here because groupBy is validated against a fixed allowlist above
+  const truncFn = Prisma.raw(`'${groupBy as string}'`);
+
   type PeriodRow = { period: Date; revenue: number; orders: bigint; deliveries: bigint; pickups: bigint };
 
   const rows = await prisma.$queryRaw<PeriodRow[]>`
     SELECT
-      DATE_TRUNC(${groupBy as string}, "createdAt") AS period,
+      DATE_TRUNC(${truncFn}, "createdAt")          AS period,
       COALESCE(SUM(total), 0)::float               AS revenue,
       COUNT(*)::bigint                             AS orders,
       COUNT(CASE WHEN "isPickup" = false THEN 1 END)::bigint AS deliveries,
       COUNT(CASE WHEN "isPickup" = true  THEN 1 END)::bigint AS pickups
     FROM orders
     WHERE "businessId" = ${businessId}
-      AND status NOT IN ('CANCELLED')
+      AND status::text != 'CANCELLED'
       AND "createdAt" >= ${fromDate}
       AND "createdAt" <= ${toDate}
-    GROUP BY DATE_TRUNC(${groupBy as string}, "createdAt")
+    GROUP BY DATE_TRUNC(${truncFn}, "createdAt")
     ORDER BY period
   `;
 

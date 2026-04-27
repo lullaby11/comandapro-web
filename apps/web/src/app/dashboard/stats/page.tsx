@@ -532,7 +532,10 @@ function PeriodTab() {
     setLoading(true);
     setStats(null);
     fetch(`${API}/api/stats/period?groupBy=${groupBy}&from=${from}&to=${to}`, { headers: apiHeaders() })
-      .then((r) => r.json())
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`Error ${r.status}`);
+        return r.json();
+      })
       .then((d) => setStats(d))
       .catch(() => toast.error('Error cargando estadísticas de período'))
       .finally(() => setLoading(false));
