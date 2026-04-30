@@ -262,7 +262,7 @@ function sanitize(str: string): string {
 }
 
 function truncate(str: string, maxLen: number): string {
-  return str.length <= maxLen ? str : str.slice(0, maxLen - 1) + '…';
+  return str.length <= maxLen ? str : str.slice(0, maxLen - 3) + '...';
 }
 
 function formatCurrency(amount: number, currency: string): string {
