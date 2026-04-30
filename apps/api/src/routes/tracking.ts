@@ -8,7 +8,7 @@ router.get('/:token', async (req, res) => {
   const order = await prisma.order.findUnique({
     where: { trackingToken: req.params.token },
     include: {
-      customer: { select: { name: true } },
+      customer: { select: { name: true, address: true } },
       business: { select: { name: true, logoUrl: true, phone: true, address: true } },
       items: {
         include: { product: { select: { name: true, imageUrl: true } } },
@@ -30,6 +30,7 @@ router.get('/:token', async (req, res) => {
     updatedAt: order.updatedAt,
     estimatedDeliveryAt: order.estimatedDeliveryAt,
     customerName: order.customer.name,
+    deliveryAddress: order.deliveryAddress || order.customer.address || null,
     business: {
       name: order.business.name,
       logoUrl: order.business.logoUrl,

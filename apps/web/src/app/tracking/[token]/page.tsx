@@ -52,6 +52,7 @@ interface TrackingData {
   updatedAt: string;
   estimatedDeliveryAt: string | null;
   customerName: string;
+  deliveryAddress: string | null;
   business: { name: string; logoUrl?: string; phone?: string };
   items: { productName: string; quantity: number; subtotal: number; productImage?: string }[];
   total: number;
@@ -175,6 +176,19 @@ export default function TrackingPage({ params }: { params: Promise<{ token: stri
             )}
           </div>
         </div>
+
+        {/* Delivery address */}
+        {!data.isPickup && data.deliveryAddress && (
+          <div className="card animate-fade-up" style={{ marginBottom: '1.25rem', padding: '1.25rem 1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <Navigation size={18} style={{ color: 'hsl(25 100% 51%)', flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: '0.7rem', color: 'hsl(207 20% 50%)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.2rem' }}>
+                Dirección de entrega
+              </div>
+              <div style={{ fontWeight: 600, fontSize: '0.9375rem' }}>{data.deliveryAddress}</div>
+            </div>
+          </div>
+        )}
 
         {/* Countdown clock */}
         {data.estimatedDeliveryAt && !isCancelled && !isDelivered && (
