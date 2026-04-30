@@ -57,6 +57,8 @@ export async function generateEscPosBuffer(
   const encoder = new ReceiptPrinterEncoder({
     language: 'esc-pos',
     columns: lineWidth,
+    codepageMapping: 'epson',
+    codepageCandidates: ['cp858'],
   } as ConstructorParameters<typeof ReceiptPrinterEncoder>[0]);
 
   let enc = encoder.initialize();
@@ -92,11 +94,11 @@ export async function generateEscPosBuffer(
     .align('center')
     .bold(true)
     .size(1, 1)
-    .line(truncate(business.name.toUpperCase(), lineWidth))
+    .line(truncate(sanitize(business.name.toUpperCase()), lineWidth))
     .bold(false)
     .size(1, 1);
 
-  if (business.address) enc = enc.line(truncate(business.address, lineWidth));
+  if (business.address) enc = enc.line(truncate(sanitize(business.address), lineWidth));
   if (business.phone)   enc = enc.line(`Tel: ${business.phone}`);
 
   enc = enc
@@ -110,11 +112,11 @@ export async function generateEscPosBuffer(
   const dateStr = formatDate(order.createdAt);
   enc = enc
     .bold(true).line('CLIENTE').bold(false)
-    .line(`Nombre : ${customer.name}`)
+    .line(`Nombre : ${sanitize(customer.name)}`)
     .line(`Tel    : ${customer.phone}`);
 
   if (customer.address) {
-    enc = enc.line(`Dir    : ${truncate(customer.address, lineWidth - 9)}`);
+    enc = enc.line(`Dir    : ${truncate(sanitize(customer.address), lineWidth - 9)}`);
   }
 
   enc = enc
@@ -131,13 +133,13 @@ export async function generateEscPosBuffer(
   // ──────────────────────────────────────────
   // ARTÍCULOS
   // ──────────────────────────────────────────
-  enc = enc.bold(true).line('ARTÍCULOS').bold(false);
+  enc = enc.bold(true).line('ARTICULOS').bold(false);
 
   for (const item of order.items) {
     const qty        = `${item.quantity}x`;
     const price      = formatCurrency(item.unitPrice, business.currency);
     const subtotal   = formatCurrency(item.subtotal, business.currency);
-    const name       = truncate(item.productName, lineWidth - 4);
+    const name       = truncate(sanitize(item.productName), lineWidth - 4);
 
     enc = enc.line(`${qty} ${name}`);
 
@@ -156,7 +158,7 @@ export async function generateEscPosBuffer(
     .line(rightAlign('IVA:',      formatCurrency(order.tax,      business.currency), lineWidth));
 
   if (order.shippingCost > 0) {
-    const shippingLabel = order.shippingRateName ? `Envío (${order.shippingRateName}):` : 'Envío:';
+    const shippingLabel = order.shippingRateName ? `Envio (${sanitize(order.shippingRateName)}):` : 'Envio:';
     enc = enc.line(rightAlign(shippingLabel, formatCurrency(order.shippingCost, business.currency), lineWidth));
   }
 
@@ -190,7 +192,7 @@ export async function generateEscPosBuffer(
     enc = enc
       .rule({ style: 'single', width: lineWidth })
       .bold(true).line('NOTAS:').bold(false)
-      .line(truncate(order.notes, lineWidth));
+      .line(truncate(sanitize(order.notes), lineWidth));
   }
 
   // ──────────────────────────────────────────
@@ -231,7 +233,7 @@ export async function generateEscPosBuffer(
   // ──────────────────────────────────────────
   enc = enc
     .align('center')
-    .line('¡Gracias por su pedido!')
+    .line('Gracias por su pedido!')
     .newline()
     .newline()
     .cut();
@@ -243,6 +245,22 @@ export async function generateEscPosBuffer(
 // HELPERS
 // ─────────────────────────────────────────────
 
+// Normaliza texto a CP858/CP850 safe: sustituye caracteres que muchas impresoras
+// genéricas no renderizan correctamente aunque se envíe ESC t.
+function sanitize(str: string): string {
+  return str
+    .replace(/Á/g, 'A').replace(/á/g, 'a')
+    .replace(/É/g, 'E').replace(/é/g, 'e')
+    .replace(/Í/g, 'I').replace(/í/g, 'i')
+    .replace(/Ó/g, 'O').replace(/ó/g, 'o')
+    .replace(/Ú/g, 'U').replace(/ú/g, 'u')
+    .replace(/Ü/g, 'U').replace(/ü/g, 'u')
+    .replace(/Ñ/g, 'N').replace(/ñ/g, 'n')
+    .replace(/¡/g, '!').replace(/¿/g, '?')
+    .replace(/€/g, 'EUR')
+    .replace(/[^\x00-\xFF]/g, '?');
+}
+
 function truncate(str: string, maxLen: number): string {
   return str.length <= maxLen ? str : str.slice(0, maxLen - 1) + '…';
 }
@@ -252,7 +270,10 @@ function formatCurrency(amount: number, currency: string): string {
     style: 'currency',
     currency,
     minimumFractionDigits: 2,
-  }).format(amount);
+  })
+    .format(amount)
+    .replace(/ /g, ' ')  // non-breaking space → regular space
+    .replace('€', 'EUR');
 }
 
 function formatDate(date: Date): string {
