@@ -116,7 +116,7 @@ export async function generateEscPosBuffer(
     .line(`Tel    : ${customer.phone}`);
 
   if (customer.address) {
-    enc = enc.line(`Dir    : ${truncate(sanitize(customer.address), lineWidth - 9)}`);
+    enc = enc.line(`Dir    : ${sanitize(customer.address)}`);
   }
 
   enc = enc
