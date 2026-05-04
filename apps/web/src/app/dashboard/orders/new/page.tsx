@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, Minus, Trash2, Printer, UserPlus, Check, AlertCircle, Phone, X, Truck, User, Play } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, Printer, UserPlus, Check, AlertCircle, Phone, X, Truck, User, Play, Package } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -78,6 +78,11 @@ export default function NewOrderPage() {
   const [printing, setPrinting]         = useState(false);
   const [orderId, setOrderId]           = useState<string | null>(null);
   const [orderDone, setOrderDone]       = useState(false);
+
+  // Stock modal
+  const [stockModal, setStockModal]     = useState<Product | null>(null);
+  const [stockInput, setStockInput]     = useState('');
+  const [savingStock, setSavingStock]   = useState(false);
 
   const phoneRef = useRef<HTMLInputElement>(null);
 
@@ -360,6 +365,58 @@ export default function NewOrderPage() {
     phoneRef.current?.focus();
   }
 
+  // ── Refresh products (used after stock update) ─────────────────────────────
+  async function refreshProducts() {
+    try {
+      const res = await fetch(`${API}/api/products?active=true`, { headers: apiHeaders() });
+      if (!res.ok) return;
+      const data: Product[] = await res.json();
+      setProducts(data);
+      // Keep cart in sync with updated stock values
+      setCart((prev) =>
+        prev.map((item) => {
+          const updated = data.find((p) => p.id === item.id);
+          return updated ? { ...item, stock: updated.stock } : item;
+        })
+      );
+    } catch {
+      // silently ignore
+    }
+  }
+
+  // ── Stock modal ─────────────────────────────────────────────────────────────
+  function openStockModal(product: Product, e: React.MouseEvent) {
+    e.stopPropagation();
+    setStockModal(product);
+    setStockInput('');
+  }
+
+  async function saveStock() {
+    if (!stockModal || !stockInput) return;
+    const amount = Number(stockInput);
+    if (!Number.isInteger(amount) || amount <= 0) {
+      toast.error('Introduce una cantidad válida');
+      return;
+    }
+    setSavingStock(true);
+    try {
+      const newStock = stockModal.stock + amount;
+      const res = await fetch(`${API}/api/products/${stockModal.id}`, {
+        method: 'PATCH',
+        headers: apiHeaders(),
+        body: JSON.stringify({ stock: newStock }),
+      });
+      if (!res.ok) throw new Error('Error actualizando stock');
+      await refreshProducts();
+      toast.success(`Stock actualizado: ${newStock} unidades`);
+      setStockModal(null);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Error actualizando stock');
+    } finally {
+      setSavingStock(false);
+    }
+  }
+
   // ── Filtered products ───────────────────────────────────────────────────────
   const filteredProducts = products.filter((p) => {
     const matchCat = activeCategory === 'all' || (p.category ?? 'Sin categoría') === activeCategory;
@@ -549,6 +606,20 @@ export default function NewOrderPage() {
                     <div style={{ fontSize: '1rem', fontWeight: 700, color: 'hsl(var(--primary))' }}>
                       {product.price.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                     </div>
+                    {isOut && (
+                      <button
+                        onClick={(e) => openStockModal(product, e)}
+                        style={{
+                          marginTop: '0.5rem', width: '100%', display: 'flex',
+                          alignItems: 'center', justifyContent: 'center', gap: '0.25rem',
+                          fontSize: '0.7rem', fontWeight: 600, padding: '0.3rem 0.5rem',
+                          background: 'hsl(var(--primary) / 0.15)', border: '1px solid hsl(var(--primary) / 0.35)',
+                          color: 'hsl(var(--primary))', borderRadius: 6, cursor: 'pointer',
+                        }}
+                      >
+                        <Plus size={11} /> Añadir stock
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -1027,6 +1098,111 @@ export default function NewOrderPage() {
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
       `}</style>
+
+      {/* ── Stock Modal ── */}
+      {stockModal && (
+        <div
+          onClick={() => !savingStock && setStockModal(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 100,
+            background: 'hsl(222 47% 5% / 0.8)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '1rem',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="card animate-fade-up"
+            style={{ width: '100%', maxWidth: 360, padding: '1.75rem' }}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+                background: 'hsl(var(--primary) / 0.15)', border: '1px solid hsl(var(--primary) / 0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Package size={18} style={{ color: 'hsl(var(--primary))' }} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '1rem' }}>Añadir stock</div>
+                <div style={{ fontSize: '0.8125rem', color: 'hsl(220 18% 55%)' }}>{stockModal.name}</div>
+              </div>
+              <button
+                onClick={() => setStockModal(null)}
+                style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(220 18% 55%)', display: 'flex', padding: '0.25rem' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Current stock info */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '0.625rem 0.875rem', borderRadius: 8, marginBottom: '1rem',
+              background: 'hsl(222 40% 13%)', border: '1px solid hsl(222 30% 20%)',
+              fontSize: '0.875rem',
+            }}>
+              <span style={{ color: 'hsl(220 18% 65%)' }}>Stock actual</span>
+              <span style={{ fontWeight: 700, color: stockModal.stock === 0 ? 'hsl(0 84% 60%)' : 'hsl(220 18% 80%)' }}>
+                {stockModal.stock} unidades
+              </span>
+            </div>
+
+            {/* Input */}
+            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'hsl(220 18% 65%)', marginBottom: '0.375rem' }}>
+              Unidades a añadir
+            </label>
+            <input
+              type="number"
+              placeholder="Ej: 10"
+              min="1"
+              step="1"
+              value={stockInput}
+              onChange={(e) => setStockInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && saveStock()}
+              autoFocus
+              style={{ background: 'hsl(222 40% 13%)', marginBottom: '0.75rem', fontSize: '1rem', fontWeight: 600 }}
+            />
+
+            {/* Preview */}
+            {stockInput && Number(stockInput) > 0 && (
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '0.5rem 0.875rem', borderRadius: 8, marginBottom: '1rem',
+                background: 'hsl(142 71% 15% / 0.3)', border: '1px solid hsl(142 71% 45% / 0.4)',
+                fontSize: '0.875rem',
+              }}>
+                <span style={{ color: 'hsl(220 18% 65%)' }}>Nuevo stock</span>
+                <span style={{ fontWeight: 700, color: 'hsl(142 71% 45%)' }}>
+                  {stockModal.stock + Number(stockInput)} unidades
+                </span>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '0.625rem' }}>
+              <button
+                className="btn btn-ghost"
+                onClick={() => setStockModal(null)}
+                disabled={savingStock}
+                style={{ flex: 1, justifyContent: 'center' }}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={saveStock}
+                disabled={savingStock || !stockInput || Number(stockInput) <= 0}
+                style={{ flex: 1, justifyContent: 'center' }}
+              >
+                {savingStock ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
