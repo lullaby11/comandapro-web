@@ -25,6 +25,7 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.10.1",
     "qrcode": "^1.5.4",
     "thermal-printer-encoder": "^3.0.0",
     "zod": "^3.23.8"
@@ -37,6 +38,7 @@
     "@types/morgan": "^1.9.9",
     "@types/multer": "^1.4.11",
     "@types/node": "^20.14.2",
+    "@types/nodemailer": "^6.4.23",
     "@types/qrcode": "^1.5.5",
     "prisma": "^5.14.0",
     "tsx": "^4.15.6",

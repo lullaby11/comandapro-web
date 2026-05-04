@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   PlusCircle, Search, Clock, ChefHat, CheckCircle2,
   Truck, XCircle, RefreshCw, Eye, MessageCircle, Store, Printer, Navigation, Trash2,
-  Play, StopCircle,
+  Play, StopCircle, Globe,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -21,7 +21,7 @@ async function printViaWebUSB(buffer: Uint8Array) {
   await device.close();
 }
 
-type OrderStatus = 'PENDING' | 'PREPARING' | 'READY' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
+type OrderStatus = 'RECEIVED_ONLINE' | 'PENDING' | 'PREPARING' | 'READY' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
 
 interface Service {
   id: string;
@@ -43,13 +43,14 @@ interface Order {
   items: Array<{ product: { name: string }; quantity: number }>;
 }
 
-const STATUS_CONFIG: Record<OrderStatus, { label: string; className: string; icon: React.ElementType; next?: OrderStatus }> = {
-  PENDING:          { label: 'Pendiente',   className: 'badge-warning',  icon: Clock,         next: 'PREPARING' },
-  PREPARING:        { label: 'Preparando',  className: 'badge-primary',  icon: ChefHat,       next: 'READY' },
-  READY:            { label: 'Listo',       className: 'badge-success',  icon: CheckCircle2,  next: 'OUT_FOR_DELIVERY' },
-  OUT_FOR_DELIVERY: { label: 'En reparto',  className: 'badge-info',     icon: Navigation,    next: 'DELIVERED' },
-  DELIVERED:        { label: 'Entregado',   className: 'badge-muted',    icon: Truck,         next: undefined },
-  CANCELLED:        { label: 'Cancelado',   className: 'badge-danger',   icon: XCircle,       next: undefined },
+const STATUS_CONFIG: Record<OrderStatus, { label: string; className: string; icon: React.ElementType; next?: OrderStatus; acceptLabel?: string }> = {
+  RECEIVED_ONLINE:  { label: 'Online — sin confirmar', className: 'badge-online',   icon: Globe,         next: 'PENDING', acceptLabel: '✓ Aceptar pedido' },
+  PENDING:          { label: 'Pendiente',              className: 'badge-warning',  icon: Clock,         next: 'PREPARING' },
+  PREPARING:        { label: 'Preparando',             className: 'badge-primary',  icon: ChefHat,       next: 'READY' },
+  READY:            { label: 'Listo',                  className: 'badge-success',  icon: CheckCircle2,  next: 'OUT_FOR_DELIVERY' },
+  OUT_FOR_DELIVERY: { label: 'En reparto',             className: 'badge-info',     icon: Navigation,    next: 'DELIVERED' },
+  DELIVERED:        { label: 'Entregado',              className: 'badge-muted',    icon: Truck,         next: undefined },
+  CANCELLED:        { label: 'Cancelado',              className: 'badge-danger',   icon: XCircle,       next: undefined },
 };
 
 function getNextStatus(order: Order): OrderStatus | undefined {
@@ -106,6 +107,9 @@ export default function OrdersPage() {
       const data = await res.json();
       const TERMINAL = new Set(['DELIVERED', 'CANCELLED']);
       const sorted = [...data.orders].sort((a: Order, b: Order) => {
+        // RECEIVED_ONLINE siempre al principio
+        if (a.status === 'RECEIVED_ONLINE' && b.status !== 'RECEIVED_ONLINE') return -1;
+        if (b.status === 'RECEIVED_ONLINE' && a.status !== 'RECEIVED_ONLINE') return 1;
         const aTerminal = TERMINAL.has(a.status) ? 1 : 0;
         const bTerminal = TERMINAL.has(b.status) ? 1 : 0;
         if (aTerminal !== bTerminal) return aTerminal - bTerminal;
@@ -248,14 +252,17 @@ export default function OrdersPage() {
     }
   }
 
-  const filterTabs: Array<{ value: OrderStatus | 'ALL'; label: string }> = [
+  const filterTabs: Array<{ value: OrderStatus | 'ALL'; label: string; highlight?: boolean }> = [
     { value: 'ALL',              label: 'Todos' },
+    { value: 'RECEIVED_ONLINE',  label: '🌐 Online', highlight: true },
     { value: 'PENDING',          label: 'Pendientes' },
     { value: 'PREPARING',        label: 'Preparando' },
     { value: 'READY',            label: 'Listos' },
     { value: 'OUT_FOR_DELIVERY', label: 'En reparto' },
     { value: 'DELIVERED',        label: 'Entregados' },
   ];
+
+  const onlineCount = orders.filter(o => o.status === 'RECEIVED_ONLINE').length;
 
   const serviceActive = service !== null && service !== undefined && !service?.endedAt;
 
@@ -368,16 +375,54 @@ export default function OrdersPage() {
         </div>
       </div>
 
+      {/* Online orders alert banner */}
+      {onlineCount > 0 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '0.875rem',
+          marginBottom: '1rem', padding: '0.875rem 1.25rem',
+          background: 'hsl(262 80% 45% / 0.12)',
+          border: '2px solid hsl(262 80% 55% / 0.7)',
+          borderRadius: '0.75rem',
+          animation: 'pulseOnline 2s ease-in-out infinite',
+        }}>
+          <Globe size={20} style={{ color: 'hsl(262 80% 70%)', flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <span style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'hsl(262 80% 75%)' }}>
+              {onlineCount} pedido{onlineCount !== 1 ? 's' : ''} online sin confirmar
+            </span>
+            <span style={{ fontSize: '0.8125rem', color: 'hsl(262 80% 60%)', marginLeft: '0.5rem' }}>
+              — el cliente está esperando tu confirmación
+            </span>
+          </div>
+          <button
+            onClick={() => { setFilter('RECEIVED_ONLINE'); setLoading(true); }}
+            style={{ background: 'hsl(262 80% 55%)', color: 'white', border: 'none', borderRadius: 8, padding: '0.5rem 1rem', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer', flexShrink: 0 }}
+          >
+            Ver ahora →
+          </button>
+        </div>
+      )}
+
       {/* Filter tabs */}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
-        {filterTabs.map(({ value, label }) => (
+        {filterTabs.map(({ value, label, highlight }) => (
           <button
             key={value}
             onClick={() => { setFilter(value); setLoading(true); }}
             className={`btn btn-sm ${filterStatus === value ? 'btn-primary' : 'btn-ghost'}`}
             id={`filter-${value.toLowerCase()}`}
+            style={highlight && onlineCount > 0 && filterStatus !== value ? {
+              background: 'hsl(262 80% 45% / 0.2)',
+              borderColor: 'hsl(262 80% 55% / 0.5)',
+              color: 'hsl(262 80% 75%)',
+            } : {}}
           >
             {label}
+            {highlight && onlineCount > 0 && (
+              <span style={{ marginLeft: '0.25rem', background: 'hsl(262 80% 55%)', color: 'white', borderRadius: 10, padding: '0 5px', fontSize: '0.7rem', fontWeight: 700 }}>
+                {onlineCount}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -415,8 +460,8 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {/* Orders list */}
-      {serviceActive && (
+      {/* Orders list (siempre visible para que los pedidos online aparezcan incluso sin servicio activo) */}
+      {(serviceActive || onlineCount > 0) && (
         loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
             {Array.from({ length: 5 }).map((_, i) => (
@@ -441,6 +486,8 @@ export default function OrdersPage() {
               const canAdvance = !!nextSt;
               const canCancel  = order.status !== 'DELIVERED' && order.status !== 'CANCELLED';
 
+              const isOnline = order.status === 'RECEIVED_ONLINE';
+
               return (
                 <div
                   key={order.id}
@@ -452,17 +499,27 @@ export default function OrdersPage() {
                     alignItems: 'center',
                     gap: '1rem',
                     flexWrap: 'wrap',
-                    ...(order.isPickup && { borderColor: 'hsl(38 95% 56% / 0.6)', background: 'hsl(38 95% 56% / 0.05)' }),
+                    ...(isOnline ? {
+                      background: 'hsl(262 80% 45% / 0.1)',
+                      borderColor: 'hsl(262 80% 55% / 0.7)',
+                      borderWidth: 2,
+                      boxShadow: '0 0 20px hsl(262 80% 45% / 0.2)',
+                    } : order.isPickup ? {
+                      borderColor: 'hsl(38 95% 56% / 0.6)',
+                      background: 'hsl(38 95% 56% / 0.05)',
+                    } : {}),
                   }}
                 >
                   {/* Status icon */}
                   <div style={{
                     width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
-                    background: `hsl(${order.status === 'PENDING' ? '38 95% 56%' : order.status === 'PREPARING' ? '25 100% 51%' : order.status === 'READY' ? '142 71% 45%' : order.status === 'OUT_FOR_DELIVERY' ? '185 80% 45%' : '220 18% 40%'} / 0.15)`,
+                    background: isOnline ? 'hsl(262 80% 55% / 0.2)' : `hsl(${order.status === 'PENDING' ? '38 95% 56%' : order.status === 'PREPARING' ? '25 100% 51%' : order.status === 'READY' ? '142 71% 45%' : order.status === 'OUT_FOR_DELIVERY' ? '185 80% 45%' : '220 18% 40%'} / 0.15)`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    ...(isOnline ? { animation: 'pulseOnline 2s ease-in-out infinite' } : {}),
                   }}>
                     <Icon size={20} style={{
-                      color: order.status === 'PENDING' ? 'hsl(38 95% 56%)' :
+                      color: isOnline ? 'hsl(262 80% 75%)' :
+                             order.status === 'PENDING' ? 'hsl(38 95% 56%)' :
                              order.status === 'PREPARING' ? 'hsl(25 100% 51%)' :
                              order.status === 'READY' ? 'hsl(142 71% 45%)' :
                              order.status === 'OUT_FOR_DELIVERY' ? 'hsl(185 80% 45%)' :
@@ -477,14 +534,23 @@ export default function OrdersPage() {
                       <span style={{ fontWeight: 700, fontSize: '0.9375rem' }}>
                         #{order.id.slice(-8).toUpperCase()}
                       </span>
-                      <span className={`badge ${cfg.className}`}>{cfg.label}</span>
+                      <span
+                        className={`badge ${cfg.className}`}
+                        style={isOnline ? {
+                          background: 'hsl(262 80% 55%)', color: 'white',
+                          border: '1px solid hsl(262 80% 65%)',
+                          fontWeight: 700, fontSize: '0.7rem',
+                        } : {}}
+                      >
+                        {isOnline ? '🌐 ' : ''}{cfg.label}
+                      </span>
                       {order.isPickup && (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.7rem', fontWeight: 700, color: 'hsl(38 95% 56%)', background: 'hsl(38 95% 56% / 0.15)', border: '1px solid hsl(38 95% 56% / 0.4)', borderRadius: 6, padding: '0.1rem 0.5rem' }}>
                           <Store size={10} /> Recoge en local
                         </span>
                       )}
                     </div>
-                    <div style={{ fontSize: '0.875rem', color: 'hsl(220 18% 75%)', fontWeight: 500 }}>
+                    <div style={{ fontSize: '0.875rem', color: isOnline ? 'hsl(262 80% 80%)' : 'hsl(220 18% 75%)', fontWeight: 500 }}>
                       {order.customer.name} · {order.customer.phone}
                     </div>
                     <div style={{ fontSize: '0.8rem', color: 'hsl(220 18% 50%)', marginTop: '0.2rem' }}>
@@ -495,13 +561,11 @@ export default function OrdersPage() {
 
                   {/* Time + Total + Payment */}
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontWeight: 800, fontSize: '1.0625rem', color: 'hsl(var(--primary))' }}>
+                    <div style={{ fontWeight: 800, fontSize: '1.0625rem', color: isOnline ? 'hsl(262 80% 75%)' : 'hsl(var(--primary))' }}>
                       {Number(order.total).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                     </div>
                     <div style={{ fontSize: '0.75rem', color: 'hsl(207 20% 55%)', marginTop: 2, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem' }}>
-                      <span title="Hora de recepción">
-                        📥 {formatTime(order.createdAt)}
-                      </span>
+                      <span title="Hora de recepción">📥 {formatTime(order.createdAt)}</span>
                       {order.estimatedDeliveryAt && (
                         <span title="Hora de entrega" style={{ color: 'hsl(25 100% 55%)' }}>
                           🕐 {formatTime(order.estimatedDeliveryAt)}
@@ -519,17 +583,19 @@ export default function OrdersPage() {
                   </div>
 
                   {/* Actions */}
-                  <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
-                    <a
-                      href={`/tracking/${order.trackingToken}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn btn-ghost btn-sm"
-                      title="Ver tracking"
-                      id={`view-${order.id}`}
-                    >
-                      <Eye size={14} />
-                    </a>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0, flexWrap: 'wrap' }}>
+                    {!isOnline && (
+                      <a
+                        href={`/tracking/${order.trackingToken}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-ghost btn-sm"
+                        title="Ver tracking"
+                        id={`view-${order.id}`}
+                      >
+                        <Eye size={14} />
+                      </a>
+                    )}
                     <a
                       href={`https://wa.me/${order.customer.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${order.customer.name}, puedes seguir tu pedido aquí: ${window.location.origin}/tracking/${order.trackingToken}`)}`}
                       target="_blank"
@@ -541,30 +607,39 @@ export default function OrdersPage() {
                     >
                       <MessageCircle size={14} />
                     </a>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => handlePrint(order.id)}
-                      disabled={printing === order.id}
-                      title="Imprimir comanda"
-                      id={`print-${order.id}`}
-                    >
-                      {printing === order.id ? (
-                        <span style={{ width: 14, height: 14, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
-                      ) : (
-                        <Printer size={14} />
-                      )}
-                    </button>
+                    {!isOnline && (
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => handlePrint(order.id)}
+                        disabled={printing === order.id}
+                        title="Imprimir comanda"
+                        id={`print-${order.id}`}
+                      >
+                        {printing === order.id ? (
+                          <span style={{ width: 14, height: 14, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
+                        ) : (
+                          <Printer size={14} />
+                        )}
+                      </button>
+                    )}
                     {canAdvance && (
                       <button
-                        className="btn btn-primary btn-sm"
                         onClick={() => advanceStatus(order)}
                         disabled={isUpd}
                         id={`advance-${order.id}`}
+                        style={isOnline ? {
+                          background: 'hsl(262 80% 55%)', color: 'white',
+                          border: 'none', borderRadius: 8,
+                          padding: '0.5rem 1rem', fontWeight: 700,
+                          fontSize: '0.875rem', cursor: 'pointer',
+                          boxShadow: '0 2px 8px hsl(262 80% 45% / 0.4)',
+                        } : undefined}
+                        className={isOnline ? undefined : 'btn btn-primary btn-sm'}
                       >
                         {isUpd ? (
-                          <span style={{ width: 14, height: 14, border: '2px solid white', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
+                          <span style={{ width: 14, height: 14, border: `2px solid ${isOnline ? 'white' : 'white'}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
                         ) : (
-                          <>→ {STATUS_CONFIG[nextSt!].label}</>
+                          cfg.acceptLabel ?? `→ ${STATUS_CONFIG[nextSt!].label}`
                         )}
                       </button>
                     )}
@@ -579,16 +654,18 @@ export default function OrdersPage() {
                         <XCircle size={14} />
                       </button>
                     )}
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => setConfirmDelete(order)}
-                      disabled={isUpd}
-                      id={`delete-${order.id}`}
-                      title="Eliminar pedido"
-                      style={{ color: 'hsl(0 84% 60%)', borderColor: 'hsl(0 84% 60% / 0.3)' }}
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    {!isOnline && (
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => setConfirmDelete(order)}
+                        disabled={isUpd}
+                        id={`delete-${order.id}`}
+                        title="Eliminar pedido"
+                        style={{ color: 'hsl(0 84% 60%)', borderColor: 'hsl(0 84% 60% / 0.3)' }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -698,6 +775,15 @@ export default function OrdersPage() {
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.5} }
+        @keyframes pulseOnline {
+          0%,100% { box-shadow: 0 0 0 0 hsl(262 80% 55% / 0.4); }
+          50%     { box-shadow: 0 0 0 6px hsl(262 80% 55% / 0); }
+        }
+        .badge-online {
+          background: hsl(262 80% 55%);
+          color: white;
+          border: 1px solid hsl(262 80% 65%);
+        }
       `}</style>
     </div>
   );

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Printer, Globe, Layers, Truck, Plus, Trash2, Pencil, Check, X } from 'lucide-react';
+import { Save, Printer, Globe, Layers, Truck, Plus, Trash2, Pencil, Check, X, ShoppingBag, Copy, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const API = '';
@@ -9,6 +9,7 @@ const API = '';
 interface BusinessSettings {
   id: string;
   name: string;
+  slug: string;
   logoUrl?: string;
   phone?: string;
   address?: string;
@@ -17,6 +18,7 @@ interface BusinessSettings {
   printServerUrl?: string;
   currency: string;
   taxRate: number;
+  onlineOrderEnabled: boolean;
 }
 
 interface ShippingRate {
@@ -134,6 +136,7 @@ export default function SettingsPage() {
           printServerUrl: settings.printServerUrl || null,
           currency: settings.currency,
           taxRate: settings.taxRate,
+          onlineOrderEnabled: settings.onlineOrderEnabled,
         }),
       });
       if (!res.ok) throw new Error('Error guardando ajustes');
@@ -291,6 +294,86 @@ export default function SettingsPage() {
               />
             ))}
           </div>
+        </div>
+
+        {/* ── Venta online ── */}
+        <div className="card" style={{ marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '1.25rem' }}>
+            <ShoppingBag size={18} style={{ color: 'hsl(var(--primary))' }} />
+            <h2 style={{ fontWeight: 700 }}>Venta online</h2>
+          </div>
+
+          {/* Toggle */}
+          <button
+            type="button"
+            onClick={() => setSettings({ ...settings, onlineOrderEnabled: !settings.onlineOrderEnabled })}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              width: '100%', padding: '1rem', marginBottom: '1rem',
+              background: settings.onlineOrderEnabled ? 'hsl(262 80% 45% / 0.1)' : 'hsl(var(--surface2))',
+              border: `1px solid ${settings.onlineOrderEnabled ? 'hsl(262 80% 55% / 0.5)' : 'hsl(var(--border))'}`,
+              borderRadius: 12, cursor: 'pointer', transition: 'all 0.15s',
+            }}
+          >
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontWeight: 600, color: settings.onlineOrderEnabled ? 'hsl(262 80% 75%)' : 'hsl(var(--text))' }}>
+                Aceptar pedidos online
+              </div>
+              <div style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted))', marginTop: 3 }}>
+                {settings.onlineOrderEnabled
+                  ? 'Los clientes pueden hacer pedidos desde la URL pública del comercio'
+                  : 'La tienda online está desactivada'}
+              </div>
+            </div>
+            <div style={{
+              width: 48, height: 26, borderRadius: 13, flexShrink: 0, marginLeft: '1rem',
+              background: settings.onlineOrderEnabled ? 'hsl(262 80% 55%)' : 'hsl(220 18% 30%)',
+              position: 'relative', transition: 'background 0.2s',
+            }}>
+              <div style={{
+                position: 'absolute', top: 3, left: settings.onlineOrderEnabled ? 25 : 3,
+                width: 20, height: 20, borderRadius: '50%', background: 'white',
+                transition: 'left 0.2s',
+              }} />
+            </div>
+          </button>
+
+          {/* URL pública */}
+          {settings.onlineOrderEnabled && (
+            <div style={{ background: 'hsl(262 80% 45% / 0.08)', border: '1px solid hsl(262 80% 55% / 0.3)', borderRadius: 10, padding: '0.875rem 1rem' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'hsl(262 80% 65%)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>
+                URL pública de pedidos
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <code style={{ flex: 1, fontSize: '0.875rem', color: 'hsl(262 80% 80%)', wordBreak: 'break-all' }}>
+                  {typeof window !== 'undefined' ? window.location.origin : 'https://olyda.app'}/{settings.slug}/pedidos
+                </code>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = `${window.location.origin}/${settings.slug}/pedidos`;
+                    navigator.clipboard.writeText(url);
+                    toast.success('URL copiada');
+                  }}
+                  className="btn btn-ghost btn-sm"
+                  title="Copiar URL"
+                  style={{ flexShrink: 0, color: 'hsl(262 80% 65%)' }}
+                >
+                  <Copy size={14} />
+                </button>
+                <a
+                  href={`/${settings.slug}/pedidos`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-ghost btn-sm"
+                  title="Abrir tienda"
+                  style={{ flexShrink: 0, color: 'hsl(262 80% 65%)' }}
+                >
+                  <ExternalLink size={14} />
+                </a>
+              </div>
+            </div>
+          )}
         </div>
 
         <button

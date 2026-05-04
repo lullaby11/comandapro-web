@@ -28,17 +28,20 @@ model Business {
   // Configuración de la comanda
   currency       String   @default("EUR")
   taxRate        Float    @default(0)         // % de IVA
+  // Venta online
+  onlineOrderEnabled Boolean @default(false)
   // Timestamps
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   // Relaciones
-  users          BusinessUser[]
-  products       Product[]
-  customers      Customer[]
-  orders         Order[]
-  shippingRates  ShippingRate[]
-  services       Service[]
+  users            BusinessUser[]
+  products         Product[]
+  customers        Customer[]
+  orders           Order[]
+  shippingRates    ShippingRate[]
+  services         Service[]
+  customerAccounts CustomerAccount[]
 
   @@map("businesses")
 }
@@ -135,8 +138,9 @@ model Order {
   businessId    String
   customerId    String
   serviceId     String?
-  trackingToken String        @unique @default(cuid())
-  status        OrderStatus   @default(PENDING)
+  trackingToken       String        @unique @default(cuid())
+  status              OrderStatus   @default(PENDING)
+  customerAccountId   String?
   total         Decimal       @db.Decimal(10, 2)
   subtotal      Decimal       @db.Decimal(10, 2)
   tax           Decimal       @db.Decimal(10, 2) @default(0)
@@ -152,11 +156,12 @@ model Order {
   createdAt           DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  customer     Customer      @relation(fields: [customerId], references: [id])
-  items        OrderItem[]
-  shippingRate ShippingRate? @relation(fields: [shippingRateId], references: [id])
-  service      Service?      @relation(fields: [serviceId], references: [id])
+  business        Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer        Customer         @relation(fields: [customerId], references: [id])
+  customerAccount CustomerAccount? @relation(fields: [customerAccountId], references: [id])
+  items           OrderItem[]
+  shippingRate    ShippingRate?    @relation(fields: [shippingRateId], references: [id])
+  service         Service?         @relation(fields: [serviceId], references: [id])
 
   @@index([businessId])
   @@index([businessId, status])
@@ -218,7 +223,8 @@ model OrderItem {
 }
 
 enum OrderStatus {
-  PENDING          // Recibido
+  RECEIVED_ONLINE  // Recibido por venta online (pendiente de aceptar)
+  PENDING          // Recibido / aceptado
   PREPARING        // En cocina
   READY            // Listo para entregar
   OUT_FOR_DELIVERY // En reparto (solo domicilio)
@@ -229,4 +235,29 @@ enum OrderStatus {
 enum PaymentMethod {
   CASH  // Efectivo
   CARD  // Tarjeta
+}
+
+// ─────────────────────────────────────────────
+// CUENTAS DE CLIENTES (venta online)
+// ─────────────────────────────────────────────
+model CustomerAccount {
+  id              String    @id @default(cuid())
+  businessId      String
+  name            String
+  phone           String
+  email           String
+  passwordHash    String
+  address         String
+  emailVerified   Boolean   @default(false)
+  verifyToken     String?   @unique
+  verifyExpiresAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  orders   Order[]
+
+  @@unique([businessId, email])
+  @@index([businessId])
+  @@map("customer_accounts")
 }

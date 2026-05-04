@@ -32,6 +32,7 @@ router.patch('/', requireAdmin, async (req: AuthenticatedRequest, res) => {
     printServerUrl: z.string().url().nullable().optional(),
     currency: z.string().length(3).optional(),
     taxRate: z.number().min(0).max(100).optional(),
+    onlineOrderEnabled: z.boolean().optional(),
   });
 
   const parsed = schema.safeParse(req.body);

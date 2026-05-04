@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npx tsc *)",
       "Bash(aws apprunner *)",
-      "Bash(npx prisma *)"
+      "Bash(npx prisma *)",
+      "Bash(npm install *)"
     ]
   }
 }

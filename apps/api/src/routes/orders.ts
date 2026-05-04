@@ -5,6 +5,7 @@ import { OrderStatus } from '@prisma/client';
 import { authMiddleware, AuthenticatedRequest } from '../middleware/auth.middleware';
 import { validateStock, deductStock, restoreStock } from '../services/stock.service';
 import { generateEscPosBuffer, PrintOrderPayload } from '../services/printer.service';
+import { sendOrderConfirmedEmail } from '../services/email.service';
 
 const router = Router();
 
@@ -30,9 +31,24 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
     ...(notPrinted === 'true' ? { printedAt: null } : {}),
   };
 
+  // Los pedidos RECEIVED_ONLINE también se muestran aunque no coincidan el serviceId
+  // (pueden llegar online mientras el servicio cambia). Los incluimos siempre.
+  const whereWithOnline = activeService
+    ? {
+        OR: [
+          where,
+          {
+            businessId: req.businessId!,
+            status:     'RECEIVED_ONLINE' as OrderStatus,
+            ...(status && status !== 'RECEIVED_ONLINE' ? { id: '__never__' } : {}),
+          },
+        ],
+      }
+    : where;
+
   const [orders, total] = await Promise.all([
     prisma.order.findMany({
-      where,
+      where: whereWithOnline,
       include: {
         customer: { select: { name: true, phone: true } },
         items: {
@@ -43,7 +59,7 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
       skip: (Number(page) - 1) * Number(limit),
       take: Number(limit),
     }),
-    prisma.order.count({ where }),
+    prisma.order.count({ where: whereWithOnline }),
   ]);
 
   res.json({ orders, total, page: Number(page), limit: Number(limit) });
@@ -207,7 +223,9 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
 // PATCH /orders/:id/status — Actualizar estado
 // ──────────────────────────────────────────────
 router.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
-  const schema = z.object({ status: z.enum(['PENDING', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED']) });
+  const schema = z.object({
+    status: z.enum(['RECEIVED_ONLINE', 'PENDING', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED']),
+  });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.flatten() });
@@ -216,6 +234,10 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
 
   const order = await prisma.order.findFirst({
     where: { id: req.params.id, businessId: req.businessId! },
+    include: {
+      business:        { select: { name: true } },
+      customerAccount: { select: { email: true, name: true } },
+    },
   });
 
   if (!order) {
@@ -227,6 +249,18 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
     where: { id: req.params.id },
     data: { status: parsed.data.status },
   });
+
+  // Cuando el comercio acepta un pedido online, notificar al cliente por email
+  if (order.status === 'RECEIVED_ONLINE' && parsed.data.status === 'PENDING' && order.customerAccount?.email) {
+    const trackingUrl = `${process.env.APP_URL?.replace(':4000', ':3000').replace('/api', '') ?? 'http://localhost:3000'}/tracking/${order.trackingToken}`;
+    sendOrderConfirmedEmail(
+      order.customerAccount.email,
+      order.customerAccount.name,
+      order.id.slice(-8).toUpperCase(),
+      order.business.name,
+      trackingUrl,
+    ).catch(console.error);
+  }
 
   res.json(updated);
 });
