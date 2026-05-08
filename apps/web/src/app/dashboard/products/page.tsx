@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   Plus, Search, Edit2, Trash2, Package, AlertTriangle,
-  TrendingUp, TrendingDown, X, Check,
+  TrendingUp, TrendingDown, X, Check, Globe,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -18,6 +18,7 @@ interface Product {
   category?: string;
   imageUrl?: string;
   active: boolean;
+  onlineVisible: boolean;
 }
 
 function apiHeaders() {
@@ -34,6 +35,7 @@ export default function ProductsPage() {
   const [showForm, setShowForm]   = useState(false);
   const [editTarget, setEdit]     = useState<Product | null>(null);
   const [form, setForm]           = useState(EMPTY_FORM);
+  const [onlineVisible, setOnlineVisible] = useState(false);
   const [saving, setSaving]       = useState(false);
   const [updatingStock, setUpdatingStock] = useState<string | null>(null);
 
@@ -54,6 +56,7 @@ export default function ProductsPage() {
   function openCreate() {
     setEdit(null);
     setForm(EMPTY_FORM);
+    setOnlineVisible(false);
     setShowForm(true);
   }
 
@@ -67,6 +70,7 @@ export default function ProductsPage() {
       category: p.category ?? '',
       imageUrl: p.imageUrl ?? '',
     });
+    setOnlineVisible(p.onlineVisible);
     setShowForm(true);
   }
 
@@ -81,6 +85,7 @@ export default function ProductsPage() {
         stock: parseInt(form.stock || '0'),
         category: form.category || undefined,
         imageUrl: form.imageUrl || undefined,
+        onlineVisible,
       };
 
       const url    = editTarget ? `${API}/api/products/${editTarget.id}` : `${API}/api/products`;
@@ -260,6 +265,11 @@ export default function ProductsPage() {
                         </button>
                         {isOut && <span className="badge badge-danger" style={{ fontSize: '0.65rem' }}>Agotado</span>}
                         {isLow && !isOut && <span className="badge badge-warning" style={{ fontSize: '0.65rem' }}>Stock bajo</span>}
+                        {p.onlineVisible && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.65rem', fontWeight: 600, color: 'hsl(142 71% 45%)', background: 'hsl(142 71% 45% / 0.12)', borderRadius: 4, padding: '0.1rem 0.35rem' }}>
+                            <Globe size={9} /> Online
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -342,6 +352,25 @@ export default function ProductsPage() {
                 <label htmlFor="p-img">URL de imagen (opcional)</label>
                 <input id="p-img" type="url" value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://…/imagen.jpg" />
               </div>
+              <label
+                htmlFor="p-online"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', borderRadius: 10, border: `1px solid ${onlineVisible ? 'hsl(142 71% 45% / 0.5)' : 'hsl(222 30% 22%)'}`, background: onlineVisible ? 'hsl(142 71% 45% / 0.07)' : 'hsl(222 40% 10%)', cursor: 'pointer', transition: 'all 0.15s' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <Globe size={16} style={{ color: onlineVisible ? 'hsl(142 71% 45%)' : 'hsl(220 18% 50%)' }} />
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '0.875rem', color: onlineVisible ? 'hsl(142 71% 45%)' : 'inherit' }}>Compra online</div>
+                    <div style={{ fontSize: '0.75rem', color: 'hsl(220 18% 55%)' }}>Visible en el formulario de pedidos para clientes</div>
+                  </div>
+                </div>
+                <input
+                  id="p-online"
+                  type="checkbox"
+                  checked={onlineVisible}
+                  onChange={(e) => setOnlineVisible(e.target.checked)}
+                  style={{ width: 18, height: 18, accentColor: 'hsl(142 71% 45%)', cursor: 'pointer', flexShrink: 0 }}
+                />
+              </label>
             </div>
             <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
               <button className="btn btn-ghost" onClick={() => setShowForm(false)} style={{ flex: 1, justifyContent: 'center' }}>

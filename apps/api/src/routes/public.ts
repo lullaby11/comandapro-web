@@ -43,7 +43,7 @@ router.get('/:slug/products', async (req, res) => {
   if (!business?.onlineOrderEnabled) { res.status(404).end(); return; }
 
   const products = await prisma.product.findMany({
-    where: { businessId: business.id, active: true, stock: { gt: 0 } },
+    where: { businessId: business.id, active: true, onlineVisible: true, stock: { gt: 0 } },
     select: { id: true, name: true, description: true, price: true, stock: true, category: true, imageUrl: true },
     orderBy: [{ category: 'asc' }, { name: 'asc' }],
   });

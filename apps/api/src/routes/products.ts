@@ -43,6 +43,7 @@ const productSchema = z.object({
   imageUrl: z.string().url().optional(),
   category: z.string().optional(),
   active: z.boolean().default(true),
+  onlineVisible: z.boolean().default(false),
 });
 
 router.post('/', async (req: AuthenticatedRequest, res) => {
