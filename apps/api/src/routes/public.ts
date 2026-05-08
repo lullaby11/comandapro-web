@@ -106,7 +106,7 @@ router.post('/:slug/auth/register', async (req, res) => {
         where: { id: existing.id },
         data: { verifyToken: token, verifyExpiresAt: new Date(Date.now() + 24 * 3600_000) },
       });
-      const verifyUrl = `${process.env.WEB_URL ?? 'http://localhost:3000'}/${req.params.slug}/pedidos?verify=${token}`;
+      const verifyUrl = `${process.env.APP_URL ?? 'http://localhost:3000'}/${req.params.slug}/pedidos?verify=${token}`;
       sendVerificationEmail(email, verifyUrl, business.name).catch(console.error);
       res.status(409).json({ code: 'EMAIL_UNVERIFIED', message: 'Revisa tu email para verificar tu cuenta.' });
     }
@@ -125,7 +125,7 @@ router.post('/:slug/auth/register', async (req, res) => {
     },
   });
 
-  const verifyUrl = `${process.env.WEB_URL ?? 'http://localhost:3000'}/${req.params.slug}/pedidos?verify=${verifyToken}`;
+  const verifyUrl = `${process.env.APP_URL ?? 'http://localhost:3000'}/${req.params.slug}/pedidos?verify=${verifyToken}`;
   sendVerificationEmail(email, verifyUrl, business.name).catch(console.error);
 
   res.status(201).json({ message: 'Cuenta creada. Revisa tu email para verificarla antes de continuar.' });
