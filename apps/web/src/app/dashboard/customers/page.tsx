@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   Search, UserPlus, Phone, MapPin, FileText,
-  Users, ShoppingBag, X, Check, Edit2,
+  Users, ShoppingBag, X, Check, Edit2, Clock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
@@ -20,6 +20,15 @@ interface Customer {
   createdAt: string;
 }
 
+interface PendingAccount {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  address: string;
+  createdAt: string;
+}
+
 function apiHeaders() {
   const token = localStorage.getItem('token');
   return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
@@ -28,14 +37,15 @@ function apiHeaders() {
 const EMPTY_FORM = { name: '', phone: '', email: '', address: '', notes: '' };
 
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [total, setTotal]         = useState(0);
-  const [loading, setLoading]     = useState(true);
-  const [search, setSearch]       = useState('');
-  const [showForm, setShowForm]   = useState(false);
-  const [editTarget, setEdit]     = useState<Customer | null>(null);
-  const [form, setForm]           = useState(EMPTY_FORM);
-  const [saving, setSaving]       = useState(false);
+  const [customers, setCustomers]       = useState<Customer[]>([]);
+  const [pendingAccounts, setPending]   = useState<PendingAccount[]>([]);
+  const [total, setTotal]               = useState(0);
+  const [loading, setLoading]           = useState(true);
+  const [search, setSearch]             = useState('');
+  const [showForm, setShowForm]         = useState(false);
+  const [editTarget, setEdit]           = useState<Customer | null>(null);
+  const [form, setForm]                 = useState(EMPTY_FORM);
+  const [saving, setSaving]             = useState(false);
 
   const loadCustomers = useCallback(async () => {
     try {
@@ -44,11 +54,15 @@ export default function CustomersPage() {
       else if (search) params.set('name', search);
       params.set('limit', '50');
 
-      const res = await fetch(`${API}/api/customers?${params}`, { headers: apiHeaders() });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
+      const [cusRes, pendRes] = await Promise.all([
+        fetch(`${API}/api/customers?${params}`, { headers: apiHeaders() }),
+        fetch(`${API}/api/customers/pending-online`, { headers: apiHeaders() }),
+      ]);
+      if (!cusRes.ok) throw new Error();
+      const data = await cusRes.json();
       setCustomers(data.customers);
       setTotal(data.total);
+      if (pendRes.ok) setPending(await pendRes.json());
     } catch {
       toast.error('Error cargando clientes');
     } finally {
@@ -122,6 +136,52 @@ export default function CustomersPage() {
           id="customer-search-input"
         />
       </div>
+
+      {/* Pending online accounts */}
+      {!loading && pendingAccounts.length > 0 && (
+        <div style={{ marginBottom: '2rem' }}>
+          <h2 style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'hsl(38 95% 56%)', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <Clock size={13} /> Pendientes de confirmar email ({pendingAccounts.length})
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {pendingAccounts
+              .filter((a) => !search || a.name.toLowerCase().includes(search.toLowerCase()) || a.email.toLowerCase().includes(search.toLowerCase()) || a.phone.includes(search))
+              .map((a) => (
+                <div
+                  key={a.id}
+                  className="card"
+                  style={{ padding: '0.875rem 1.25rem', display: 'flex', gap: '1rem', alignItems: 'center', borderColor: 'hsl(38 95% 56% / 0.35)', background: 'hsl(38 95% 56% / 0.04)', opacity: 0.85 }}
+                >
+                  <div style={{ width: 44, height: 44, borderRadius: '50%', flexShrink: 0, background: 'hsl(38 95% 56% / 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', fontWeight: 700, color: 'hsl(38 95% 56%)' }}>
+                    {a.name[0].toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.9375rem', marginBottom: '0.25rem' }}>{a.name}</div>
+                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8125rem', color: 'hsl(220 18% 65%)' }}>
+                        <Phone size={11} /> {a.phone}
+                      </span>
+                      <span style={{ fontSize: '0.8125rem', color: 'hsl(220 18% 55%)' }}>{a.email}</span>
+                      {a.address && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8125rem', color: 'hsl(220 18% 55%)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
+                          <MapPin size={11} /> {a.address}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'hsl(38 95% 56%)', background: 'hsl(38 95% 56% / 0.15)', borderRadius: 5, padding: '0.2rem 0.5rem', whiteSpace: 'nowrap' }}>
+                      Pendiente de confirmar email
+                    </span>
+                    <div style={{ fontSize: '0.75rem', color: 'hsl(220 18% 45%)', textAlign: 'right' }}>
+                      {new Date(a.createdAt).toLocaleDateString('es-ES')}
+                    </div>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
 
       {/* List */}
       {loading ? (

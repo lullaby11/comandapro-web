@@ -29,6 +29,16 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
   res.json({ customers, total });
 });
 
+// GET /customers/pending-online — Cuentas online pendientes de verificar email
+router.get('/pending-online', async (req: AuthenticatedRequest, res) => {
+  const accounts = await prisma.customerAccount.findMany({
+    where: { businessId: req.businessId!, emailVerified: false },
+    select: { id: true, name: true, phone: true, email: true, address: true, createdAt: true },
+    orderBy: { createdAt: 'desc' },
+  });
+  res.json(accounts);
+});
+
 // GET /customers/by-phone/:phone — Búsqueda exacta (para autocompletar en comanda)
 router.get('/by-phone/:phone', async (req: AuthenticatedRequest, res) => {
   const customer = await prisma.customer.findUnique({
