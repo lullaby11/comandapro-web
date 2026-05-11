@@ -21,49 +21,57 @@ async function printViaWebUSB(buffer: Uint8Array) {
 
   if (device.configuration === null) await device.selectConfiguration(1);
 
-  // Log de diagnóstico — ver en DevTools > Console
-  console.group('[WebUSB] Estructura del dispositivo');
-  console.log('Producto:', device.productName, '| Fabricante:', device.manufacturerName);
+  // Recopilar todos los endpoints BULK OUT de todas las interfaces y alternates
+  type Candidate = { interfaceNumber: number; altSetting: number; endpointNumber: number };
+  const candidates: Candidate[] = [];
+
   for (const iface of device.configuration!.interfaces) {
     for (const alt of iface.alternates) {
-      console.log(
-        `  iface=${iface.interfaceNumber} alt=${alt.alternateSetting} clase=0x${alt.interfaceClass.toString(16).padStart(2,'0')}`,
-        alt.endpoints.map((e) => `ep${e.endpointNumber}:${e.direction}:${e.type}`).join(', ') || '(sin endpoints)'
-      );
-    }
-  }
-  console.groupEnd();
-
-  // Buscar el primer endpoint BULK OUT en cualquier interfaz/alternate
-  let interfaceNumber: number | null = null;
-  let endpointNumber:  number | null = null;
-  let altSetting:      number        = 0;
-
-  outer:
-  for (const iface of device.configuration!.interfaces) {
-    for (const alt of iface.alternates) {
-      const ep = alt.endpoints.find((e) => e.type === 'bulk' && e.direction === 'out');
-      if (ep) {
-        interfaceNumber = iface.interfaceNumber;
-        endpointNumber  = ep.endpointNumber;
-        altSetting      = alt.alternateSetting;
-        break outer;
+      for (const ep of alt.endpoints) {
+        if (ep.type === 'bulk' && ep.direction === 'out') {
+          candidates.push({
+            interfaceNumber: iface.interfaceNumber,
+            altSetting:      alt.alternateSetting,
+            endpointNumber:  ep.endpointNumber,
+          });
+        }
       }
     }
   }
 
-  console.log(`[WebUSB] Usando iface=${interfaceNumber} alt=${altSetting} ep=${endpointNumber}`);
-
-  if (interfaceNumber === null || endpointNumber === null) {
-    await device.close();
-    throw new Error('No se encontró un endpoint BULK OUT en el dispositivo. Abre la consola del navegador (F12) y comparte los logs para diagnóstico.');
+  // Añadir combinaciones hardcodeadas como último recurso (iface=0, ep=1 y ep=2)
+  for (const ep of [1, 2]) {
+    if (!candidates.some((c) => c.interfaceNumber === 0 && c.endpointNumber === ep)) {
+      candidates.push({ interfaceNumber: 0, altSetting: 0, endpointNumber: ep });
+    }
   }
 
-  await device.claimInterface(interfaceNumber);
-  // Siempre seleccionar el alternate explícitamente para activar el estado correcto
-  await device.selectAlternateInterface(interfaceNumber, altSetting);
-  await device.transferOut(endpointNumber, buffer);
+  console.log('[WebUSB] Candidatos a probar:', candidates);
+
+  let lastError: Error = new Error('No se pudo imprimir — abre la consola (F12) y comparte los logs');
+
+  for (const { interfaceNumber, altSetting, endpointNumber } of candidates) {
+    try {
+      console.log(`[WebUSB] Probando iface=${interfaceNumber} alt=${altSetting} ep=${endpointNumber}...`);
+      await device.claimInterface(interfaceNumber);
+      try {
+        await device.selectAlternateInterface(interfaceNumber, altSetting);
+      } catch {
+        // Algunos dispositivos no admiten SET_INTERFACE — continuar igualmente
+      }
+      await device.transferOut(endpointNumber, buffer);
+      console.log('[WebUSB] ¡Impresión correcta! iface=%d ep=%d', interfaceNumber, endpointNumber);
+      await device.close();
+      return;
+    } catch (err) {
+      console.warn(`[WebUSB] Falló iface=${interfaceNumber} ep=${endpointNumber}:`, err);
+      lastError = err as Error;
+      try { await device.releaseInterface(interfaceNumber); } catch { /* ignorar */ }
+    }
+  }
+
   await device.close();
+  throw lastError;
 }
 
 // ── Bluetooth ESC/POS ────────────────────────────────────────────────────────
