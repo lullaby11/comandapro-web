@@ -14,7 +14,6 @@ const API = '';
 async function printViaWebUSB(buffer: Uint8Array) {
   if (!navigator.usb) throw new Error('WebUSB no soportado. Usa Chrome o Edge.');
 
-  // Aceptar impresoras clase 0x07 (estándar) y 0xFF (vendor-specific, común en POS genéricas)
   const device = await navigator.usb.requestDevice({
     filters: [{ classCode: 0x07 }, { classCode: 0xFF }],
   });
@@ -22,7 +21,20 @@ async function printViaWebUSB(buffer: Uint8Array) {
 
   if (device.configuration === null) await device.selectConfiguration(1);
 
-  // Buscar el primer endpoint BULK OUT sin importar la clase de interfaz
+  // Log de diagnóstico — ver en DevTools > Console
+  console.group('[WebUSB] Estructura del dispositivo');
+  console.log('Producto:', device.productName, '| Fabricante:', device.manufacturerName);
+  for (const iface of device.configuration!.interfaces) {
+    for (const alt of iface.alternates) {
+      console.log(
+        `  iface=${iface.interfaceNumber} alt=${alt.alternateSetting} clase=0x${alt.interfaceClass.toString(16).padStart(2,'0')}`,
+        alt.endpoints.map((e) => `ep${e.endpointNumber}:${e.direction}:${e.type}`).join(', ') || '(sin endpoints)'
+      );
+    }
+  }
+  console.groupEnd();
+
+  // Buscar el primer endpoint BULK OUT en cualquier interfaz/alternate
   let interfaceNumber: number | null = null;
   let endpointNumber:  number | null = null;
   let altSetting:      number        = 0;
@@ -40,17 +52,16 @@ async function printViaWebUSB(buffer: Uint8Array) {
     }
   }
 
+  console.log(`[WebUSB] Usando iface=${interfaceNumber} alt=${altSetting} ep=${endpointNumber}`);
+
   if (interfaceNumber === null || endpointNumber === null) {
     await device.close();
-    throw new Error('No se encontró un endpoint de impresión en el dispositivo USB.');
+    throw new Error('No se encontró un endpoint BULK OUT en el dispositivo. Abre la consola del navegador (F12) y comparte los logs para diagnóstico.');
   }
 
-  // claimInterface PRIMERO, luego selectAlternateInterface si hace falta
   await device.claimInterface(interfaceNumber);
-  if (altSetting !== 0) {
-    await device.selectAlternateInterface(interfaceNumber, altSetting);
-  }
-
+  // Siempre seleccionar el alternate explícitamente para activar el estado correcto
+  await device.selectAlternateInterface(interfaceNumber, altSetting);
   await device.transferOut(endpointNumber, buffer);
   await device.close();
 }
