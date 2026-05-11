@@ -14,32 +14,30 @@ const API = '';
 async function printViaWebUSB(buffer: Uint8Array) {
   if (!navigator.usb) throw new Error('WebUSB no soportado. Usa Chrome o Edge.');
 
-  const device = await navigator.usb.requestDevice({ filters: [{ classCode: 0x07 }] });
+  // Aceptar impresoras clase 0x07 (estándar) y 0xFF (vendor-specific, común en POS genéricas)
+  const device = await navigator.usb.requestDevice({
+    filters: [{ classCode: 0x07 }, { classCode: 0xFF }],
+  });
   await device.open();
 
-  // Seleccionar la configuración activa si no hay ninguna
   if (device.configuration === null) await device.selectConfiguration(1);
 
-  // Buscar la interfaz de impresora (clase 7) y su endpoint BULK OUT
+  // Buscar el primer endpoint BULK OUT sin importar la clase de interfaz
   let interfaceNumber: number | null = null;
-  let endpointNumber: number | null = null;
+  let endpointNumber:  number | null = null;
+  let altSetting:      number        = 0;
 
+  outer:
   for (const iface of device.configuration!.interfaces) {
     for (const alt of iface.alternates) {
-      if (alt.interfaceClass === 0x07) {
-        const ep = alt.endpoints.find((e) => e.type === 'bulk' && e.direction === 'out');
-        if (ep) {
-          interfaceNumber = iface.interfaceNumber;
-          endpointNumber  = ep.endpointNumber;
-          // Activar el alternate setting correcto si no es el predeterminado
-          if (alt.alternateSetting !== 0) {
-            await device.selectAlternateInterface(interfaceNumber, alt.alternateSetting);
-          }
-          break;
-        }
+      const ep = alt.endpoints.find((e) => e.type === 'bulk' && e.direction === 'out');
+      if (ep) {
+        interfaceNumber = iface.interfaceNumber;
+        endpointNumber  = ep.endpointNumber;
+        altSetting      = alt.alternateSetting;
+        break outer;
       }
     }
-    if (interfaceNumber !== null) break;
   }
 
   if (interfaceNumber === null || endpointNumber === null) {
@@ -47,7 +45,12 @@ async function printViaWebUSB(buffer: Uint8Array) {
     throw new Error('No se encontró un endpoint de impresión en el dispositivo USB.');
   }
 
+  // claimInterface PRIMERO, luego selectAlternateInterface si hace falta
   await device.claimInterface(interfaceNumber);
+  if (altSetting !== 0) {
+    await device.selectAlternateInterface(interfaceNumber, altSetting);
+  }
+
   await device.transferOut(endpointNumber, buffer);
   await device.close();
 }
