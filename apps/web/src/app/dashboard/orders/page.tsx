@@ -323,12 +323,15 @@ export default function OrdersPage() {
   async function handlePrint(id: string) {
     setPrinting(id);
     try {
+      console.log('[Print] Iniciando impresión, modo:', printerMode);
       const res = await fetch(`${API}/api/orders/${id}/print`, {
         method: 'POST',
         headers: apiHeaders(),
       });
+      console.log('[Print] Fetch status:', res.status, res.ok);
       if (!res.ok) throw new Error('Error generando comanda');
       const buffer = new Uint8Array(await res.arrayBuffer());
+      console.log('[Print] Buffer recibido, bytes:', buffer.length, '— llamando a', printerMode === 'bluetooth' ? 'Bluetooth' : 'WebUSB');
 
       if (printerMode === 'bluetooth') {
         await printViaBluetooth(buffer);
