@@ -29,6 +29,37 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      # ── Backup pre-deploy ────────────────────────────────────────────────────
+      - name: Create pre-deployment RDS snapshot
+        id: snapshot
+        env:
+          RDS_DB_IDENTIFIER: ${{ secrets.RDS_DB_IDENTIFIER }}
+        run: |
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          SNAPSHOT_ID="${RDS_DB_IDENTIFIER}-predeploy-${TIMESTAMP}-${SHORT_SHA}"
+          echo "Creating snapshot: $SNAPSHOT_ID"
+          aws rds create-db-snapshot \
+            --db-instance-identifier "$RDS_DB_IDENTIFIER" \
+            --db-snapshot-identifier "$SNAPSHOT_ID"
+          echo "snapshot_id=$SNAPSHOT_ID" >> $GITHUB_OUTPUT
+          echo "Snapshot creation started (runs async — available in ~5 min)"
+
+      - name: Record previous ECR image for rollback
+        id: prev_image
+        env:
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_NAME }}
+        run: |
+          PREV_SHA=$(aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids imageTag=latest \
+            --query 'imageDetails[0].imageTags' \
+            --output json 2>/dev/null \
+            | jq -r '.[] | select(. != "latest")' | head -1 || echo "none")
+          echo "previous_sha=$PREV_SHA" >> $GITHUB_OUTPUT
+          echo "Previous image SHA: $PREV_SHA"
+
+      # ── Build & push ─────────────────────────────────────────────────────────
       - name: Login to Amazon ECR
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
@@ -65,7 +96,7 @@ jobs:
             STATUS=$(aws apprunner describe-service \
               --service-arn "$SERVICE_ARN" \
               --query "Service.Status" --output text)
-            echo "  Status: $STATUS"
+            echo "  Attempt $i/30 — Status: $STATUS"
             if [ "$STATUS" = "RUNNING" ]; then
               echo "Deployment successful!"
               exit 0
@@ -78,3 +109,29 @@ jobs:
           done
           echo "Timeout waiting for deployment"
           exit 1
+
+      # ── Summary ──────────────────────────────────────────────────────────────
+      - name: Deployment summary
+        if: always()
+        env:
+          SNAPSHOT_ID: ${{ steps.snapshot.outputs.snapshot_id }}
+          PREV_SHA:    ${{ steps.prev_image.outputs.previous_sha }}
+          NEW_IMAGE:   ${{ steps.build.outputs.image }}
+        run: |
+          echo "## Deployment summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Campo | Valor |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit desplegado | \`$GITHUB_SHA\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Imagen nueva | \`$NEW_IMAGE\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Snapshot pre-deploy | \`$SNAPSHOT_ID\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| SHA anterior (rollback) | \`$PREV_SHA\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Rollback rápido" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "# Revertir aplicación al commit anterior:" >> $GITHUB_STEP_SUMMARY
+          echo "./scripts/rollback.sh $PREV_SHA" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Si también necesitas restaurar la BD:" >> $GITHUB_STEP_SUMMARY
+          echo "./scripts/rollback.sh $PREV_SHA $SNAPSHOT_ID" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

@@ -25,9 +25,12 @@
     "typescript": "^5"
   },
   "optionalDependencies": {
-    "lightningcss-linux-x64-gnu": "*",
     "lightningcss-darwin-arm64": "*",
-    "lightningcss-darwin-x64": "*"
+    "lightningcss-darwin-x64": "*",
+    "lightningcss-linux-x64-gnu": "*"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@types/w3c-web-usb": "^1.0.14",
+    "@types/web-bluetooth": "^0.0.21"
+  }
 }

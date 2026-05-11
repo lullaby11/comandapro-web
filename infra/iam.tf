@@ -113,8 +113,36 @@ resource "aws_iam_policy" "github_actions" {
       {
         Sid    = "AppRunnerDeploy"
         Effect = "Allow"
-        Action = ["apprunner:StartDeployment"]
+        Action = [
+          "apprunner:StartDeployment",
+          "apprunner:DescribeService",
+          "apprunner:UpdateService"
+        ]
         Resource = [aws_apprunner_service.api.arn]
+      },
+      {
+        Sid    = "RDSPreDeploySnapshot"
+        Effect = "Allow"
+        Action = [
+          "rds:CreateDBSnapshot",
+          "rds:DescribeDBInstances"
+        ]
+        Resource = [aws_db_instance.postgres.arn]
+      },
+      {
+        Sid      = "RDSDescribeSnapshots"
+        Effect   = "Allow"
+        Action   = ["rds:DescribeDBSnapshots"]
+        Resource = ["*"]
+      },
+      {
+        Sid    = "ECRDescribeForRollback"
+        Effect = "Allow"
+        Action = [
+          "ecr:DescribeImages",
+          "ecr:PutImage"
+        ]
+        Resource = [aws_ecr_repository.api.arn]
       }
     ]
   })

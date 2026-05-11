@@ -227,9 +227,10 @@ export default function SettingsPage() {
 
           <div style={{ marginBottom: '1.25rem' }}>
             <label>Modo de impresión</label>
-            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
               {[
-                { value: 'webusb', label: '🔌 WebUSB (Chrome)' },
+                { value: 'webusb',      label: '🔌 USB (Chrome)' },
+                { value: 'bluetooth',   label: '📶 Bluetooth' },
                 { value: 'printserver', label: '🖧 Servidor local' },
               ].map(({ value, label }) => (
                 <button
@@ -245,6 +246,22 @@ export default function SettingsPage() {
               ))}
             </div>
           </div>
+
+          {settings.printerMode === 'bluetooth' && (
+            <div style={{
+              background: 'hsl(220 80% 50% / 0.08)',
+              border: '1px solid hsl(220 80% 55% / 0.3)',
+              borderRadius: 10,
+              padding: '0.75rem 1rem',
+              fontSize: '0.8125rem',
+              color: 'hsl(var(--muted))',
+              marginBottom: '0.5rem',
+            }}>
+              La conexión Bluetooth se establece al pulsar el botón de imprimir en cada pedido.
+              Compatible con Chrome en Android y Chrome/Edge en escritorio.
+              No funciona en Safari ni en iOS.
+            </div>
+          )}
 
           {settings.printerMode === 'printserver' && (
             <div style={{ marginBottom: '0.5rem', animation: 'fadeIn 0.2s ease' }}>

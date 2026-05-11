@@ -13,12 +13,105 @@ const API = '';
 
 async function printViaWebUSB(buffer: Uint8Array) {
   if (!navigator.usb) throw new Error('WebUSB no soportado. Usa Chrome o Edge.');
+
   const device = await navigator.usb.requestDevice({ filters: [{ classCode: 0x07 }] });
   await device.open();
+
+  // Seleccionar la configuración activa si no hay ninguna
   if (device.configuration === null) await device.selectConfiguration(1);
-  await device.claimInterface(0);
-  await device.transferOut(1, buffer);
+
+  // Buscar la interfaz de impresora (clase 7) y su endpoint BULK OUT
+  let interfaceNumber: number | null = null;
+  let endpointNumber: number | null = null;
+
+  for (const iface of device.configuration!.interfaces) {
+    for (const alt of iface.alternates) {
+      if (alt.interfaceClass === 0x07) {
+        const ep = alt.endpoints.find((e) => e.type === 'bulk' && e.direction === 'out');
+        if (ep) {
+          interfaceNumber = iface.interfaceNumber;
+          endpointNumber  = ep.endpointNumber;
+          // Activar el alternate setting correcto si no es el predeterminado
+          if (alt.alternateSetting !== 0) {
+            await device.selectAlternateInterface(interfaceNumber, alt.alternateSetting);
+          }
+          break;
+        }
+      }
+    }
+    if (interfaceNumber !== null) break;
+  }
+
+  if (interfaceNumber === null || endpointNumber === null) {
+    await device.close();
+    throw new Error('No se encontró un endpoint de impresión en el dispositivo USB.');
+  }
+
+  await device.claimInterface(interfaceNumber);
+  await device.transferOut(endpointNumber, buffer);
   await device.close();
+}
+
+// ── Bluetooth ESC/POS ────────────────────────────────────────────────────────
+// UUIDs del servicio serie BLE usados por la mayoría de impresoras POS (Bluebee, Xprinter, HPRT…)
+const BLE_SERVICE_UUID  = '000018f0-0000-1000-8000-00805f9b34fb';
+const BLE_WRITE_CHAR_UUID = '000018f1-0000-1000-8000-00805f9b34fb';
+// UUIDs alternativos para impresoras que usan otro perfil serie BLE
+const BLE_SERVICE_ALT   = 'e7810a71-73ae-499d-8c15-faa9aef0c3f2';
+const BLE_CHAR_ALT      = 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f';
+
+let bleDevice: BluetoothDevice | null = null;
+let bleCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
+
+async function printViaBluetooth(buffer: Uint8Array) {
+  if (!('bluetooth' in navigator)) {
+    throw new Error('Web Bluetooth no disponible. Usa Chrome en Android o Chrome/Edge en escritorio.');
+  }
+
+  // Si no hay dispositivo conectado o se desconectó, abrimos el diálogo de selección
+  if (!bleDevice || !bleDevice.gatt?.connected) {
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [BLE_SERVICE_UUID] }, { services: [BLE_SERVICE_ALT] }],
+      optionalServices: [BLE_SERVICE_UUID, BLE_SERVICE_ALT],
+    });
+
+    const server = await device.gatt!.connect();
+    device.addEventListener('gattserverdisconnected', () => {
+      bleCharacteristic = null;
+    });
+
+    // Intentar primero con UUID principal, luego con el alternativo
+    let characteristic: BluetoothRemoteGATTCharacteristic | null = null;
+    for (const [svcUuid, charUuid] of [
+      [BLE_SERVICE_UUID, BLE_WRITE_CHAR_UUID],
+      [BLE_SERVICE_ALT,  BLE_CHAR_ALT],
+    ]) {
+      try {
+        const svc = await server.getPrimaryService(svcUuid);
+        characteristic = await svc.getCharacteristic(charUuid);
+        break;
+      } catch {
+        // probar siguiente par
+      }
+    }
+
+    if (!characteristic) {
+      throw new Error('No se encontró el servicio de impresión en la impresora Bluetooth. Comprueba que esté encendida y emparejada.');
+    }
+
+    bleDevice = device;
+    bleCharacteristic = characteristic;
+  }
+
+  if (!bleCharacteristic) throw new Error('Impresora Bluetooth desconectada');
+
+  // Enviar el buffer en chunks (el MTU BLE suele ser 512 bytes, usamos 200 por seguridad)
+  const CHUNK = 200;
+  for (let i = 0; i < buffer.length; i += CHUNK) {
+    await bleCharacteristic.writeValueWithoutResponse(buffer.slice(i, i + CHUNK));
+    // Pausa mínima para que la impresora procese sin saturar el buffer BLE
+    await new Promise<void>((r) => setTimeout(r, 20));
+  }
 }
 
 type OrderStatus = 'RECEIVED_ONLINE' | 'PENDING' | 'PREPARING' | 'READY' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
@@ -84,6 +177,7 @@ export default function OrdersPage() {
   const [deleting, setDeleting]         = useState(false);
   const [serviceLoading, setServiceLoading] = useState(false);
   const [confirmEndService, setConfirmEndService] = useState(false);
+  const [printerMode, setPrinterMode]   = useState<string>('webusb');
 
   const loadService = useCallback(async () => {
     try {
@@ -126,6 +220,13 @@ export default function OrdersPage() {
 
   useEffect(() => { loadService(); }, [loadService]);
   useEffect(() => { loadOrders(); }, [loadOrders]);
+
+  useEffect(() => {
+    fetch(`${API}/api/settings`, { headers: apiHeaders() })
+      .then((r) => r.ok ? r.json() : null)
+      .then((s) => { if (s?.printerMode) setPrinterMode(s.printerMode); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const iv = setInterval(loadOrders, 30_000);
@@ -206,7 +307,13 @@ export default function OrdersPage() {
       });
       if (!res.ok) throw new Error('Error generando comanda');
       const buffer = new Uint8Array(await res.arrayBuffer());
-      await printViaWebUSB(buffer);
+
+      if (printerMode === 'bluetooth') {
+        await printViaBluetooth(buffer);
+      } else {
+        await printViaWebUSB(buffer);
+      }
+
       toast.success('¡Comanda enviada a la impresora!', { icon: '🖨️' });
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Error de impresión');

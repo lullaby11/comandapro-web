@@ -24,3 +24,18 @@ Este equipo está encargado de crear un MVP (Producto Mínimo Viable) para un si
 
 ### 4. Especialista en UX/UI
 - **Misión:** Diseñar un flujo de toma de pedido que se pueda completar en menos de 30 segundos.
+
+## Reglas de Colaboración
+1. **Comunicación:** Uso de Slack para comunicación diaria y reuniones semanales de sincronización
+2. **Gestión de Tareas:** Uso de Jira para seguimiento de tareas y sprints.
+3. **Revisiones de Código:** Pull requests obligatorios para revisión de código y asegurar la calidad del código.
+4. **Documentación:** Documentar cada módulo desarrollado para facilitar futuras mejoras y mantenimiento.
+5. **Testing:** Implementar pruebas unitarias y de integración para asegurar la estabilidad del sistema.
+6. **Feedback Continuo:** Realizar sesiones de feedback al final de cada sprint para mejorar procesos y resultados.
+## Objetivo Final
+Desarrollar un MVP funcional que permita a los restaurantes gestionar pedidos a domicilio de manera eficiente, con un enfoque en la experiencia del usuario y la escalabilidad para futuras expansiones comerciales.
+
+## 
+
+
+
