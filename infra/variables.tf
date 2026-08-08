@@ -110,3 +110,64 @@ variable "domain_name" {
   type        = string
   default     = "olyda.app"
 }
+
+# ── Correo saliente ───────────────────────────────────────────────────────────
+# Estas variables estaban configuradas a mano en la consola de App Runner y no en
+# Terraform: un `apply` las habría borrado, dejando el sistema sin envío de correo
+# en silencio (email.service.ts se traga los errores). Ahora se gestionan aquí.
+#
+# La contraseña NO va en este fichero: ver aws_ssm_parameter.smtp_pass en ssm.tf.
+#
+# Alternativa recomendada a medio plazo: Amazon SES en la misma región. Se autoriza
+# por el rol IAM de la instancia de App Runner, así que desaparece la contraseña y con
+# ella el riesgo de filtrarla.
+
+variable "smtp_host" {
+  description = "Servidor SMTP saliente"
+  type        = string
+  default     = "smtp.office365.com"
+}
+
+variable "smtp_port" {
+  description = "Puerto SMTP (587 con STARTTLS, 465 con TLS implícito)"
+  type        = number
+  default     = 587
+}
+
+variable "smtp_secure" {
+  description = "true solo si el puerto usa TLS implícito (465). Con 587 debe ser false"
+  type        = bool
+  default     = false
+}
+
+variable "smtp_user" {
+  description = "Buzón autenticado para el envío"
+  type        = string
+  default     = "no-reply@olyda.app"
+}
+
+variable "mail_from_address" {
+  description = <<-EOT
+    Dirección remitente de la plataforma. El nombre visible lo pone la aplicación con
+    el nombre de cada local: "Pizzería Bella Italia vía Olyda" <no-reply@olyda.app>.
+    Debe ser una dirección que el servidor SMTP autorice a enviar.
+  EOT
+  type        = string
+  default     = "no-reply@olyda.app"
+}
+
+variable "mail_from_brand" {
+  description = "Marca que acompaña al nombre del local en el remitente"
+  type        = string
+  default     = "Olyda"
+}
+
+variable "mail_reply_to" {
+  description = <<-EOT
+    Buzón al que llegan las respuestas de los clientes. Vacío = sin Reply-To.
+    Ideal: un buzón atendido de soporte. Cuando Business tenga un campo de email
+    propio, esto debería pasar a ser el del local (ver docs/11-deuda-tecnica.md P1-8b).
+  EOT
+  type        = string
+  default     = ""
+}

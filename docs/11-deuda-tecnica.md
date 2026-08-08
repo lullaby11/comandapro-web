@@ -108,26 +108,35 @@ Ver [10-seguridad.md](10-seguridad.md) A3.
 - **Dónde:** `sendOrderConfirmedEmail(...).catch(console.error)`.
 - **Arreglo:** tabla `outbox` con reintentos, o proveedor con webhooks de entrega.
 
-### <a id="p1-remitente"></a>P1-8b. El remitente de los emails es el de un local concreto
+### <a id="p1-remitente"></a>P1-8b. El remitente de los emails era el de un local concreto — ✅ corregido
 
 - **Dónde:** [`apps/api/src/services/email.service.ts`](../apps/api/src/services/email.service.ts):
-  `const FROM = process.env.SMTP_FROM ?? ...`. En producción esa variable vale
+  `const FROM = process.env.SMTP_FROM ?? ...`. En producción esa variable valía
   `Cocino Yo <juanma@puntojs.com>`, es decir, **el nombre de uno de los locales**.
-- **Efecto:** un cliente que se registra en la tienda de otro local recibe la verificación
-  de su cuenta firmada por "Cocino Yo". Rompe el aislamiento de marca entre tenants y
-  dispara los filtros de spam (el nombre no coincide con el negocio del que se espera el
-  correo).
-- **Arreglo:** remitente de plataforma fijo y neutro (`Olyda <no-reply@olyda.app>`) con el
-  nombre del local en el campo `replyTo` y en el asunto —que ya lo lleva—, o un
-  `SMTP_FROM` por `Business` cuando se ofrezca dominio propio.
+- **Efecto:** un cliente que se registraba en la tienda de otro local recibía la
+  verificación de su cuenta firmada por "Cocino Yo".
+- **Arreglo aplicado:** el remitente se construye como
+  `"<nombre del local> vía Olyda" <dirección de la plataforma>`. La dirección sale de
+  `MAIL_FROM_ADDRESS` y, si no existe, de `SMTP_FROM`, para poder desplegar antes de tener
+  el buzón. El nombre del local se limpia antes de meterlo en la cabecera (lo escribe el
+  propio cliente: inyección de cabeceras) y se escapa en el HTML.
+- **Queda pendiente:** `Business` no tiene columna de email, así que el `Reply-To` solo
+  puede ser de plataforma (`MAIL_REPLY_TO`). Para que las respuestas lleguen al local hace
+  falta añadir `Business.email` y pasarlo a las dos funciones de envío.
 
-### P1-8c. Configuración de SMTP fuera de Terraform y contraseña en claro
+### P1-8c. Configuración de SMTP fuera de Terraform y contraseña en claro — ⚠️ parcial
 
-Ver [A12](10-seguridad.md) y la sección de deriva en
-[09-despliegue.md](09-despliegue.md#-deriva-entre-terraform-y-el-servicio-vivo). Dos
-problemas encadenados: la contraseña del buzón es legible por cualquiera con permisos de
-lectura en App Runner, y un `terraform apply` dejaría el sistema sin envío de correo sin
-que nadie se entere.
+Terraform ya gestiona las seis variables y `SMTP_PASS` es un `SecureString` de SSM. **La
+contraseña sigue pendiente de rotar**: ha estado legible en la configuración de App Runner.
+Procedimiento en [09-despliegue.md §3 bis](09-despliegue.md#3-bis-configurar-el-correo-saliente)
+y contexto en [A12](10-seguridad.md).
+
+### <a id="p1-amplify"></a>P1-8d. `terraform apply` desconectaba Amplify de GitHub — ✅ corregido
+
+Descubierto al ejecutar `terraform plan` el 2026-08-06: el recurso `aws_amplify_app.web`
+no conoce el repositorio (la conexión se hizo por consola), así que cada `apply` habría
+puesto `repository = null` y el frontend habría dejado de desplegarse en silencio.
+Corregido con `lifecycle { ignore_changes = [repository, oauth_token, access_token] }`.
 
 ### P1-9. `printedAt` se marca antes de imprimir de verdad
 
@@ -213,12 +222,15 @@ en aparecer y se generan peticiones constantes por cada local abierto.
 En `apps/api/package.json`: `cors`, `multer` y `thermal-printer-encoder` **no se usan**
 (el CORS es manual y no hay subida de ficheros). Eliminar.
 
-### P2-8. Estado de Terraform en local
+### ~~P2-8. Estado de Terraform en local~~ — no aplica
 
-`infra/terraform.tfstate` no está en backend remoto. Riesgo de pérdida y de conflicto entre
-personas.
+Comprobado el 2026-08-06: el estado **ya está en S3 con bloqueo en DynamoDB**
+(`comandapro-terraform-state-839380010537`, tabla `comandapro-terraform-locks`, cifrado).
+El `infra/terraform.tfstate` que queda en la carpeta es un fichero de 0 bytes, residuo de
+la migración del 21/04/2026; el `.backup` es la copia previa.
 
-**Arreglo:** backend S3 + bloqueo con DynamoDB.
+Lo que sí queda pendiente es la **deriva** entre lo declarado y lo que hay desplegado:
+ver [09-despliegue.md](09-despliegue.md#-deriva-entre-terraform-y-el-servicio-vivo).
 
 ### P2-9. Sin migraciones reales
 

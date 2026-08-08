@@ -25,6 +25,16 @@ A partir de ahora, **cada release se anota aquí antes de desplegar**.
   cliente online: 5 altas por IP y hora. Devuelve `429` con `Retry-After`.
 
 ### Cambiado
+- **Los correos ya no se firman con el nombre de un local ajeno.** El remitente pasa a ser
+  `"<nombre del local> vía Olyda" <dirección de la plataforma>`, y la plantilla usa los
+  colores corporativos de Olyda en vez de la cabecera "ComandaPro" morada. Si
+  `MAIL_FROM_ADDRESS` no está configurada, se reutiliza la dirección de `SMTP_FROM`, de modo
+  que el cambio se puede desplegar antes de tener el buzón nuevo.
+- El nombre del local y del cliente se escapan al construir cabeceras y HTML del correo
+  (los escribe el propio cliente: evita inyección de cabeceras y de HTML).
+- **Infraestructura:** la configuración de SMTP pasa a estar gestionada por Terraform y la
+  contraseña a SSM como `SecureString`. `aws_amplify_app.web` ignora `repository` y los
+  tokens: sin eso, un `terraform apply` desconectaba Amplify de GitHub.
 - El registro detallado del flujo de impresión deja de emitirse siempre; se activa por
   local desde la consola con `localStorage.setItem('debugPrint', '1')`.
 - `apprunner.yaml`: `ALLOWED_ORIGINS` apuntaba a la URL antigua de Amplify; ahora usa el
@@ -37,11 +47,11 @@ A partir de ahora, **cada release se anota aquí antes de desplegar**.
 - `.env.example`, que el README pedía copiar y no existía.
 
 ### Conocido y sin resolver
-- La contraseña SMTP está en claro como variable de entorno de App Runner, no en SSM
-  (`docs/10-seguridad.md` A12). **Pendiente de rotar.**
-- Las variables `SMTP_*` se configuraron a mano y no están en Terraform: un
-  `terraform apply` dejaría el sistema sin envío de correo (`docs/09-despliegue.md`).
-- El remitente de todos los correos es el nombre de un local concreto (P1-8b).
+- **La contraseña SMTP sigue pendiente de rotar.** El código y Terraform ya están listos,
+  pero la contraseña actual ha estado legible en la configuración de App Runner
+  (`docs/10-seguridad.md` A12). Procedimiento en `docs/09-despliegue.md` §3 bis.
+- `Business` no tiene campo de email, así que el `Reply-To` es de plataforma y no del local
+  (P1-8b).
 - Cancelar un pedido no restaura el stock (`docs/11-deuda-tecnica.md` P1-1).
 - Un `STAFF` puede borrar pedidos y editar precios (P1-2).
 - Aritmética monetaria en coma flotante (P1-4).

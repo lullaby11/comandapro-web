@@ -31,18 +31,31 @@ resource "aws_apprunner_service" "api" {
         port = "4000"
 
         # Variables de entorno no sensibles
-        runtime_environment_variables = {
-          NODE_ENV        = "production"
-          APP_URL         = "https://${var.domain_name}"
-          ALLOWED_ORIGINS = "https://${var.domain_name},https://www.${var.domain_name}"
-          ASSETS_BUCKET   = aws_s3_bucket.assets.bucket
-          ASSETS_BASE_URL = "https://${aws_s3_bucket.assets.bucket}.s3.${var.aws_region}.amazonaws.com"
-        }
+        runtime_environment_variables = merge(
+          {
+            NODE_ENV        = "production"
+            APP_URL         = "https://${var.domain_name}"
+            ALLOWED_ORIGINS = "https://${var.domain_name},https://www.${var.domain_name}"
+            ASSETS_BUCKET   = aws_s3_bucket.assets.bucket
+            ASSETS_BASE_URL = "https://${aws_s3_bucket.assets.bucket}.s3.${var.aws_region}.amazonaws.com"
+
+            # Correo saliente (la contraseña va como secreto, más abajo)
+            SMTP_HOST         = var.smtp_host
+            SMTP_PORT         = tostring(var.smtp_port)
+            SMTP_SECURE       = tostring(var.smtp_secure)
+            SMTP_USER         = var.smtp_user
+            MAIL_FROM_ADDRESS = var.mail_from_address
+            MAIL_FROM_BRAND   = var.mail_from_brand
+          },
+          # Reply-To solo si hay un buzón atendido configurado
+          var.mail_reply_to != "" ? { MAIL_REPLY_TO = var.mail_reply_to } : {}
+        )
 
         # Secrets leídos de SSM Parameter Store en tiempo de arranque
         runtime_environment_secrets = {
           DATABASE_URL = aws_ssm_parameter.db_url.arn
           JWT_SECRET   = aws_ssm_parameter.jwt_secret.arn
+          SMTP_PASS    = aws_ssm_parameter.smtp_pass.arn
         }
       }
     }

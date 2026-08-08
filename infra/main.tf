@@ -12,15 +12,15 @@ terraform {
     }
   }
 
-  # Descomenta y ajusta después de crear el bucket S3 y la tabla DynamoDB
-  # (ver outputs.tf para los nombres sugeridos)
+  # Estado remoto con bloqueo. El terraform.tfstate que queda en esta carpeta es el
+  # residuo vacío de la migración: el estado bueno vive en S3.
   backend "s3" {
-     bucket         = "comandapro-terraform-state-839380010537"
-     key            = "prod/terraform.tfstate"
-     region         = "eu-west-1"
-     dynamodb_table = "comandapro-terraform-locks"
-     encrypt        = true
-   }
+    bucket         = "comandapro-terraform-state-839380010537"
+    key            = "prod/terraform.tfstate"
+    region         = "eu-west-1"
+    dynamodb_table = "comandapro-terraform-locks"
+    encrypt        = true
+  }
 }
 
 provider "aws" {

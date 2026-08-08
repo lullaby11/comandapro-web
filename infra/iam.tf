@@ -49,7 +49,8 @@ resource "aws_iam_policy" "apprunner_ssm_read" {
         ]
         Resource = [
           aws_ssm_parameter.db_url.arn,
-          aws_ssm_parameter.jwt_secret.arn
+          aws_ssm_parameter.jwt_secret.arn,
+          aws_ssm_parameter.smtp_pass.arn
         ]
       },
       {
@@ -91,9 +92,9 @@ resource "aws_iam_policy" "github_actions" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "ECRAuth"
-        Effect = "Allow"
-        Action = ["ecr:GetAuthorizationToken"]
+        Sid      = "ECRAuth"
+        Effect   = "Allow"
+        Action   = ["ecr:GetAuthorizationToken"]
         Resource = ["*"]
       },
       {

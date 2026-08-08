@@ -27,9 +27,10 @@ flowchart TB
 | Parámetros cifrados | `ssm.tf` | `DATABASE_URL`, `JWT_SECRET` |
 | Bucket S3 | `s3.tf` | Reservado; hoy no se usa desde el código |
 
-> ⚠️ `infra/terraform.tfstate` está en `.gitignore` pero **existe en local**. El estado no
-> está en backend remoto: si trabaja más de una persona, migrar a S3 + DynamoDB lock es
-> prioritario. Ver [11-deuda-tecnica.md](11-deuda-tecnica.md).
+> El estado de Terraform vive en **S3 con bloqueo en DynamoDB**
+> (`comandapro-terraform-state-839380010537` / `comandapro-terraform-locks`, cifrado). El
+> `infra/terraform.tfstate` local es un fichero vacío que quedó tras la migración: no lo
+> uses ni te fíes de él.
 
 ### 🚨 Deriva entre Terraform y el servicio vivo
 
@@ -45,10 +46,43 @@ de funcionar. Y lo haría **en silencio**: `email.service.ts` traga los errores 
 `.catch(console.error)`, así que no habría ni un 500 — simplemente los clientes dejarían de
 recibir la verificación de cuenta y la confirmación de pedido.
 
-**Antes de volver a ejecutar Terraform contra esta infraestructura:** llevar la
-configuración de SMTP a `infra/apprunner.tf` (y `SMTP_PASS` a SSM, ver
-[A12](10-seguridad.md)), o ejecutar `terraform plan` y revisar línea por línea lo que
-pretende eliminar.
+Corregido en el parche del 2026-08-06: las seis variables ya están en `apprunner.tf` y
+`SMTP_PASS` pasa a ser un secreto de SSM.
+
+### 🚨 Amplify se desconectaría de GitHub
+
+El mismo `terraform plan` destapó un segundo caso de deriva, más grave:
+
+```
+~ resource "aws_amplify_app" "web" {
+  - repository = "https://github.com/lullaby11/comandapro-web" -> null
+```
+
+La conexión con GitHub se hizo desde la consola (Terraform no gestiona el token OAuth), así
+que **cualquier `terraform apply` la habría borrado** y Amplify habría dejado de construir
+el frontend al hacer push, sin más síntoma que dejar de desplegarse.
+
+Corregido añadiendo `lifecycle { ignore_changes = [repository, oauth_token, access_token] }`
+a `aws_amplify_app.web`.
+
+> **Norma:** todo lo que se configure a mano en una consola de AWS y Terraform no pueda
+> gestionar necesita un `ignore_changes` **en el mismo momento**, o se convierte en una
+> bomba de relojería que estalla en el siguiente `apply`, meses después y sin relación
+> aparente con el cambio que se estaba haciendo.
+
+### Estado del plan tras el parche
+
+```
+Plan: 1 to add, 3 to change, 0 to destroy
+```
+
+- `aws_ssm_parameter.smtp_pass` — a crear (con valor de marcador; el real va aparte).
+- `aws_apprunner_service.api` — variables de correo y `SMTP_PASS` movida a secreto.
+- `aws_iam_policy.apprunner_ssm_read` — permiso de lectura del parámetro nuevo.
+- `aws_iam_policy.github_actions` — deriva previa: la política del código ya incluía los
+  permisos de snapshot de RDS y de rollback que el workflow usa, pero no se habían
+  aplicado. Merece la pena aplicarlo: hoy el workflow depende de permisos concedidos a
+  mano.
 
 ## 2. Despliegue del backend (automático)
 
@@ -112,6 +146,70 @@ construyese desde el código.
 >
 > Si la variable no estuviera definida, la API se repliega al origen de `APP_URL` en lugar
 > de abrirse a todo el mundo.
+
+## 3 bis. Configurar el correo saliente
+
+Desde el parche de agosto de 2026, la configuración de SMTP la gestiona Terraform y la
+contraseña vive en SSM. Orden de operaciones **importante**: el código primero, la
+infraestructura después.
+
+### Paso 1 — Desplegar el código (se puede hacer ya)
+
+`email.service.ts` usa `MAIL_FROM_ADDRESS` y, si no existe, reutiliza la dirección que
+haya dentro de `SMTP_FROM`. Así el despliegue no rompe el envío aunque todavía no exista
+el buzón nuevo: se sigue enviando desde la dirección de siempre, pero el **nombre visible
+del remitente pasa a ser el del local**, que era el problema real.
+
+### Paso 2 — Escribir la contraseña en SSM
+
+Terraform crea el parámetro vacío e ignora su valor, para que la contraseña no acabe en el
+estado ni en un `.tfvars`:
+
+```bash
+aws ssm put-parameter \
+  --name "/comandapro/prod/SMTP_PASS" \
+  --value "LA_CONTRASEÑA_DE_APLICACION" \
+  --type SecureString --overwrite --region eu-west-1
+```
+
+> Ajusta el nombre si `var.environment` no es `prod`.
+
+### Paso 3 — Aplicar Terraform
+
+> ⚠️ **No apliques antes de que el buzón exista.** El plan cambia
+> `SMTP_USER` de `juanma@puntojs.com` a `no-reply@olyda.app` y retira la variable
+> `SMTP_PASS` en claro. Si el buzón nuevo todavía no está operativo, el envío de correo se
+> queda sin credenciales válidas — y falla en silencio.
+
+```bash
+cd infra
+terraform plan   # esperado: 1 to add, 3 to change, 0 to destroy
+terraform apply
+```
+
+Variables relevantes (`infra/variables.tf`): `smtp_host`, `smtp_port`, `smtp_secure`,
+`smtp_user`, `mail_from_address`, `mail_from_brand`, `mail_reply_to`.
+
+### Paso 4 — DNS del dominio remitente
+
+Sin esto, los correos de verificación acaban en spam justo cuando un cliente intenta
+registrarse:
+
+| Registro | Para qué |
+|----------|----------|
+| **SPF** | Un único TXT que autorice al proveedor de envío |
+| **DKIM** | Las claves que dé el proveedor (SES o Microsoft 365) |
+| **DMARC** | Empezar en `p=none` y subir a `p=quarantine` tras unas semanas limpias |
+
+### Paso 5 — Verificar
+
+Registra una cuenta de prueba en la tienda online y comprueba que el correo llega, que el
+remitente muestra el nombre del local y que el enlace de verificación funciona.
+
+> **Alternativa recomendada: Amazon SES.** En la misma región, se autoriza con el rol IAM
+> de la instancia de App Runner (`aws_iam_role.apprunner_instance`), así que desaparecen la
+> contraseña, el parámetro de SSM y el riesgo de filtrarla. Es el destino natural de esta
+> configuración.
 
 ## 4. Rollback
 

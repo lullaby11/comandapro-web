@@ -50,8 +50,9 @@ Opción 3, todo en `eu-west-1`:
 - Amplify no ejecuta `postinstall`, lo que obligó a parchear a mano los binarios nativos de
   Tailwind v4 en `amplify.yml` — un punto de fragilidad conocido.
 - La conexión de Amplify con GitHub se hizo desde la consola, así que **no está del todo
-  reflejada en Terraform**.
-- El estado de Terraform vive en local, sin backend remoto ni bloqueo.
+  reflejada en Terraform**. Lo mismo pasó con las variables de correo, añadidas a mano y
+  recuperadas para Terraform el 2026-08-06.
+- El estado sí está en S3 con bloqueo en DynamoDB desde el 21/04/2026.
 
 ### Qué haría falta para revertirla
 La API es una imagen Docker sin dependencias de App Runner: se puede mover a ECS, Fly.io o
