@@ -37,6 +37,11 @@ A partir de ahora, **cada release se anota aquí antes de desplegar**.
 - `.env.example`, que el README pedía copiar y no existía.
 
 ### Conocido y sin resolver
+- La contraseña SMTP está en claro como variable de entorno de App Runner, no en SSM
+  (`docs/10-seguridad.md` A12). **Pendiente de rotar.**
+- Las variables `SMTP_*` se configuraron a mano y no están en Terraform: un
+  `terraform apply` dejaría el sistema sin envío de correo (`docs/09-despliegue.md`).
+- El remitente de todos los correos es el nombre de un local concreto (P1-8b).
 - Cancelar un pedido no restaura el stock (`docs/11-deuda-tecnica.md` P1-1).
 - Un `STAFF` puede borrar pedidos y editar precios (P1-2).
 - Aritmética monetaria en coma flotante (P1-4).

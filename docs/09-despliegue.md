@@ -31,6 +31,25 @@ flowchart TB
 > está en backend remoto: si trabaja más de una persona, migrar a S3 + DynamoDB lock es
 > prioritario. Ver [11-deuda-tecnica.md](11-deuda-tecnica.md).
 
+### 🚨 Deriva entre Terraform y el servicio vivo
+
+Comprobado el 2026-08-06 con `aws apprunner describe-service`:
+
+| Variable | Declarada en `apprunner.tf` | Presente en el servicio vivo |
+|----------|:---------------------------:|:----------------------------:|
+| `NODE_ENV`, `APP_URL`, `ALLOWED_ORIGINS`, `ASSETS_BUCKET`, `ASSETS_BASE_URL` | ✅ | ✅ |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | ❌ | ✅ (añadidas a mano por consola) |
+
+**Un `terraform apply` borraría las seis variables de SMTP** y el envío de correos dejaría
+de funcionar. Y lo haría **en silencio**: `email.service.ts` traga los errores con
+`.catch(console.error)`, así que no habría ni un 500 — simplemente los clientes dejarían de
+recibir la verificación de cuenta y la confirmación de pedido.
+
+**Antes de volver a ejecutar Terraform contra esta infraestructura:** llevar la
+configuración de SMTP a `infra/apprunner.tf` (y `SMTP_PASS` a SSM, ver
+[A12](10-seguridad.md)), o ejecutar `terraform plan` y revisar línea por línea lo que
+pretende eliminar.
+
 ## 2. Despliegue del backend (automático)
 
 `.github/workflows/deploy-api.yml` se dispara en push a `main` que toque `apps/api/**`:

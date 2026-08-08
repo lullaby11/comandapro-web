@@ -108,6 +108,27 @@ Ver [10-seguridad.md](10-seguridad.md) A3.
 - **Dónde:** `sendOrderConfirmedEmail(...).catch(console.error)`.
 - **Arreglo:** tabla `outbox` con reintentos, o proveedor con webhooks de entrega.
 
+### <a id="p1-remitente"></a>P1-8b. El remitente de los emails es el de un local concreto
+
+- **Dónde:** [`apps/api/src/services/email.service.ts`](../apps/api/src/services/email.service.ts):
+  `const FROM = process.env.SMTP_FROM ?? ...`. En producción esa variable vale
+  `Cocino Yo <juanma@puntojs.com>`, es decir, **el nombre de uno de los locales**.
+- **Efecto:** un cliente que se registra en la tienda de otro local recibe la verificación
+  de su cuenta firmada por "Cocino Yo". Rompe el aislamiento de marca entre tenants y
+  dispara los filtros de spam (el nombre no coincide con el negocio del que se espera el
+  correo).
+- **Arreglo:** remitente de plataforma fijo y neutro (`Olyda <no-reply@olyda.app>`) con el
+  nombre del local en el campo `replyTo` y en el asunto —que ya lo lleva—, o un
+  `SMTP_FROM` por `Business` cuando se ofrezca dominio propio.
+
+### P1-8c. Configuración de SMTP fuera de Terraform y contraseña en claro
+
+Ver [A12](10-seguridad.md) y la sección de deriva en
+[09-despliegue.md](09-despliegue.md#-deriva-entre-terraform-y-el-servicio-vivo). Dos
+problemas encadenados: la contraseña del buzón es legible por cualquiera con permisos de
+lectura en App Runner, y un `terraform apply` dejaría el sistema sin envío de correo sin
+que nadie se entere.
+
 ### P1-9. `printedAt` se marca antes de imprimir de verdad
 
 - **Efecto:** si falla el transporte, el `print-agent` nunca reintenta ese pedido.

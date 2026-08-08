@@ -28,10 +28,17 @@ Criterio de priorización, en este orden:
 no devuelve cabeceras CORS a orígenes desconocidos; 10 intentos de login fallidos devuelven
 `429` y los aciertos no consumen cupo.
 
-**Pendiente al desplegar:** confirmar que el servicio vivo de App Runner tiene
-`ALLOWED_ORIGINS` con el dominio de la tienda online (Terraform lo declara como
-`https://olyda.app,https://www.olyda.app`; no se pudo verificar contra AWS por falta de
-permisos en la cuenta).
+**Verificado contra AWS el 2026-08-06:** el servicio vivo tiene
+`ALLOWED_ORIGINS = https://olyda.app,https://www.olyda.app` y `APP_URL = https://olyda.app`.
+El parche de CORS no afecta a la tienda online.
+
+### Detectado durante esa verificación — meter en el siguiente parche
+
+| Tarea | Ref | Prioridad |
+|-------|-----|-----------|
+| Rotar la contraseña SMTP y moverla a SSM (hoy está en claro en App Runner) | [A12](10-seguridad.md) | 🔴 |
+| Llevar las variables `SMTP_*` a Terraform: hoy un `apply` las borraría y el correo caería en silencio | [09-despliegue](09-despliegue.md#-deriva-entre-terraform-y-el-servicio-vivo) | 🟠 |
+| Remitente de correo neutro de plataforma en vez del nombre de un local | [P1-8b](11-deuda-tecnica.md#p1-remitente) | 🟠 |
 
 ---
 

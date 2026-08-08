@@ -91,6 +91,25 @@ Decisiones a tener presentes:
 - **El contador es por proceso.** Con varias instancias de App Runner el límite efectivo es
   N × max.
 
+### 🔴 A12 — Credenciales SMTP en claro en la configuración de App Runner
+
+Verificado el 2026-08-06 con `aws apprunner describe-service`: el servicio vivo tiene
+`SMTP_PASS`, `SMTP_USER` y el resto de `SMTP_*` como **variables de entorno en claro**
+(`RuntimeEnvironmentVariables`), no como secretos de SSM. `DATABASE_URL` y `JWT_SECRET` sí
+están bien, en `RuntimeEnvironmentSecrets`.
+
+Consecuencias: cualquier identidad con `apprunner:DescribeService` lee la contraseña del
+buzón, y esta aparece en claro en la consola de AWS, en la CLI y en cualquier volcado de la
+configuración del servicio. Es una contraseña de aplicación de un buzón real de Office 365,
+con la que se puede enviar correo suplantando al dominio.
+
+**Arreglo:**
+1. Revocar la contraseña de aplicación actual en la cuenta de Microsoft 365 y generar otra.
+2. Guardarla en SSM Parameter Store como `SecureString`, junto a `db_url` y `jwt_secret`
+   (`infra/ssm.tf`).
+3. Referenciarla desde `runtime_environment_secrets` en `infra/apprunner.tf` y eliminar la
+   variable en claro.
+
 ### 🟠 A3 — Autorización insuficiente por rol
 
 `requireAdmin` solo se aplica en `settings` y `shipping-rates`. Un `STAFF` puede:
@@ -192,7 +211,8 @@ final. Eso es un tratamiento de datos personales en toda regla.
 ## 6. Orden de trabajo sugerido
 
 1. ~~A1 (CORS) y A2 (rate limiting)~~ — ✅ hecho el 2026-08-06.
-2. A3 (roles) y A8 (`onlineVisible`) — coherencia funcional.
+2. **A12 (credenciales SMTP)** — rotar la contraseña y moverla a SSM. Media hora.
+3. A3 (roles) y A8 (`onlineVisible`) — coherencia funcional.
 3. A11 (errores tipados) — mejora diagnóstico y evita filtrar stacks.
 4. A4, A5, A7 — endurecimiento.
 5. A6 (cookies httpOnly + CSP) — refactor mayor, planificar en v1.2.
