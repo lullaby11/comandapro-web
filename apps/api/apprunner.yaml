@@ -16,8 +16,12 @@ run:
   env:
     - name: NODE_ENV
       value: production
+    # Orígenes permitidos por CORS, separados por comas. Debe incluir el dominio de la
+    # tienda online, que llama a la API entre orígenes distintos.
+    # La configuración que manda en producción es la de infra/apprunner.tf (despliegue
+    # por imagen ECR); este fichero solo aplica si App Runner construye desde el código.
     - name: ALLOWED_ORIGINS
-      value: "https://main.d33spjlfz445rx.amplifyapp.com"
+      value: "https://olyda.app,https://www.olyda.app"
   secrets:
     - name: DATABASE_URL
     - name: JWT_SECRET

@@ -3,11 +3,12 @@ import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../prisma/client';
+import { loginRateLimiter, registerRateLimiter } from '../middleware/rate-limit.middleware';
 
 const router = Router();
 
 // POST /auth/login
-router.post('/login', async (req: Request, res: Response): Promise<void> => {
+router.post('/login', loginRateLimiter, async (req: Request, res: Response): Promise<void> => {
   const schema = z.object({
     email: z.string().email(),
     password: z.string().min(6),
@@ -66,7 +67,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
 });
 
 // POST /auth/register — Crear primer usuario/negocio
-router.post('/register', async (req: Request, res: Response): Promise<void> => {
+router.post('/register', registerRateLimiter, async (req: Request, res: Response): Promise<void> => {
   const schema = z.object({
     businessName: z.string().min(2).max(100),
     businessSlug: z.string().min(2).max(50).regex(/^[a-z0-9-]+$/),
