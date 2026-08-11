@@ -1,7 +1,7 @@
 # 0001 — Monorepo con npm workspaces y Turborepo
 
 - **Estado:** Aceptada
-- **Fecha:** 2026-04-10 (documentada retroactivamente el 2026-08-06)
+- **Fecha:** 2026-04-10 (documentada retroactivamente el 2026-08-11)
 - **Afecta a:** todo el repositorio
 
 ## Contexto

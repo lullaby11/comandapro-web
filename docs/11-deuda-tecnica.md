@@ -1,6 +1,6 @@
 # 11 — Deuda técnica (auditoría)
 
-Inventario del estado real del código a **6 de agosto de 2026**, con ubicación exacta y
+Inventario del estado real del código a **11 de agosto de 2026**, con ubicación exacta y
 propuesta de arreglo. Priorización:
 
 | Nivel | Significado |
@@ -12,7 +12,7 @@ propuesta de arreglo. Priorización:
 
 ---
 
-## P0 — ✅ Resuelto en la rama `fix/parche-p0` (2026-08-06)
+## P0 — ✅ Resuelto en la rama `fix/parche-p0` (2026-08-11)
 
 ### <a id="p0-bluetooth"></a>P0-1. La opción "Bluetooth" de Ajustes no se puede guardar — ✅
 
@@ -136,7 +136,7 @@ contraseña de aplicación antigua, que ya no se usa pero sigue siendo válida.
 
 ### <a id="p1-amplify"></a>P1-8d. `terraform apply` desconectaba Amplify de GitHub — ✅ corregido
 
-Descubierto al ejecutar `terraform plan` el 2026-08-06: el recurso `aws_amplify_app.web`
+Descubierto al ejecutar `terraform plan` el 2026-08-11: el recurso `aws_amplify_app.web`
 no conoce el repositorio (la conexión se hizo por consola), así que cada `apply` habría
 puesto `repository = null` y el frontend habría dejado de desplegarse en silencio.
 Corregido con `lifecycle { ignore_changes = [repository, oauth_token, access_token] }`.
@@ -227,7 +227,7 @@ En `apps/api/package.json`: `cors`, `multer` y `thermal-printer-encoder` **no se
 
 ### ~~P2-8. Estado de Terraform en local~~ — no aplica
 
-Comprobado el 2026-08-06: el estado **ya está en S3 con bloqueo en DynamoDB**
+Comprobado el 2026-08-11: el estado **ya está en S3 con bloqueo en DynamoDB**
 (`comandapro-terraform-state-839380010537`, tabla `comandapro-terraform-locks`, cifrado).
 El `infra/terraform.tfstate` que queda en la carpeta es un fichero de 0 bytes, residuo de
 la migración del 21/04/2026; el `.backup` es la copia previa.
@@ -235,13 +235,25 @@ la migración del 21/04/2026; el `.backup` es la copia previa.
 Lo que sí queda pendiente es la **deriva** entre lo declarado y lo que hay desplegado:
 ver [09-despliegue.md](09-despliegue.md#-deriva-entre-terraform-y-el-servicio-vivo).
 
-### P2-9. Sin migraciones reales
+### P2-9. Sin migraciones reales — ⚠️ mitigado, no resuelto
 
 Solo existe `20260511121906_init`; el resto del esquema se aplicó con `db push`.
 El historial no reproduce la base de producción.
 
-**Arreglo:** generar una migración de "línea base" comparando con producción
-(`prisma migrate diff`) y prohibir `db push` fuera de desarrollo.
+**Esto tumbó el despliegue del 11/08/2026:** `prisma migrate deploy` abortó con `P3005`
+("database schema is not empty") y el contenedor entró en bucle de reinicio. Se mitigó
+haciendo el *baseline* de la migración inicial desde el `CMD` del Dockerfile
+(`migrate resolve --applied`), que es el procedimiento que documenta Prisma.
+
+**Sigue pendiente lo de fondo:** la migración `init` está marcada como aplicada, pero
+**nadie ha comprobado que su SQL describa realmente el esquema de producción**. Si no
+coinciden, la próxima migración generada a partir del schema puede fallar o, peor, aplicar
+un cambio contra una estructura distinta de la que espera.
+
+**Arreglo pendiente:** comparar el esquema real con el declarado
+(`prisma migrate diff --from-url $DATABASE_URL --to-schema-datamodel prisma/schema.prisma`)
+y, si hay diferencias, generar una migración correctiva. **Hazlo antes de la primera
+migración de verdad.**
 
 ---
 

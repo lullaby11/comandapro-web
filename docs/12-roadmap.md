@@ -13,7 +13,7 @@ Criterio de priorización, en este orden:
 
 ---
 
-## ✅ v1.0.1 — Parche de estabilización (completado el 2026-08-06)
+## ✅ v1.0.1 — Parche de estabilización (completado el 2026-08-11)
 
 | Tarea | Ref | Estado |
 |-------|-----|--------|
@@ -28,7 +28,7 @@ Criterio de priorización, en este orden:
 no devuelve cabeceras CORS a orígenes desconocidos; 10 intentos de login fallidos devuelven
 `429` y los aciertos no consumen cupo.
 
-**Verificado contra AWS el 2026-08-06:** el servicio vivo tiene
+**Verificado contra AWS el 2026-08-11:** el servicio vivo tiene
 `ALLOWED_ORIGINS = https://olyda.app,https://www.olyda.app` y `APP_URL = https://olyda.app`.
 El parche de CORS no afecta a la tienda online.
 

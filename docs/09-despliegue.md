@@ -34,7 +34,7 @@ flowchart TB
 
 ### 🚨 Deriva entre Terraform y el servicio vivo
 
-Comprobado el 2026-08-06 con `aws apprunner describe-service`:
+Comprobado el 2026-08-11 con `aws apprunner describe-service`:
 
 | Variable | Declarada en `apprunner.tf` | Presente en el servicio vivo |
 |----------|:---------------------------:|:----------------------------:|
@@ -46,7 +46,7 @@ de funcionar. Y lo haría **en silencio**: `email.service.ts` traga los errores 
 `.catch(console.error)`, así que no habría ni un 500 — simplemente los clientes dejarían de
 recibir la verificación de cuenta y la confirmación de pedido.
 
-Corregido en el parche del 2026-08-06: las seis variables ya están en `apprunner.tf` y
+Corregido en el parche del 2026-08-11: las seis variables ya están en `apprunner.tf` y
 `SMTP_PASS` pasa a ser un secreto de SSM.
 
 ### 🚨 Amplify se desconectaría de GitHub
@@ -153,7 +153,7 @@ Desde agosto de 2026 el correo se envía con la **API de Amazon SES autorizada p
 instancia de App Runner**. No hay credenciales: ni contraseña, ni parámetro en SSM, ni nada
 que rotar o que se pueda filtrar en un `describe-service`.
 
-### Estado de la identidad (verificado el 2026-08-06)
+### Estado de la identidad (verificado el 2026-08-11)
 
 | | |
 |---|---|
@@ -219,6 +219,60 @@ devuelve error al usuario).
 La identidad de SES, su DKIM y el MAIL FROM se verificaron desde la consola y **no** se
 gestionan con Terraform, porque los registros DNS viven fuera de esta cuenta. Está anotado
 en `infra/ses.tf` para que nadie intente "arreglar" esa ausencia importándolos a medias.
+
+## 3 ter. Incidencia del 11/08/2026 — lecciones del primer despliegue real
+
+El primer despliegue que pasó por el workflow desde mayo destapó tres problemas
+encadenados. Ninguno causó caída, pero conviene tenerlos presentes.
+
+### El pipeline llevaba roto desde mayo
+
+Las ejecuciones #32, #33 y #34 fallaron en `Create pre-deployment RDS snapshot`: el usuario
+`comandapro-github-actions` no tenía `rds:CreateDBSnapshot`. Los permisos **ya estaban en
+`infra/iam.tf`**, pero nunca se habían aplicado. Mientras tanto los despliegues se hacían a
+mano con `docker push`, lo que explica que la imagen en producción fuera del 8 de mayo.
+
+> **Lección:** un `terraform plan` que lleva meses sin aplicarse no es deuda inerte; es una
+> diferencia entre lo que crees que está desplegado y lo que hay. Revísalo periódicamente
+> aunque no vayas a cambiar nada.
+
+### El contenedor no arrancaba: P3005
+
+```
+Error: P3005 — The database schema is not empty
+```
+
+`prisma migrate deploy` se niega a operar sobre una base preexistente sin baseline.
+Producción se creó con `db push` (deuda P2-9), así que no tenía registrada la migración
+inicial. Era la **primera vez que se desplegaba la API desde que existe
+`prisma/migrations/`** — la imagen anterior es del 8 de mayo y la migración se creó el 11 —
+así que el problema estaba latente desde entonces.
+
+Corregido en el `CMD` del Dockerfile con `migrate resolve --applied`, que marca la
+migración como aplicada sin ejecutar su SQL. Ya está registrada en producción, así que a
+partir de ahora ese comando falla de forma inocua y `migrate deploy` funciona con
+normalidad.
+
+> **Lo que salvó la situación:** App Runner mantiene la versión anterior mientras la nueva
+> no supere el health check. El contenedor nuevo entró en bucle de reinicio y los clientes
+> siguieron pidiendo con el código antiguo, sin enterarse. **No toques esa configuración.**
+
+### Terraform no puede actualizar App Runner durante un despliegue
+
+```
+InvalidStateException: Service cannot be updated in the current state: OPERATION_IN_PROGRESS
+```
+
+Como `auto_deployments_enabled = true`, el push a `:latest` dispara un despliegue por su
+cuenta, y `terraform apply` choca con él. **Espera a que el servicio esté `RUNNING` antes de
+aplicar Terraform.**
+
+### Orden correcto, ya validado
+
+1. Merge a `main` → el workflow construye, sube la imagen y lanza el despliegue.
+2. Esperar a `RUNNING` (`aws apprunner describe-service ... --query 'Service.Status'`).
+3. `terraform apply`.
+4. Esperar a `RUNNING` otra vez: el cambio de variables provoca un segundo reinicio.
 
 ## 4. Rollback
 

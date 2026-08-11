@@ -1,7 +1,7 @@
 # 0002 — Generar ESC/POS en el servidor y transportar desde el cliente
 
 - **Estado:** Aceptada
-- **Fecha:** 2026-04 (documentada retroactivamente el 2026-08-06)
+- **Fecha:** 2026-04 (documentada retroactivamente el 2026-08-11)
 - **Afecta a:** apps/api, apps/web, apps/print-agent
 
 ## Contexto

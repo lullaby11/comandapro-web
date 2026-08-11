@@ -1,7 +1,7 @@
 # 0006 — JWT en `localStorage` sin refresh token
 
 - **Estado:** Aceptada, **a revisar en v1.2**
-- **Fecha:** 2026-04 (documentada retroactivamente el 2026-08-06)
+- **Fecha:** 2026-04 (documentada retroactivamente el 2026-08-11)
 - **Afecta a:** apps/api, apps/web, apps/print-agent
 
 ## Contexto

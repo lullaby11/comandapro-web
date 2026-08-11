@@ -27,7 +27,14 @@
       "Bash(docker push *)",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); s=d['Service']; print\\('Status:', s['Status']\\); print\\('Updated:', s['UpdatedAt']\\)\")",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); s=d['Service']; print\\('Status:', s['Status']\\)\")",
-      "Bash(curl -s https://x4ra2uy3w2.eu-west-1.awsapprunner.com/api/public/cocino-yo)"
+      "Bash(curl -s https://x4ra2uy3w2.eu-west-1.awsapprunner.com/api/public/cocino-yo)",
+      "Bash(git checkout *)",
+      "Bash(git pull *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(terraform apply *)",
+      "Bash(python3 -)"
     ]
   }
 }

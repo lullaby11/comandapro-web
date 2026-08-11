@@ -87,10 +87,10 @@ Hay **tres** vías, seleccionables en Ajustes → `Business.printerMode`:
 | Modo | Dónde vive | Navegador | Estado |
 |------|-----------|-----------|--------|
 | `webusb` | Navegador → USB | Chrome/Edge escritorio | ✅ Predeterminado |
-| `bluetooth` | Navegador → BLE | Chrome Android / Chrome-Edge escritorio | ✅ Desde el parche del 2026-08-06 |
+| `bluetooth` | Navegador → BLE | Chrome Android / Chrome-Edge escritorio | ✅ Desde el parche del 2026-08-11 |
 | `printserver` | `apps/print-agent` → CUPS | cualquiera | ✅ Funcional, requiere instalar el agente |
 
-> Hasta el 6 de agosto de 2026, elegir "📶 Bluetooth" en Ajustes devolvía **400** porque el
+> Hasta el 11 de agosto de 2026, elegir "📶 Bluetooth" en Ajustes devolvía **400** porque el
 > esquema Zod de `PATCH /api/settings` solo aceptaba `'webusb' | 'printserver'`. Ya está
 > corregido. Recuerda que **el backend sigue ignorando `printerMode`**: quien decide el
 > transporte es el frontend.

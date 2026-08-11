@@ -1,7 +1,7 @@
 # 10 — Seguridad y aislamiento multi-tenant
 
 > Documento de trabajo, no un certificado. Refleja el estado real del código a
-> **6 de agosto de 2026**, con los problemas abiertos identificados.
+> **11 de agosto de 2026**, con los problemas abiertos identificados.
 
 ## 1. Superficie de exposición
 
@@ -42,7 +42,7 @@ Lo que hay que vigilar:
 
 ## 3. Problemas abiertos (ordenados por gravedad)
 
-### ✅ A1 — CORS permitía cualquier origen con credenciales — RESUELTO (2026-08-06)
+### ✅ A1 — CORS permitía cualquier origen con credenciales — RESUELTO (2026-08-11)
 
 `apps/api/src/index.ts` reflejaba la cabecera `Origin` recibida:
 
@@ -66,7 +66,7 @@ arrancar. Se añade `Vary: Origin`.
 > distintos, porque usa `NEXT_PUBLIC_API_URL` en absoluto en vez del rewrite. Cualquier
 > dominio nuevo desde el que se sirva la tienda tiene que entrar en `ALLOWED_ORIGINS`.
 
-### ✅ A2 — Sin límite de intentos de autenticación — RESUELTO (2026-08-06)
+### ✅ A2 — Sin límite de intentos de autenticación — RESUELTO (2026-08-11)
 
 **Arreglo aplicado:** limitador propio de ventana fija en
 [`rate-limit.middleware.ts`](../apps/api/src/middleware/rate-limit.middleware.ts), sin
@@ -91,7 +91,7 @@ Decisiones a tener presentes:
 - **El contador es por proceso.** Con varias instancias de App Runner el límite efectivo es
   N × max.
 
-### ✅ A12 — Credenciales SMTP en claro en la configuración de App Runner — RESUELTO (2026-08-06)
+### ✅ A12 — Credenciales SMTP en claro en la configuración de App Runner — RESUELTO (2026-08-11)
 
 **Arreglo aplicado:** se elimina la credencial en lugar de protegerla. El correo pasa a
 enviarse con la **API de Amazon SES autorizada por el rol de instancia de App Runner**, así
@@ -107,7 +107,7 @@ identidad del dominio y, con una condición `ses:FromAddress`, al remitente conc
 
 ### Credenciales SMTP en claro en la configuración de App Runner
 
-Verificado el 2026-08-06 con `aws apprunner describe-service`: el servicio vivo tiene
+Verificado el 2026-08-11 con `aws apprunner describe-service`: el servicio vivo tiene
 `SMTP_PASS`, `SMTP_USER` y el resto de `SMTP_*` como **variables de entorno en claro**
 (`RuntimeEnvironmentVariables`), no como secretos de SSM. `DATABASE_URL` y `JWT_SECRET` sí
 están bien, en `RuntimeEnvironmentSecrets`.
@@ -221,7 +221,7 @@ final. Eso es un tratamiento de datos personales en toda regla.
 
 ## 6. Orden de trabajo sugerido
 
-1. ~~A1 (CORS), A2 (rate limiting) y A12 (credenciales SMTP)~~ — ✅ hecho el 2026-08-06.
+1. ~~A1 (CORS), A2 (rate limiting) y A12 (credenciales SMTP)~~ — ✅ hecho el 2026-08-11.
    Queda **revocar la contraseña antigua de Office 365**, que ya no se usa pero sigue siendo válida.
 2. A3 (roles) y A8 (`onlineVisible`) — coherencia funcional.
 3. A11 (errores tipados) — mejora diagnóstico y evita filtrar stacks.

@@ -39,7 +39,7 @@ siga existiendo o verificada).
 | `POST /api/auth/register` · `POST /api/public/:slug/auth/register` | 5 / hora | IP |
 
 Los inicios de sesión correctos no consumen cupo. Ver
-[10-seguridad.md](10-seguridad.md#-a2--sin-límite-de-intentos-de-autenticación--resuelto-2026-08-06).
+[10-seguridad.md](10-seguridad.md#-a2--sin-límite-de-intentos-de-autenticación--resuelto-2026-08-11).
 
 > ⚠️ Los errores lanzados desde una transacción (p. ej. `deductStock` por condición de
 > carrera) llegan al handler global y se devuelven como **500**, no como 409.
@@ -121,7 +121,7 @@ Detalle con `customer`, `items.product` y datos del `business`. **404** si es de
   "isPickup": false,
   "deliveryAddress": "Calle X 1",
   "notes": "Sin cebolla",
-  "estimatedDeliveryAt": "2026-08-06T20:30:00.000Z",   // ISO datetime
+  "estimatedDeliveryAt": "2026-08-11T20:30:00.000Z",   // ISO datetime
   "paymentMethod": "CASH",         // CASH | CARD
   "cashGiven": 20.0,
   "shippingRateId": "c..."
@@ -270,7 +270,7 @@ automáticamente a partir de los datos de la cuenta.
 
 ## 11. `/health` 🔓
 
-`{ "status": "ok", "ts": "2026-08-06T..." }`. Lo usa App Runner como health check.
+`{ "status": "ok", "ts": "2026-08-11T..." }`. Lo usa App Runner como health check.
 
 ---
 

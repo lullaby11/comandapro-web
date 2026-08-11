@@ -4,10 +4,12 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [Versionado Semántico](https://semver.org/lang/es/).
 
 Las versiones anteriores a `1.0.0` se han reconstruido a partir del historial de Git el
-6 de agosto de 2026; agrupan el trabajo por fecha, no por etiquetas reales (no existían).
+11 de agosto de 2026; agrupan el trabajo por fecha, no por etiquetas reales (no existían).
 A partir de ahora, **cada release se anota aquí antes de desplegar**.
 
-## [No publicado]
+## [1.1.0] — 2026-08-11
+
+Desplegado en producción el 11/08/2026 a las 21:45 (Madrid).
 
 ### Corregido
 - **Ajustes: ya se puede guardar la impresora Bluetooth.** La API rechazaba el valor
@@ -51,6 +53,14 @@ A partir de ahora, **cada release se anota aquí antes de desplegar**.
 ### Añadido
 - Documentación completa en [`docs/`](docs/README.md), `CLAUDE.md` y este `CHANGELOG.md`.
 - `.env.example`, que el README pedía copiar y no existía.
+
+### Notas del despliegue
+- El pipeline de CI llevaba roto desde mayo (faltaba `rds:CreateDBSnapshot` al usuario de
+  GitHub Actions); los permisos ya estaban en Terraform pero sin aplicar. Resuelto.
+- El contenedor no arrancaba por `P3005`: producción se creó con `db push` y no tenía
+  baseline de migraciones. Resuelto con `migrate resolve --applied` en el `CMD`.
+  **Producción no se vio afectada**: App Runner mantuvo la versión anterior.
+- Detalle completo en `docs/09-despliegue.md` §3 ter.
 
 ### Conocido y sin resolver
 - **La contraseña de aplicación antigua de Office 365 sigue siendo válida.** Ya no se usa,

@@ -1,7 +1,7 @@
 # 0005 — Despliegue en AWS App Runner + Amplify + RDS
 
 - **Estado:** Aceptada
-- **Fecha:** 2026-04 (documentada retroactivamente el 2026-08-06)
+- **Fecha:** 2026-04 (documentada retroactivamente el 2026-08-11)
 - **Afecta a:** infra, .github/workflows, apps/api, apps/web
 
 ## Contexto
@@ -51,7 +51,7 @@ Opción 3, todo en `eu-west-1`:
   Tailwind v4 en `amplify.yml` — un punto de fragilidad conocido.
 - La conexión de Amplify con GitHub se hizo desde la consola, así que **no está del todo
   reflejada en Terraform**. Lo mismo pasó con las variables de correo, añadidas a mano y
-  recuperadas para Terraform el 2026-08-06.
+  recuperadas para Terraform el 2026-08-11.
 - El estado sí está en S3 con bloqueo en DynamoDB desde el 21/04/2026.
 
 ### Qué haría falta para revertirla

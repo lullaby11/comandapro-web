@@ -36,7 +36,7 @@ modelo de datos transversal, cambio de protocolo de impresión, etc.).
 - [Checklist de Pull Request](plantillas/pull-request.md)
 - [Checklist de release](plantillas/release-checklist.md)
 
-## Estado del proyecto (a 6 de agosto de 2026)
+## Estado del proyecto (a 11 de agosto de 2026)
 
 | Área | Estado |
 |------|--------|

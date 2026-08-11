@@ -1,7 +1,7 @@
 # 0003 — Multi-tenant con columna discriminadora
 
 - **Estado:** Aceptada
-- **Fecha:** 2026-04 (documentada retroactivamente el 2026-08-06)
+- **Fecha:** 2026-04 (documentada retroactivamente el 2026-08-11)
 - **Afecta a:** apps/api, modelo de datos
 
 ## Contexto
