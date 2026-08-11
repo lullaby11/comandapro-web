@@ -91,7 +91,21 @@ Decisiones a tener presentes:
 - **El contador es por proceso.** Con varias instancias de App Runner el límite efectivo es
   N × max.
 
-### 🔴 A12 — Credenciales SMTP en claro en la configuración de App Runner
+### ✅ A12 — Credenciales SMTP en claro en la configuración de App Runner — RESUELTO (2026-08-06)
+
+**Arreglo aplicado:** se elimina la credencial en lugar de protegerla. El correo pasa a
+enviarse con la **API de Amazon SES autorizada por el rol de instancia de App Runner**, así
+que no hay contraseña ni en variables de entorno ni en SSM. El permiso está acotado a la
+identidad del dominio y, con una condición `ses:FromAddress`, al remitente concreto.
+
+> ⚠️ **Sigue pendiente revocar la contraseña antigua** de `juanma@puntojs.com`: ha estado
+> legible en la configuración de App Runner y deja de usarse, pero no deja de ser válida
+> hasta que se revoque en la cuenta de Microsoft 365.
+
+<details>
+<summary>Descripción original del problema</summary>
+
+### Credenciales SMTP en claro en la configuración de App Runner
 
 Verificado el 2026-08-06 con `aws apprunner describe-service`: el servicio vivo tiene
 `SMTP_PASS`, `SMTP_USER` y el resto de `SMTP_*` como **variables de entorno en claro**
@@ -103,12 +117,9 @@ buzón, y esta aparece en claro en la consola de AWS, en la CLI y en cualquier v
 configuración del servicio. Es una contraseña de aplicación de un buzón real de Office 365,
 con la que se puede enviar correo suplantando al dominio.
 
-**Arreglo:**
-1. Revocar la contraseña de aplicación actual en la cuenta de Microsoft 365 y generar otra.
-2. Guardarla en SSM Parameter Store como `SecureString`, junto a `db_url` y `jwt_secret`
-   (`infra/ssm.tf`).
-3. Referenciarla desde `runtime_environment_secrets` en `infra/apprunner.tf` y eliminar la
-   variable en claro.
+Se valoró moverla a SSM, pero se optó por eliminarla: ver el arreglo aplicado arriba.
+
+</details>
 
 ### 🟠 A3 — Autorización insuficiente por rol
 
@@ -210,9 +221,9 @@ final. Eso es un tratamiento de datos personales en toda regla.
 
 ## 6. Orden de trabajo sugerido
 
-1. ~~A1 (CORS) y A2 (rate limiting)~~ — ✅ hecho el 2026-08-06.
-2. **A12 (credenciales SMTP)** — rotar la contraseña y moverla a SSM. Media hora.
-3. A3 (roles) y A8 (`onlineVisible`) — coherencia funcional.
+1. ~~A1 (CORS), A2 (rate limiting) y A12 (credenciales SMTP)~~ — ✅ hecho el 2026-08-06.
+   Queda **revocar la contraseña antigua de Office 365**, que ya no se usa pero sigue siendo válida.
+2. A3 (roles) y A8 (`onlineVisible`) — coherencia funcional.
 3. A11 (errores tipados) — mejora diagnóstico y evita filtrar stacks.
 4. A4, A5, A7 — endurecimiento.
 5. A6 (cookies httpOnly + CSP) — refactor mayor, planificar en v1.2.

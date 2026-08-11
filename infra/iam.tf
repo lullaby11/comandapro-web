@@ -49,8 +49,7 @@ resource "aws_iam_policy" "apprunner_ssm_read" {
         ]
         Resource = [
           aws_ssm_parameter.db_url.arn,
-          aws_ssm_parameter.jwt_secret.arn,
-          aws_ssm_parameter.smtp_pass.arn
+          aws_ssm_parameter.jwt_secret.arn
         ]
       },
       {

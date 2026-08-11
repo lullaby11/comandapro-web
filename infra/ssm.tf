@@ -20,25 +20,6 @@ resource "aws_ssm_parameter" "jwt_secret" {
   tags = { Name = "${var.project_name}-jwt-secret" }
 }
 
-# ── Contraseña SMTP ───────────────────────────────────────────────────────────
-# Terraform crea el parámetro pero NO gestiona su valor: la contraseña real se escribe
-# una sola vez, fuera del estado de Terraform, para que no acabe en terraform.tfstate
-# ni en un .tfvars:
-#
-#   aws ssm put-parameter \
-#     --name "/comandapro/prod/SMTP_PASS" \
-#     --value "LA_CONTRASEÑA" \
-#     --type SecureString --overwrite --region eu-west-1
-#
-# `ignore_changes` evita que un `apply` posterior la machaque con el marcador.
-resource "aws_ssm_parameter" "smtp_pass" {
-  name  = "/${var.project_name}/${var.environment}/SMTP_PASS"
-  type  = "SecureString"
-  value = "PENDIENTE-escribir-con-aws-ssm-put-parameter"
-
-  lifecycle {
-    ignore_changes = [value]
-  }
-
-  tags = { Name = "${var.project_name}-smtp-pass" }
-}
+# NOTA: el correo saliente NO necesita ningún secreto aquí. Se envía con la API de
+# Amazon SES autorizada por el rol de instancia de App Runner (ver ses.tf), así que no
+# existe contraseña que guardar, rotar ni filtrar.

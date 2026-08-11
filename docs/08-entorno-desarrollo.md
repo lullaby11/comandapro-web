@@ -91,7 +91,15 @@ npx tsc --noEmit -p apps/web/tsconfig.json
 | `PORT` | | 4000 por defecto |
 | `NODE_ENV` | | `production` oculta los mensajes de error |
 | `ALLOWED_ORIGINS` | | Orígenes CORS permitidos, separados por comas. Si falta, se deduce del origen de `APP_URL` |
-| `SMTP_HOST/PORT/SECURE/USER/PASS/FROM` | | Envío de emails; sin ellas, nodemailer apunta a `localhost:587` y falla en silencio |
+| `MAIL_TRANSPORT` | | `ses` \| `smtp` \| `log`. Si no se indica se deduce; sin nada configurado usa `log` |
+| `MAIL_FROM_ADDRESS`, `MAIL_FROM_BRAND`, `MAIL_REPLY_TO` | | Remitente de plataforma; el nombre visible lo pone el local |
+| `SES_REGION` | | Región de la identidad de SES (producción: `eu-west-3`) |
+| `SMTP_HOST/PORT/SECURE/USER/PASS` | | Solo para el transporte `smtp`, fuera de AWS |
+
+> **En local no configures nada de correo.** El transporte `log` vuelca el mensaje y sus
+> enlaces por consola, así puedes copiar el enlace de verificación y seguir el flujo de
+> registro de la tienda online sin servidor de correo. Antes, en local, los emails
+> fallaban en silencio y no había forma de completar ese flujo.
 
 El arranque aborta si falta `DATABASE_URL`, `JWT_SECRET` o `APP_URL`.
 
@@ -187,5 +195,5 @@ Y la comprobación manual mínima según lo tocado:
 | El frontend no llega a la API | `NEXT_PUBLIC_API_URL` mal puesta; recuerda que se lee **en build**: reinicia `next dev` |
 | `Missing required env vars` al arrancar la API | Falta `DATABASE_URL`, `JWT_SECRET` o `APP_URL` |
 | Prisma no encuentra el cliente | Falta `npx prisma generate` (se ejecuta en `db push`) |
-| Emails que "se envían" pero no llegan | Sin `SMTP_*` configurado; el fallo se traga con `.catch(console.error)` |
+| Emails que "se envían" pero no llegan | En local usa el transporte `log`: el mensaje y sus enlaces salen por consola. Los fallos reales se tragan con `.catch(console.error)` |
 | Cambios de esquema que no aparecen | Se usó `db push` en una máquina y `migrate` en otra: revisa `prisma/migrations` |

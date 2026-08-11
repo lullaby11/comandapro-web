@@ -13,6 +13,7 @@
     "db:migrate": "prisma migrate dev"
   },
   "dependencies": {
+    "@aws-sdk/client-sesv2": "^3.1107.0",
     "@point-of-sale/receipt-printer-encoder": "^3.0.3",
     "@prisma/client": "^5.14.0",
     "bcryptjs": "^2.4.3",

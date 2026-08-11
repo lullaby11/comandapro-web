@@ -111,39 +111,27 @@ variable "domain_name" {
   default     = "olyda.app"
 }
 
-# ── Correo saliente ───────────────────────────────────────────────────────────
+# ── Correo saliente (Amazon SES) ──────────────────────────────────────────────
 # Estas variables estaban configuradas a mano en la consola de App Runner y no en
 # Terraform: un `apply` las habría borrado, dejando el sistema sin envío de correo
 # en silencio (email.service.ts se traga los errores). Ahora se gestionan aquí.
 #
-# La contraseña NO va en este fichero: ver aws_ssm_parameter.smtp_pass en ssm.tf.
-#
-# Alternativa recomendada a medio plazo: Amazon SES en la misma región. Se autoriza
-# por el rol IAM de la instancia de App Runner, así que desaparece la contraseña y con
-# ella el riesgo de filtrarla.
+# No hay credenciales: el envío se autoriza con el rol de instancia (ver ses.tf).
 
-variable "smtp_host" {
-  description = "Servidor SMTP saliente"
+variable "ses_region" {
+  description = <<-EOT
+    Región donde está verificada la identidad de SES. No tiene por qué coincidir con
+    aws_region: la identidad de olyda.app se verificó en eu-west-3 y funciona igual
+    desde App Runner en eu-west-1.
+  EOT
   type        = string
-  default     = "smtp.office365.com"
+  default     = "eu-west-3"
 }
 
-variable "smtp_port" {
-  description = "Puerto SMTP (587 con STARTTLS, 465 con TLS implícito)"
-  type        = number
-  default     = 587
-}
-
-variable "smtp_secure" {
-  description = "true solo si el puerto usa TLS implícito (465). Con 587 debe ser false"
-  type        = bool
-  default     = false
-}
-
-variable "smtp_user" {
-  description = "Buzón autenticado para el envío"
+variable "mail_domain" {
+  description = "Dominio verificado en SES desde el que se envía el correo"
   type        = string
-  default     = "no-reply@olyda.app"
+  default     = "olyda.app"
 }
 
 variable "mail_from_address" {

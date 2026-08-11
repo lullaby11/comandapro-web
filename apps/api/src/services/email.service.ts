@@ -1,16 +1,5 @@
+import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
 import nodemailer from 'nodemailer';
-
-const transporter = nodemailer.createTransport({
-  host:            process.env.SMTP_HOST ?? 'localhost',
-  port:            Number(process.env.SMTP_PORT ?? 587),
-  secure:          process.env.SMTP_SECURE === 'true',
-  connectionTimeout: 10_000,
-  greetingTimeout:   8_000,
-  socketTimeout:     10_000,
-  auth:   process.env.SMTP_USER
-    ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-    : undefined,
-});
 
 // ─── Remitente ────────────────────────────────────────────────────────────────
 // La dirección es de la plataforma y el nombre visible es el del local, para que el
@@ -19,11 +8,6 @@ const transporter = nodemailer.createTransport({
 //
 // Antes se usaba SMTP_FROM tal cual, que en producción tenía el nombre de UN local
 // concreto: los clientes de cualquier otro negocio recibían sus correos firmados por él.
-//
-// Si MAIL_FROM_ADDRESS no está configurada se reutiliza la dirección que haya dentro de
-// SMTP_FROM. Así este cambio se puede desplegar antes de tener el buzón de olyda.app: el
-// servidor SMTP seguiría enviando desde una dirección que sí le pertenece y no rechazaría
-// el correo.
 
 /** Extrae `alguien@dominio` de un valor tipo `Nombre <alguien@dominio>`. */
 function parseAddress(value: string | undefined): string | null {
@@ -35,9 +19,9 @@ function parseAddress(value: string | undefined): string | null {
 
 const FROM_ADDRESS =
   process.env.MAIL_FROM_ADDRESS ?? parseAddress(process.env.SMTP_FROM) ?? 'no-reply@olyda.app';
-const BRAND     = process.env.MAIL_FROM_BRAND ?? 'Olyda';
+const BRAND    = process.env.MAIL_FROM_BRAND ?? 'Olyda';
 /** Buzón de la plataforma al que llegan las respuestas. Opcional. */
-const REPLY_TO  = process.env.MAIL_REPLY_TO;
+const REPLY_TO = process.env.MAIL_REPLY_TO;
 
 /**
  * El nombre del local lo escribe el propio cliente, así que se limpia antes de meterlo
@@ -47,9 +31,20 @@ function sanitizeHeader(value: string): string {
   return value.replace(/[\r\n"<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 78);
 }
 
+/**
+ * Codifica el nombre visible según RFC 2047 si tiene caracteres no ASCII. SES rechaza o
+ * estropea las cabeceras con acentos sin codificar, y aquí casi todos los locales se
+ * llaman "Pizzería…" o "El Rincón de…".
+ */
+function encodeDisplayName(name: string): string {
+  const isAscii = /^[\x20-\x7E]*$/.test(name);
+  return isAscii ? `"${name}"` : `=?UTF-8?B?${Buffer.from(name, 'utf8').toString('base64')}?=`;
+}
+
 function from(businessName: string): string {
   const name = sanitizeHeader(businessName);
-  return name ? `"${name} vía ${BRAND}" <${FROM_ADDRESS}>` : `"${BRAND}" <${FROM_ADDRESS}>`;
+  const display = name ? `${name} vía ${BRAND}` : BRAND;
+  return `${encodeDisplayName(display)} <${FROM_ADDRESS}>`;
 }
 
 /** Escapa el texto que se interpola en el HTML del correo. */
@@ -59,6 +54,92 @@ function escapeHtml(value: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+// ─── Transporte ───────────────────────────────────────────────────────────────
+// En producción se usa la API de Amazon SES con el rol de instancia de App Runner: no
+// hay contraseña que guardar, rotar ni filtrar. Se mantiene SMTP para quien despliegue
+// fuera de AWS, y un modo de consola para desarrollo local, donde antes los correos
+// fallaban en silencio y no había forma cómoda de seguir el enlace de verificación.
+
+type Transport = 'ses' | 'smtp' | 'log';
+
+const TRANSPORT: Transport =
+  (process.env.MAIL_TRANSPORT as Transport | undefined) ??
+  (process.env.SES_REGION ? 'ses' : process.env.SMTP_HOST ? 'smtp' : 'log');
+
+const sesClient =
+  TRANSPORT === 'ses' ? new SESv2Client({ region: process.env.SES_REGION }) : null;
+
+const smtpTransporter =
+  TRANSPORT === 'smtp'
+    ? nodemailer.createTransport({
+        host:              process.env.SMTP_HOST,
+        port:              Number(process.env.SMTP_PORT ?? 587),
+        secure:            process.env.SMTP_SECURE === 'true',
+        connectionTimeout: 10_000,
+        greetingTimeout:   8_000,
+        socketTimeout:     10_000,
+        auth: process.env.SMTP_USER
+          ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+          : undefined,
+      })
+    : null;
+
+console.log(
+  `[email] Transporte: ${TRANSPORT}${TRANSPORT === 'ses' ? ` (${process.env.SES_REGION})` : ''} · remitente: ${FROM_ADDRESS}`
+);
+
+interface Mail {
+  to: string;
+  subject: string;
+  html: string;
+  businessName: string;
+}
+
+/**
+ * El asunto lleva el nombre del local, que escribe el propio cliente. Aunque tanto SES
+ * como nodemailer codifican las cabeceras, no se les delega la seguridad: los saltos de
+ * línea se eliminan aquí antes de construir el mensaje.
+ */
+function sanitizeSubject(value: string): string {
+  return value.replace(/[\r\n]+/g, ' ').trim().slice(0, 200);
+}
+
+async function deliver({ to, subject: rawSubject, html, businessName }: Mail): Promise<void> {
+  const fromHeader = from(businessName);
+  const subject    = sanitizeSubject(rawSubject);
+
+  if (TRANSPORT === 'ses') {
+    await sesClient!.send(
+      new SendEmailCommand({
+        FromEmailAddress: fromHeader,
+        Destination:      { ToAddresses: [to] },
+        ReplyToAddresses: REPLY_TO ? [REPLY_TO] : undefined,
+        Content: {
+          Simple: {
+            Subject: { Data: subject, Charset: 'UTF-8' },
+            Body:    { Html: { Data: html, Charset: 'UTF-8' } },
+          },
+        },
+      })
+    );
+    return;
+  }
+
+  if (TRANSPORT === 'smtp') {
+    await smtpTransporter!.sendMail({ from: fromHeader, replyTo: REPLY_TO, to, subject, html });
+    return;
+  }
+
+  // Desarrollo: sin credenciales de envío, el correo se vuelca a la consola con los
+  // enlaces, que es lo único que hace falta para seguir el flujo en local.
+  const links = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
+  console.log(
+    `\n[email:log] Para: ${to}\n  De     : ${fromHeader}\n  Asunto : ${subject}` +
+      (links.length ? `\n  Enlaces:\n${links.map((l) => `    ${l}`).join('\n')}` : '') +
+      '\n'
+  );
 }
 
 // ─── Plantilla ────────────────────────────────────────────────────────────────
@@ -111,10 +192,9 @@ export async function sendVerificationEmail(
       Este enlace caduca en 24 horas. Si no has solicitado este registro, ignora este email.
     </p>`;
 
-  await transporter.sendMail({
-    from:    from(businessName),
-    replyTo: REPLY_TO,
+  await deliver({
     to,
+    businessName,
     subject: `Verifica tu email — ${businessName}`,
     html:    baseTemplate(businessName, 'Confirma tu correo electrónico', body),
   });
@@ -136,10 +216,9 @@ export async function sendOrderConfirmedEmail(
     </p>
     ${button(trackingUrl, 'Seguir mi pedido')}`;
 
-  await transporter.sendMail({
-    from:    from(businessName),
-    replyTo: REPLY_TO,
+  await deliver({
     to,
+    businessName,
     subject: `¡Tu pedido ha sido confirmado! — ${businessName}`,
     html:    baseTemplate(businessName, '¡Pedido confirmado!', body),
   });

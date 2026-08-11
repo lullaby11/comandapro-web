@@ -147,69 +147,78 @@ construyese desde el código.
 > Si la variable no estuviera definida, la API se repliega al origen de `APP_URL` en lugar
 > de abrirse a todo el mundo.
 
-## 3 bis. Configurar el correo saliente
+## 3 bis. Correo saliente con Amazon SES
 
-Desde el parche de agosto de 2026, la configuración de SMTP la gestiona Terraform y la
-contraseña vive en SSM. Orden de operaciones **importante**: el código primero, la
-infraestructura después.
+Desde agosto de 2026 el correo se envía con la **API de Amazon SES autorizada por el rol de
+instancia de App Runner**. No hay credenciales: ni contraseña, ni parámetro en SSM, ni nada
+que rotar o que se pueda filtrar en un `describe-service`.
 
-### Paso 1 — Desplegar el código (se puede hacer ya)
+### Estado de la identidad (verificado el 2026-08-06)
 
-`email.service.ts` usa `MAIL_FROM_ADDRESS` y, si no existe, reutiliza la dirección que
-haya dentro de `SMTP_FROM`. Así el despliegue no rompe el envío aunque todavía no exista
-el buzón nuevo: se sigue enviando desde la dirección de siempre, pero el **nombre visible
-del remitente pasa a ser el del local**, que era el problema real.
+| | |
+|---|---|
+| Región de SES | **eu-west-3** (el resto de la infraestructura está en eu-west-1; funciona entre regiones) |
+| Dominio `olyda.app` | Verificado |
+| DKIM | `SUCCESS` (Easy DKIM, 3 CNAME) |
+| MAIL FROM propio `smtp.olyda.app` | `SUCCESS`, con `BehaviorOnMxFailure = USE_DEFAULT_VALUE` |
+| Acceso a producción | **Concedido** — 50.000/día, 14/s, cuenta `HEALTHY` |
 
-### Paso 2 — Escribir la contraseña en SSM
+> El acceso a producción es crítico: en el *sandbox* de SES solo se puede enviar a
+> direcciones verificadas, así que los correos de verificación a clientes reales fallarían.
 
-Terraform crea el parámetro vacío e ignora su valor, para que la contraseña no acabe en el
-estado ni en un `.tfvars`:
+### DNS pendiente
 
-```bash
-aws ssm put-parameter \
-  --name "/comandapro/prod/SMTP_PASS" \
-  --value "LA_CONTRASEÑA_DE_APLICACION" \
-  --type SecureString --overwrite --region eu-west-1
+```
+TXT   smtp.olyda.app     v=spf1 include:amazonses.com ~all
+TXT   _dmarc.olyda.app   v=DMARC1; p=none; rua=mailto:BUZON@olyda.app
 ```
 
-> Ajusta el nombre si `var.environment` no es `prod`.
+El MX de `smtp.olyda.app` ya apunta a `feedback-smtp.eu-west-3.amazonses.com`, pero falta
+el TXT del SPF, y el dominio no tiene DMARC. Con DKIM ya alineado, DMARC en `p=none` da
+informes sin bloquear nada; se sube a `p=quarantine` tras unas semanas limpias.
 
-### Paso 3 — Aplicar Terraform
+> Si `olyda.app` se usa además para correo corporativo, el SPF de la raíz tiene que incluir
+> también a ese proveedor.
 
-> ⚠️ **No apliques antes de que el buzón exista.** El plan cambia
-> `SMTP_USER` de `juanma@puntojs.com` a `no-reply@olyda.app` y retira la variable
-> `SMTP_PASS` en claro. Si el buzón nuevo todavía no está operativo, el envío de correo se
-> queda sin credenciales válidas — y falla en silencio.
+### Permisos
+
+`infra/ses.tf` concede `ses:SendEmail` al rol de instancia, acotado a la identidad del
+dominio **y** al remitente concreto:
+
+```hcl
+Condition = { StringEquals = { "ses:FromAddress" = var.mail_from_address } }
+```
+
+Sin esa condición, el permiso sobre la identidad de dominio permitiría enviar desde
+cualquier dirección `@olyda.app`.
+
+### Desplegar
 
 ```bash
 cd infra
-terraform plan   # esperado: 1 to add, 3 to change, 0 to destroy
+terraform plan    # esperado: 2 to add, 2 to change, 0 to destroy
 terraform apply
 ```
 
-Variables relevantes (`infra/variables.tf`): `smtp_host`, `smtp_port`, `smtp_secure`,
-`smtp_user`, `mail_from_address`, `mail_from_brand`, `mail_reply_to`.
+El `apply` retira las seis variables `SMTP_*` (incluida la contraseña en claro) y añade
+`MAIL_TRANSPORT`, `SES_REGION`, `MAIL_FROM_ADDRESS` y `MAIL_FROM_BRAND`.
 
-### Paso 4 — DNS del dominio remitente
+> **Orden:** despliega primero el código y aplica Terraform después. Al arrancar, la API
+> registra `[email] Transporte: ses (eu-west-3) · remitente: no-reply@olyda.app`, que
+> confirma de un vistazo que la configuración cargó.
 
-Sin esto, los correos de verificación acaban en spam justo cuando un cliente intenta
-registrarse:
-
-| Registro | Para qué |
-|----------|----------|
-| **SPF** | Un único TXT que autorice al proveedor de envío |
-| **DKIM** | Las claves que dé el proveedor (SES o Microsoft 365) |
-| **DMARC** | Empezar en `p=none` y subir a `p=quarantine` tras unas semanas limpias |
-
-### Paso 5 — Verificar
+### Verificar
 
 Registra una cuenta de prueba en la tienda online y comprueba que el correo llega, que el
-remitente muestra el nombre del local y que el enlace de verificación funciona.
+remitente muestra el nombre del local y que el enlace de verificación funciona. Si algo
+falla, los errores de SES aparecen en CloudWatch (el envío es *fire-and-forget*: no
+devuelve error al usuario).
 
-> **Alternativa recomendada: Amazon SES.** En la misma región, se autoriza con el rol IAM
-> de la instancia de App Runner (`aws_iam_role.apprunner_instance`), así que desaparecen la
-> contraseña, el parámetro de SSM y el riesgo de filtrarla. Es el destino natural de esta
-> configuración.
+### Identidad y DNS no están en Terraform
+
+La identidad de SES, su DKIM y el MAIL FROM se verificaron desde la consola y **no** se
+gestionan con Terraform, porque los registros DNS viven fuera de esta cuenta. Está anotado
+en `infra/ses.tf` para que nadie intente "arreglar" esa ausencia importándolos a medias.
 
 ## 4. Rollback
 

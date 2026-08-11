@@ -124,12 +124,15 @@ Ver [10-seguridad.md](10-seguridad.md) A3.
   puede ser de plataforma (`MAIL_REPLY_TO`). Para que las respuestas lleguen al local hace
   falta añadir `Business.email` y pasarlo a las dos funciones de envío.
 
-### P1-8c. Configuración de SMTP fuera de Terraform y contraseña en claro — ⚠️ parcial
+### P1-8c. Configuración de SMTP fuera de Terraform y contraseña en claro — ✅ corregido
 
-Terraform ya gestiona las seis variables y `SMTP_PASS` es un `SecureString` de SSM. **La
-contraseña sigue pendiente de rotar**: ha estado legible en la configuración de App Runner.
-Procedimiento en [09-despliegue.md §3 bis](09-despliegue.md#3-bis-configurar-el-correo-saliente)
-y contexto en [A12](10-seguridad.md).
+El correo pasa a enviarse con la **API de SES autorizada por el rol de instancia**: no hay
+credencial que gestionar, así que el problema desaparece en vez de mitigarse. Terraform
+gestiona ahora toda la configuración de correo (`infra/ses.tf`). Detalle en
+[09-despliegue.md §3 bis](09-despliegue.md#3-bis-correo-saliente-con-amazon-ses).
+
+**Queda pendiente, y es cosa de la cuenta de Microsoft, no del código:** revocar la
+contraseña de aplicación antigua, que ya no se usa pero sigue siendo válida.
 
 ### <a id="p1-amplify"></a>P1-8d. `terraform apply` desconectaba Amplify de GitHub — ✅ corregido
 

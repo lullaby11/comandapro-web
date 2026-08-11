@@ -39,11 +39,10 @@ resource "aws_apprunner_service" "api" {
             ASSETS_BUCKET   = aws_s3_bucket.assets.bucket
             ASSETS_BASE_URL = "https://${aws_s3_bucket.assets.bucket}.s3.${var.aws_region}.amazonaws.com"
 
-            # Correo saliente (la contraseña va como secreto, más abajo)
-            SMTP_HOST         = var.smtp_host
-            SMTP_PORT         = tostring(var.smtp_port)
-            SMTP_SECURE       = tostring(var.smtp_secure)
-            SMTP_USER         = var.smtp_user
+            # Correo saliente con SES. Sin credenciales: el permiso lo da el rol de
+            # instancia (ver ses.tf).
+            MAIL_TRANSPORT    = "ses"
+            SES_REGION        = var.ses_region
             MAIL_FROM_ADDRESS = var.mail_from_address
             MAIL_FROM_BRAND   = var.mail_from_brand
           },
@@ -55,7 +54,6 @@ resource "aws_apprunner_service" "api" {
         runtime_environment_secrets = {
           DATABASE_URL = aws_ssm_parameter.db_url.arn
           JWT_SECRET   = aws_ssm_parameter.jwt_secret.arn
-          SMTP_PASS    = aws_ssm_parameter.smtp_pass.arn
         }
       }
     }

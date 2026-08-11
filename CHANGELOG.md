@@ -32,9 +32,15 @@ A partir de ahora, **cada release se anota aquí antes de desplegar**.
   que el cambio se puede desplegar antes de tener el buzón nuevo.
 - El nombre del local y del cliente se escapan al construir cabeceras y HTML del correo
   (los escribe el propio cliente: evita inyección de cabeceras y de HTML).
-- **Infraestructura:** la configuración de SMTP pasa a estar gestionada por Terraform y la
-  contraseña a SSM como `SecureString`. `aws_amplify_app.web` ignora `repository` y los
-  tokens: sin eso, un `terraform apply` desconectaba Amplify de GitHub.
+- **El correo se envía con Amazon SES en lugar de SMTP con contraseña.** Se autoriza con el
+  rol de instancia de App Runner, así que desaparece la credencial en vez de protegerla.
+  Se mantiene el transporte SMTP para despliegues fuera de AWS.
+- **En desarrollo local ya se pueden seguir los flujos de correo:** sin nada configurado, el
+  transporte `log` vuelca el mensaje y sus enlaces por consola, de modo que se puede
+  completar el registro de un cliente en la tienda online sin servidor de correo.
+- **Infraestructura:** toda la configuración de correo pasa a estar gestionada por Terraform
+  (`infra/ses.tf`). `aws_amplify_app.web` ignora `repository` y los tokens: sin eso, un
+  `terraform apply` desconectaba Amplify de GitHub.
 - El registro detallado del flujo de impresión deja de emitirse siempre; se activa por
   local desde la consola con `localStorage.setItem('debugPrint', '1')`.
 - `apprunner.yaml`: `ALLOWED_ORIGINS` apuntaba a la URL antigua de Amplify; ahora usa el
@@ -47,9 +53,11 @@ A partir de ahora, **cada release se anota aquí antes de desplegar**.
 - `.env.example`, que el README pedía copiar y no existía.
 
 ### Conocido y sin resolver
-- **La contraseña SMTP sigue pendiente de rotar.** El código y Terraform ya están listos,
-  pero la contraseña actual ha estado legible en la configuración de App Runner
-  (`docs/10-seguridad.md` A12). Procedimiento en `docs/09-despliegue.md` §3 bis.
+- **La contraseña de aplicación antigua de Office 365 sigue siendo válida.** Ya no se usa,
+  pero estuvo legible en la configuración de App Runner y hay que revocarla en la cuenta de
+  Microsoft (`docs/10-seguridad.md` A12).
+- Faltan los registros DNS `TXT` de SPF en `smtp.olyda.app` y de DMARC en `olyda.app`
+  (`docs/09-despliegue.md` §3 bis).
 - `Business` no tiene campo de email, así que el `Reply-To` es de plataforma y no del local
   (P1-8b).
 - Cancelar un pedido no restaura el stock (`docs/11-deuda-tecnica.md` P1-1).
