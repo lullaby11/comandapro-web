@@ -28,7 +28,7 @@ router.patch('/', requireAdmin, async (req: AuthenticatedRequest, res) => {
     phone: z.string().optional(),
     address: z.string().optional(),
     paperWidth: z.enum(['58', '80']).transform(Number).optional(),
-    printerMode: z.enum(['webusb', 'printserver']).optional(),
+    printerMode: z.enum(['webusb', 'bluetooth', 'printserver']).optional(),
     printServerUrl: z.string().url().nullable().optional(),
     currency: z.string().length(3).optional(),
     taxRate: z.number().min(0).max(100).optional(),

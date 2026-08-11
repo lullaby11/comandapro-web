@@ -110,3 +110,52 @@ variable "domain_name" {
   type        = string
   default     = "olyda.app"
 }
+
+# ── Correo saliente (Amazon SES) ──────────────────────────────────────────────
+# Estas variables estaban configuradas a mano en la consola de App Runner y no en
+# Terraform: un `apply` las habría borrado, dejando el sistema sin envío de correo
+# en silencio (email.service.ts se traga los errores). Ahora se gestionan aquí.
+#
+# No hay credenciales: el envío se autoriza con el rol de instancia (ver ses.tf).
+
+variable "ses_region" {
+  description = <<-EOT
+    Región donde está verificada la identidad de SES. No tiene por qué coincidir con
+    aws_region: la identidad de olyda.app se verificó en eu-west-3 y funciona igual
+    desde App Runner en eu-west-1.
+  EOT
+  type        = string
+  default     = "eu-west-3"
+}
+
+variable "mail_domain" {
+  description = "Dominio verificado en SES desde el que se envía el correo"
+  type        = string
+  default     = "olyda.app"
+}
+
+variable "mail_from_address" {
+  description = <<-EOT
+    Dirección remitente de la plataforma. El nombre visible lo pone la aplicación con
+    el nombre de cada local: "Pizzería Bella Italia vía Olyda" <no-reply@olyda.app>.
+    Debe ser una dirección que el servidor SMTP autorice a enviar.
+  EOT
+  type        = string
+  default     = "no-reply@olyda.app"
+}
+
+variable "mail_from_brand" {
+  description = "Marca que acompaña al nombre del local en el remitente"
+  type        = string
+  default     = "Olyda"
+}
+
+variable "mail_reply_to" {
+  description = <<-EOT
+    Buzón al que llegan las respuestas de los clientes. Vacío = sin Reply-To.
+    Ideal: un buzón atendido de soporte. Cuando Business tenga un campo de email
+    propio, esto debería pasar a ser el del local (ver docs/11-deuda-tecnica.md P1-8b).
+  EOT
+  type        = string
+  default     = ""
+}

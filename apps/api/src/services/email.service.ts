@@ -1,20 +1,151 @@
+import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
 import nodemailer from 'nodemailer';
 
-const transporter = nodemailer.createTransport({
-  host:            process.env.SMTP_HOST ?? 'localhost',
-  port:            Number(process.env.SMTP_PORT ?? 587),
-  secure:          process.env.SMTP_SECURE === 'true',
-  connectionTimeout: 10_000,
-  greetingTimeout:   8_000,
-  socketTimeout:     10_000,
-  auth:   process.env.SMTP_USER
-    ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-    : undefined,
-});
+// ─── Remitente ────────────────────────────────────────────────────────────────
+// La dirección es de la plataforma y el nombre visible es el del local, para que el
+// cliente reconozca de quién viene el correo:
+//     "Pizzería Bella Italia vía Olyda" <no-reply@olyda.app>
+//
+// Antes se usaba SMTP_FROM tal cual, que en producción tenía el nombre de UN local
+// concreto: los clientes de cualquier otro negocio recibían sus correos firmados por él.
 
-const FROM = process.env.SMTP_FROM ?? 'ComandaPro <no-reply@comandapro.com>';
+/** Extrae `alguien@dominio` de un valor tipo `Nombre <alguien@dominio>`. */
+function parseAddress(value: string | undefined): string | null {
+  if (!value) return null;
+  const angled = value.match(/<([^>]+)>/);
+  if (angled) return angled[1].trim();
+  return value.includes('@') ? value.trim() : null;
+}
 
-function baseTemplate(title: string, body: string) {
+const FROM_ADDRESS =
+  process.env.MAIL_FROM_ADDRESS ?? parseAddress(process.env.SMTP_FROM) ?? 'no-reply@olyda.app';
+const BRAND    = process.env.MAIL_FROM_BRAND ?? 'Olyda';
+/** Buzón de la plataforma al que llegan las respuestas. Opcional. */
+const REPLY_TO = process.env.MAIL_REPLY_TO;
+
+/**
+ * El nombre del local lo escribe el propio cliente, así que se limpia antes de meterlo
+ * en una cabecera: fuera saltos de línea (inyección de cabeceras) y comillas.
+ */
+function sanitizeHeader(value: string): string {
+  return value.replace(/[\r\n"<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 78);
+}
+
+/**
+ * Codifica el nombre visible según RFC 2047 si tiene caracteres no ASCII. SES rechaza o
+ * estropea las cabeceras con acentos sin codificar, y aquí casi todos los locales se
+ * llaman "Pizzería…" o "El Rincón de…".
+ */
+function encodeDisplayName(name: string): string {
+  const isAscii = /^[\x20-\x7E]*$/.test(name);
+  return isAscii ? `"${name}"` : `=?UTF-8?B?${Buffer.from(name, 'utf8').toString('base64')}?=`;
+}
+
+function from(businessName: string): string {
+  const name = sanitizeHeader(businessName);
+  const display = name ? `${name} vía ${BRAND}` : BRAND;
+  return `${encodeDisplayName(display)} <${FROM_ADDRESS}>`;
+}
+
+/** Escapa el texto que se interpola en el HTML del correo. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ─── Transporte ───────────────────────────────────────────────────────────────
+// En producción se usa la API de Amazon SES con el rol de instancia de App Runner: no
+// hay contraseña que guardar, rotar ni filtrar. Se mantiene SMTP para quien despliegue
+// fuera de AWS, y un modo de consola para desarrollo local, donde antes los correos
+// fallaban en silencio y no había forma cómoda de seguir el enlace de verificación.
+
+type Transport = 'ses' | 'smtp' | 'log';
+
+const TRANSPORT: Transport =
+  (process.env.MAIL_TRANSPORT as Transport | undefined) ??
+  (process.env.SES_REGION ? 'ses' : process.env.SMTP_HOST ? 'smtp' : 'log');
+
+const sesClient =
+  TRANSPORT === 'ses' ? new SESv2Client({ region: process.env.SES_REGION }) : null;
+
+const smtpTransporter =
+  TRANSPORT === 'smtp'
+    ? nodemailer.createTransport({
+        host:              process.env.SMTP_HOST,
+        port:              Number(process.env.SMTP_PORT ?? 587),
+        secure:            process.env.SMTP_SECURE === 'true',
+        connectionTimeout: 10_000,
+        greetingTimeout:   8_000,
+        socketTimeout:     10_000,
+        auth: process.env.SMTP_USER
+          ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+          : undefined,
+      })
+    : null;
+
+console.log(
+  `[email] Transporte: ${TRANSPORT}${TRANSPORT === 'ses' ? ` (${process.env.SES_REGION})` : ''} · remitente: ${FROM_ADDRESS}`
+);
+
+interface Mail {
+  to: string;
+  subject: string;
+  html: string;
+  businessName: string;
+}
+
+/**
+ * El asunto lleva el nombre del local, que escribe el propio cliente. Aunque tanto SES
+ * como nodemailer codifican las cabeceras, no se les delega la seguridad: los saltos de
+ * línea se eliminan aquí antes de construir el mensaje.
+ */
+function sanitizeSubject(value: string): string {
+  return value.replace(/[\r\n]+/g, ' ').trim().slice(0, 200);
+}
+
+async function deliver({ to, subject: rawSubject, html, businessName }: Mail): Promise<void> {
+  const fromHeader = from(businessName);
+  const subject    = sanitizeSubject(rawSubject);
+
+  if (TRANSPORT === 'ses') {
+    await sesClient!.send(
+      new SendEmailCommand({
+        FromEmailAddress: fromHeader,
+        Destination:      { ToAddresses: [to] },
+        ReplyToAddresses: REPLY_TO ? [REPLY_TO] : undefined,
+        Content: {
+          Simple: {
+            Subject: { Data: subject, Charset: 'UTF-8' },
+            Body:    { Html: { Data: html, Charset: 'UTF-8' } },
+          },
+        },
+      })
+    );
+    return;
+  }
+
+  if (TRANSPORT === 'smtp') {
+    await smtpTransporter!.sendMail({ from: fromHeader, replyTo: REPLY_TO, to, subject, html });
+    return;
+  }
+
+  // Desarrollo: sin credenciales de envío, el correo se vuelca a la consola con los
+  // enlaces, que es lo único que hace falta para seguir el flujo en local.
+  const links = [...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
+  console.log(
+    `\n[email:log] Para: ${to}\n  De     : ${fromHeader}\n  Asunto : ${subject}` +
+      (links.length ? `\n  Enlaces:\n${links.map((l) => `    ${l}`).join('\n')}` : '') +
+      '\n'
+  );
+}
+
+// ─── Plantilla ────────────────────────────────────────────────────────────────
+// Colores corporativos de Olyda: #004177 (azul) y #ff6a03 (naranja).
+function baseTemplate(businessName: string, title: string, body: string) {
+  const business = escapeHtml(businessName);
   return `<!DOCTYPE html>
 <html lang="es">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -22,8 +153,8 @@ function baseTemplate(title: string, body: string) {
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f8;padding:40px 16px">
     <tr><td align="center">
       <table width="100%" style="max-width:520px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
-        <tr><td style="background:#6c63ff;padding:28px 32px">
-          <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:700">ComandaPro</h1>
+        <tr><td style="background:#004177;padding:28px 32px">
+          <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:700">${business}</h1>
         </td></tr>
         <tr><td style="padding:32px">
           <h2 style="margin:0 0 12px;color:#1a1a2e;font-size:18px">${title}</h2>
@@ -31,13 +162,20 @@ function baseTemplate(title: string, body: string) {
         </td></tr>
         <tr><td style="padding:16px 32px;background:#f8f8fc;border-top:1px solid #ebebf5">
           <p style="margin:0;font-size:12px;color:#888;line-height:1.5">
-            Este email fue generado automáticamente. No respondas a este mensaje.
+            Enviado por <strong>${business}</strong> a través de ${BRAND}.
+            Este mensaje se ha generado automáticamente.
           </p>
         </td></tr>
       </table>
     </td></tr>
   </table>
 </body></html>`;
+}
+
+function button(url: string, label: string): string {
+  return `<a href="${url}" style="display:inline-block;padding:13px 28px;background:#ff6a03;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">
+      ${label}
+    </a>`;
 }
 
 export async function sendVerificationEmail(
@@ -47,20 +185,18 @@ export async function sendVerificationEmail(
 ) {
   const body = `
     <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 20px">
-      Para completar tu registro en <strong>${businessName}</strong>, confirma tu dirección de correo haciendo clic en el botón de abajo.
+      Para completar tu registro en <strong>${escapeHtml(businessName)}</strong>, confirma tu dirección de correo haciendo clic en el botón de abajo.
     </p>
-    <a href="${verifyUrl}" style="display:inline-block;padding:13px 28px;background:#6c63ff;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">
-      Verificar mi email
-    </a>
+    ${button(verifyUrl, 'Verificar mi email')}
     <p style="color:#999;font-size:13px;margin:20px 0 0;line-height:1.5">
       Este enlace caduca en 24 horas. Si no has solicitado este registro, ignora este email.
     </p>`;
 
-  await transporter.sendMail({
-    from:    FROM,
+  await deliver({
     to,
+    businessName,
     subject: `Verifica tu email — ${businessName}`,
-    html:    baseTemplate('Confirma tu correo electrónico', body),
+    html:    baseTemplate(businessName, 'Confirma tu correo electrónico', body),
   });
 }
 
@@ -73,19 +209,17 @@ export async function sendOrderConfirmedEmail(
 ) {
   const body = `
     <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 8px">
-      Hola <strong>${customerName}</strong>,
+      Hola <strong>${escapeHtml(customerName)}</strong>,
     </p>
     <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 20px">
-      Tu pedido <strong>#${orderRef}</strong> en <strong>${businessName}</strong> ha sido <strong style="color:#22c55e">confirmado</strong> y está siendo preparado. Te avisaremos cuando esté listo.
+      Tu pedido <strong>#${escapeHtml(orderRef)}</strong> en <strong>${escapeHtml(businessName)}</strong> ha sido <strong style="color:#22c55e">confirmado</strong> y está siendo preparado. Te avisaremos cuando esté listo.
     </p>
-    <a href="${trackingUrl}" style="display:inline-block;padding:13px 28px;background:#6c63ff;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">
-      Seguir mi pedido
-    </a>`;
+    ${button(trackingUrl, 'Seguir mi pedido')}`;
 
-  await transporter.sendMail({
-    from:    FROM,
+  await deliver({
     to,
+    businessName,
     subject: `¡Tu pedido ha sido confirmado! — ${businessName}`,
-    html:    baseTemplate('¡Pedido confirmado!', body),
+    html:    baseTemplate(businessName, '¡Pedido confirmado!', body),
   });
 }

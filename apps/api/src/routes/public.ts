@@ -7,6 +7,7 @@ import { prisma } from '../prisma/client';
 import { validateStock, deductStock } from '../services/stock.service';
 import { sendVerificationEmail, sendOrderConfirmedEmail } from '../services/email.service';
 import { customerAuthMiddleware, CustomerAuthRequest } from '../middleware/customer-auth.middleware';
+import { loginRateLimiter, registerRateLimiter } from '../middleware/rate-limit.middleware';
 
 const router = Router();
 
@@ -74,7 +75,7 @@ const registerSchema = z.object({
   password: z.string().min(6),
 });
 
-router.post('/:slug/auth/register', async (req, res) => {
+router.post('/:slug/auth/register', registerRateLimiter, async (req, res) => {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.flatten() });
@@ -160,7 +161,7 @@ router.post('/:slug/auth/verify-email', async (req, res) => {
 });
 
 // ─── POST /public/:slug/auth/login ────────────────────────────────────────────
-router.post('/:slug/auth/login', async (req, res) => {
+router.post('/:slug/auth/login', loginRateLimiter, async (req, res) => {
   const schema = z.object({ email: z.string().email(), password: z.string() });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: 'Email y contraseña requeridos' }); return; }

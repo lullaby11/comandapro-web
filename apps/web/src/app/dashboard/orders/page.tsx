@@ -11,6 +11,16 @@ import toast from 'react-hot-toast';
 
 const API = '';
 
+// ─── Diagnóstico de impresión ────────────────────────────────────────────────
+// Los problemas de impresora solo se reproducen en el local del cliente, así que el
+// registro detallado se activa desde la consola del propio equipo, sin redesplegar:
+//   localStorage.setItem('debugPrint', '1')
+function printLog(...args: unknown[]) {
+  if (typeof window !== 'undefined' && localStorage.getItem('debugPrint') === '1') {
+    console.log('[Print]', ...args);
+  }
+}
+
 async function printViaWebUSB(buffer: Uint8Array) {
   if (!navigator.usb) throw new Error('WebUSB no soportado. Usa Chrome o Edge.');
 
@@ -46,13 +56,13 @@ async function printViaWebUSB(buffer: Uint8Array) {
     }
   }
 
-  console.log('[WebUSB] Candidatos a probar:', candidates);
+  printLog('WebUSB — candidatos a probar:', candidates);
 
-  let lastError: Error = new Error('No se pudo imprimir — abre la consola (F12) y comparte los logs');
+  let lastError: Error = new Error('No se pudo imprimir — comprueba que la impresora está encendida y conectada');
 
   for (const { interfaceNumber, altSetting, endpointNumber } of candidates) {
     try {
-      console.log(`[WebUSB] Probando iface=${interfaceNumber} alt=${altSetting} ep=${endpointNumber}...`);
+      printLog(`WebUSB — probando iface=${interfaceNumber} alt=${altSetting} ep=${endpointNumber}...`);
       await device.claimInterface(interfaceNumber);
       try {
         await device.selectAlternateInterface(interfaceNumber, altSetting);
@@ -60,11 +70,12 @@ async function printViaWebUSB(buffer: Uint8Array) {
         // Algunos dispositivos no admiten SET_INTERFACE — continuar igualmente
       }
       await device.transferOut(endpointNumber, buffer);
-      console.log('[WebUSB] ¡Impresión correcta! iface=%d ep=%d', interfaceNumber, endpointNumber);
+      printLog(`WebUSB — impresión correcta con iface=${interfaceNumber} ep=${endpointNumber}`);
       await device.close();
       return;
     } catch (err) {
-      console.warn(`[WebUSB] Falló iface=${interfaceNumber} ep=${endpointNumber}:`, err);
+      // Es normal que fallen varios candidatos antes de dar con el bueno: no es un aviso
+      printLog(`WebUSB — falló iface=${interfaceNumber} ep=${endpointNumber}:`, err);
       lastError = err as Error;
       try { await device.releaseInterface(interfaceNumber); } catch { /* ignorar */ }
     }
@@ -323,15 +334,14 @@ export default function OrdersPage() {
   async function handlePrint(id: string) {
     setPrinting(id);
     try {
-      console.log('[Print] Iniciando impresión, modo:', printerMode);
+      printLog('iniciando impresión, modo:', printerMode);
       const res = await fetch(`${API}/api/orders/${id}/print`, {
         method: 'POST',
         headers: apiHeaders(),
       });
-      console.log('[Print] Fetch status:', res.status, res.ok);
       if (!res.ok) throw new Error('Error generando comanda');
       const buffer = new Uint8Array(await res.arrayBuffer());
-      console.log('[Print] Buffer recibido, bytes:', buffer.length, '— llamando a', printerMode === 'bluetooth' ? 'Bluetooth' : 'WebUSB');
+      printLog(`buffer recibido (${buffer.length} bytes) → ${printerMode === 'bluetooth' ? 'Bluetooth' : 'WebUSB'}`);
 
       if (printerMode === 'bluetooth') {
         await printViaBluetooth(buffer);

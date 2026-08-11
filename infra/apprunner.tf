@@ -31,13 +31,24 @@ resource "aws_apprunner_service" "api" {
         port = "4000"
 
         # Variables de entorno no sensibles
-        runtime_environment_variables = {
-          NODE_ENV        = "production"
-          APP_URL         = "https://${var.domain_name}"
-          ALLOWED_ORIGINS = "https://${var.domain_name},https://www.${var.domain_name}"
-          ASSETS_BUCKET   = aws_s3_bucket.assets.bucket
-          ASSETS_BASE_URL = "https://${aws_s3_bucket.assets.bucket}.s3.${var.aws_region}.amazonaws.com"
-        }
+        runtime_environment_variables = merge(
+          {
+            NODE_ENV        = "production"
+            APP_URL         = "https://${var.domain_name}"
+            ALLOWED_ORIGINS = "https://${var.domain_name},https://www.${var.domain_name}"
+            ASSETS_BUCKET   = aws_s3_bucket.assets.bucket
+            ASSETS_BASE_URL = "https://${aws_s3_bucket.assets.bucket}.s3.${var.aws_region}.amazonaws.com"
+
+            # Correo saliente con SES. Sin credenciales: el permiso lo da el rol de
+            # instancia (ver ses.tf).
+            MAIL_TRANSPORT    = "ses"
+            SES_REGION        = var.ses_region
+            MAIL_FROM_ADDRESS = var.mail_from_address
+            MAIL_FROM_BRAND   = var.mail_from_brand
+          },
+          # Reply-To solo si hay un buzón atendido configurado
+          var.mail_reply_to != "" ? { MAIL_REPLY_TO = var.mail_reply_to } : {}
+        )
 
         # Secrets leídos de SSM Parameter Store en tiempo de arranque
         runtime_environment_secrets = {

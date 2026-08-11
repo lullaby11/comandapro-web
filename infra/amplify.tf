@@ -42,6 +42,14 @@ resource "aws_amplify_app" "web" {
   }
 
   tags = { Name = "${var.project_name}-amplify" }
+
+  # La conexión con GitHub se establece desde la consola (ver cabecera del fichero), así
+  # que Terraform no conoce el repositorio ni el token. Sin este ignore_changes, cada
+  # `terraform apply` pondría `repository = null` y Amplify dejaría de construir el
+  # frontend al hacer push, sin más aviso que dejar de desplegarse.
+  lifecycle {
+    ignore_changes = [repository, oauth_token, access_token]
+  }
 }
 
 resource "aws_amplify_branch" "main" {

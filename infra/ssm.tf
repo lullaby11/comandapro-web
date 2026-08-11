@@ -19,3 +19,7 @@ resource "aws_ssm_parameter" "jwt_secret" {
 
   tags = { Name = "${var.project_name}-jwt-secret" }
 }
+
+# NOTA: el correo saliente NO necesita ningún secreto aquí. Se envía con la API de
+# Amazon SES autorizada por el rol de instancia de App Runner (ver ses.tf), así que no
+# existe contraseña que guardar, rotar ni filtrar.
