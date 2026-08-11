@@ -32,4 +32,9 @@ COPY --from=builder /app/apps/api/prisma ./prisma
 
 EXPOSE 4000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+# La base de datos de producción se creó con `prisma db push`, así que no tiene registrada
+# la migración inicial y `migrate deploy` aborta con P3005 ("database schema is not empty").
+# `migrate resolve --applied` la marca como aplicada SIN ejecutar su SQL, que es el
+# procedimiento de baseline que documenta Prisma para bases preexistentes. A partir de la
+# primera vez el comando falla porque ya está registrada, y por eso se ignora su error.
+CMD ["sh", "-c", "npx prisma migrate resolve --applied 20260511121906_init || true; npx prisma migrate deploy && node dist/index.js"]
