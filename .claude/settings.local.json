@@ -62,7 +62,11 @@
       "Bash(npx eslint *)",
       "Bash(awk '/^\\\\/Users/{f=$0} / error /{print f\" :: \"$0}')",
       "Bash(awk '/^\\\\/Users/{f=$0} / error /{print f}')",
-      "Bash(git credential *)"
+      "Bash(git credential *)",
+      "Bash(python3 -c \"import sys,json;d=json.load\\(sys.stdin\\);print\\('Fusionado:',d.get\\('merged'\\),'|',d.get\\('message'\\)\\);print\\('SHA:',d.get\\('sha'\\)\\)\")",
+      "Bash(aws logs *)",
+      "Bash(curl -s -o /dev/null -w \"  /health → HTTP %{http_code}\\\\n\" https://api.olyda.app/health)",
+      "Bash(echo \"  snapshot previo: $\\(aws rds describe-db-snapshots --db-instance-identifier comandapro-db --region eu-west-1 --query 'sort_by\\(DBSnapshots,&SnapshotCreateTime\\)[-1].DBSnapshotIdentifier' --output text 2>&1\\)\")"
     ]
   }
 }

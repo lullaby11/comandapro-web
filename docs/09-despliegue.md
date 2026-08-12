@@ -310,9 +310,12 @@ inicial. Era la **primera vez que se desplegaba la API desde que existe
 así que el problema estaba latente desde entonces.
 
 Corregido en el `CMD` del Dockerfile con `migrate resolve --applied`, que marca la
-migración como aplicada sin ejecutar su SQL. Ya está registrada en producción, así que a
-partir de ahora ese comando falla de forma inocua y `migrate deploy` funciona con
-normalidad.
+migración como aplicada sin ejecutar su SQL.
+
+**Retirado el 12/08/2026**, una vez comprobado que el baseline coincide exactamente con el
+esquema real de producción: el comando ya no hacía nada salvo escribir un `Error: P3008`
+en cada arranque —ruido que despista al investigar una incidencia—. El `CMD` vuelve a ser
+`prisma migrate deploy && node dist/index.js`.
 
 > **Lo que salvó la situación:** App Runner mantiene la versión anterior mientras la nueva
 > no supere el health check. El contenedor nuevo entró en bucle de reinicio y los clientes
