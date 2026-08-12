@@ -75,7 +75,9 @@
       "Bash(curl -s -o /dev/null -w \"  /invitacion/prueba     → HTTP %{http_code}\\\\n\" -L https://olyda.app/invitacion/prueba)",
       "Bash(curl -s -o /dev/null -w \"  /dashboard            → HTTP %{http_code}\\\\n\" -L https://olyda.app/dashboard)",
       "Bash(curl -s -L https://olyda.app/dashboard/equipo)",
-      "Bash(sed 's/^/  encontrado: /')"
+      "Bash(sed 's/^/  encontrado: /')",
+      "Bash(psql \"postgresql://juanma@localhost:5432/postgres\" -c \"DROP DATABASE IF EXISTS shadow_p1;\" -c \"CREATE DATABASE shadow_p1 OWNER comandapro;\")",
+      "Bash(mkdir -p prisma/migrations/20260812200000_p1_correcciones)"
     ]
   }
 }

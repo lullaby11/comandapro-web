@@ -82,6 +82,19 @@ async function apiGet<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/** Confirma que el trabajo llegó a la impresora. Sin esto, el pedido se reintentaría. */
+async function apiPost(path: string): Promise<void> {
+  const res = await fetch(`${API_URL}${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${jwtToken}` },
+  });
+  if (res.status === 401) {
+    jwtToken = null;
+    throw new Error('Token expirado, se volverá a autenticar');
+  }
+  if (!res.ok) throw new Error(`HTTP ${res.status} POST ${path}`);
+}
+
 async function apiPostRaw(path: string): Promise<Buffer | null> {
   const res = await fetch(`${API_URL}${path}`, {
     method: 'POST',
@@ -122,6 +135,9 @@ async function poll(): Promise<void> {
       const escBuffer = await apiPostRaw(`/api/orders/${order.id}/print`);
       if (!escBuffer) continue;
       await sendToPrinter(escBuffer);
+      // Solo se confirma DESPUÉS de que CUPS haya aceptado el trabajo. Si el envío falla,
+      // no se confirma y la API volverá a ofrecer el pedido pasado el margen de reintento.
+      await apiPost(`/api/orders/${order.id}/printed`);
       console.log(`[print-agent] ✓ Pedido ${order.id} impreso`);
     } catch (err) {
       console.error(`[print-agent] Error imprimiendo ${order.id}:`, (err as Error).message);

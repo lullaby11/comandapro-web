@@ -182,6 +182,10 @@ model Order {
   estimatedDeliveryAt DateTime?
   paymentMethod       PaymentMethod @default(CASH)
   cashGiven           Decimal?      @db.Decimal(10, 2)
+  // Momento en que se pidió el buffer ESC/POS. No implica que saliera papel: el
+  // transporte (WebUSB, Bluetooth o CUPS) ocurre en el equipo del local y puede fallar.
+  printRequestedAt    DateTime?
+  // Confirmado por quien imprimió. Es lo que distingue "impreso" de "intentado".
   printedAt           DateTime?
   // Marca de que el stock de este pedido ya volvió al inventario, al cancelarlo o al
   // borrarlo. Evita devolverlo dos veces si se encadenan ambas acciones.
@@ -275,6 +279,41 @@ enum OrderStatus {
 enum PaymentMethod {
   CASH  // Efectivo
   CARD  // Tarjeta
+}
+
+// ─────────────────────────────────────────────
+// BUZÓN DE SALIDA DE CORREO
+// ─────────────────────────────────────────────
+// Antes los envíos eran `.catch(console.error)`: si el proveedor fallaba, el correo se
+// perdía para siempre. En el caso de la verificación de cuenta eso deja al cliente sin
+// poder completar el registro, sin saber por qué y sin forma de reintentarlo.
+//
+// Ahora todo correo se persiste primero y se envía después. Si falla, se reintenta con
+// espera creciente hasta agotarse, y queda registrado el motivo.
+model EmailOutbox {
+  id            String    @id @default(cuid())
+  to            String
+  subject       String
+  html          String
+  text          String
+  // Nombre del local: da el remitente visible. No es una relación porque el correo debe
+  // poder enviarse aunque el local se borre entretanto.
+  businessName  String
+  status        EmailStatus @default(PENDING)
+  attempts      Int       @default(0)
+  lastError     String?
+  nextAttemptAt DateTime  @default(now())
+  sentAt        DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([status, nextAttemptAt])
+  @@map("email_outbox")
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
 }
 
 // ─────────────────────────────────────────────

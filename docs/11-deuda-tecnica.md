@@ -117,24 +117,37 @@ en lugar de dejar botones que devuelven 403.
 - **Dónde:** `PATCH /orders/:id/status` acepta cualquier valor del enum.
 - **Arreglo:** tabla de transiciones permitidas y 409 en las inválidas.
 
-### P1-6. `DELETE /api/shipping-rates/:id` rompe si la tarifa está en uso
+### P1-6. `DELETE /api/shipping-rates/:id` rompe si la tarifa está en uso — ✅ corregido
 
 - **Efecto:** error 500 sin mensaje útil (restricción de clave foránea).
-- **Arreglo:** desactivar en lugar de borrar, o comprobar uso y devolver 409.
+- **Arreglo aplicado:** si algún pedido la referencia, la tarifa **se desactiva** en lugar
+  de borrarse —deja de ofrecerse en pedidos nuevos y el histórico se conserva—; si no la
+  usa nadie, se borra de verdad. El listado omite las desactivadas, así que para quien
+  gestiona el local el resultado es el mismo: desaparece.
 
-### P1-7. Construcción frágil de la URL de tracking
+### P1-7. Construcción frágil de la URL de tracking — ✅ corregido
 
 - **Dónde:** [`apps/api/src/routes/orders.ts`](../apps/api/src/routes/orders.ts):
   `process.env.APP_URL?.replace(':4000', ':3000').replace('/api', '')`.
 - **Efecto:** en cualquier entorno donde el frontend no esté en el puerto 3000, el enlace
   del email es incorrecto.
-- **Arreglo:** variable `WEB_URL` explícita (ya existe en `.env` sin usarse) y usarla en
-  todos los sitios (ticket, emails, verificación).
+- **Arreglo aplicado:** se usa `APP_URL` tal cual, que ya apunta al frontend —lo exige el
+  arranque y de ahí sale también la lista de CORS—. No hizo falta variable nueva: el
+  `replace` era el resto de una época en que `APP_URL` se confundía con la URL de la API.
 
-### P1-8. Emails sin reintento ni cola
+### P1-8. Emails sin reintento ni cola — ✅ corregido
 
 - **Dónde:** `sendOrderConfirmedEmail(...).catch(console.error)`.
-- **Arreglo:** tabla `outbox` con reintentos, o proveedor con webhooks de entrega.
+- **Efecto:** un fallo puntual del proveedor perdía el correo para siempre. En el de
+  verificación de cuenta, eso deja al cliente sin poder completar el registro, sin saber
+  por qué y sin forma de reintentarlo.
+- **Arreglo aplicado:** tabla `email_outbox`. Todo correo se persiste **antes** de
+  intentar enviarlo; si falla, se reintenta con espera creciente (1, 5, 15 y 60 minutos,
+  cinco intentos) y queda registrado el motivo del último fallo. El reintento corre en el
+  propio proceso de la API cada minuto.
+
+  > **Si algún día hay varias instancias de App Runner**, conviene mover ese bucle a un
+  > worker único: de lo contrario competirían por los mismos registros.
 
 ### <a id="p1-remitente"></a>P1-8b. El remitente de los emails era el de un local concreto — ✅ corregido
 
@@ -169,11 +182,19 @@ no conoce el repositorio (la conexión se hizo por consola), así que cada `appl
 puesto `repository = null` y el frontend habría dejado de desplegarse en silencio.
 Corregido con `lifecycle { ignore_changes = [repository, oauth_token, access_token] }`.
 
-### P1-9. `printedAt` se marca antes de imprimir de verdad
+### P1-9. `printedAt` se marca antes de imprimir de verdad — ✅ corregido
 
-- **Efecto:** si falla el transporte, el `print-agent` nunca reintenta ese pedido.
-- **Arreglo:** confirmar la impresión desde el cliente (`POST /orders/:id/printed`) o
-  reintentar tras N segundos sin confirmación.
+- **Efecto:** si falla el transporte, el pedido constaba como impreso sin haber salido
+  papel, y el `print-agent` nunca lo reintentaba.
+- **Arreglo aplicado:** se separan dos momentos. `printRequestedAt` registra que se pidió
+  el buffer; `printedAt` solo se marca cuando quien imprime confirma con
+  `POST /orders/:id/printed` —el panel tras un envío correcto por WebUSB o Bluetooth, el
+  agente tras entregar el trabajo a CUPS—.
+
+  El filtro `notPrinted` pasa a ser "sin confirmar **y** sin intento en los últimos 90
+  segundos". Ese margen es la pieza clave: sin él, el agente reimprimiría el mismo pedido
+  en cada vuelta mientras el trabajo está en camino; con él, un intento que se quedó a
+  medias se reintenta solo.
 
 ### P1-10. Sin índice sobre `orders.createdAt` — ✅ corregido en v1.1
 

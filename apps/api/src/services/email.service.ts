@@ -1,5 +1,6 @@
 import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
 import nodemailer from 'nodemailer';
+import { prisma } from '../prisma/client';
 
 // ─── Remitente ────────────────────────────────────────────────────────────────
 // La dirección es de la plataforma y el nombre visible es el del local, para que el
@@ -121,7 +122,8 @@ function sanitizeSubject(value: string): string {
   return value.replace(/[\r\n]+/g, ' ').trim().slice(0, 200);
 }
 
-async function deliver({ to, subject: rawSubject, html, text, businessName }: Mail): Promise<void> {
+/** Envío crudo, sin reintentos. Solo lo llama el buzón de salida. */
+async function enviarAhora({ to, subject: rawSubject, html, text, businessName }: Mail): Promise<void> {
   const fromHeader = from(businessName);
   const subject    = sanitizeSubject(rawSubject);
 
@@ -195,6 +197,87 @@ function button(url: string, label: string): string {
   return `<a href="${url}" style="display:inline-block;padding:13px 28px;background:#ff6a03;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">
       ${label}
     </a>`;
+}
+
+// ─── Buzón de salida ──────────────────────────────────────────────────────────
+// Todo correo se persiste antes de intentar enviarlo. Si el proveedor falla, se
+// reintenta con espera creciente en lugar de perderse: antes, un fallo del SMTP dejaba a
+// un cliente sin su correo de verificación, sin saber por qué y sin poder reintentarlo.
+
+const MAX_INTENTOS = 5;
+/** Espera antes de cada reintento: 1, 5, 15, 60 minutos. */
+const ESPERAS_MIN = [1, 5, 15, 60];
+
+function proximoIntento(intentos: number): Date {
+  const minutos = ESPERAS_MIN[Math.min(intentos - 1, ESPERAS_MIN.length - 1)];
+  return new Date(Date.now() + minutos * 60_000);
+}
+
+async function deliver(mail: Mail): Promise<void> {
+  const registro = await prisma.emailOutbox.create({
+    data: {
+      to: mail.to,
+      subject: sanitizeSubject(mail.subject),
+      html: mail.html,
+      text: mail.text,
+      businessName: mail.businessName,
+    },
+  });
+
+  // Se intenta de inmediato; si falla, el reintento lo recoge el proceso de fondo.
+  await intentarEnvio(registro.id);
+}
+
+async function intentarEnvio(id: string): Promise<void> {
+  const registro = await prisma.emailOutbox.findUnique({ where: { id } });
+  if (!registro || registro.status !== 'PENDING') return;
+
+  const intentos = registro.attempts + 1;
+
+  try {
+    await enviarAhora({
+      to: registro.to,
+      subject: registro.subject,
+      html: registro.html,
+      text: registro.text,
+      businessName: registro.businessName,
+    });
+    await prisma.emailOutbox.update({
+      where: { id },
+      data: { status: 'SENT', sentAt: new Date(), attempts: intentos },
+    });
+  } catch (err) {
+    const motivo = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    const agotado = intentos >= MAX_INTENTOS;
+
+    await prisma.emailOutbox.update({
+      where: { id },
+      data: {
+        attempts: intentos,
+        lastError: motivo.slice(0, 500),
+        status: agotado ? 'FAILED' : 'PENDING',
+        nextAttemptAt: proximoIntento(intentos),
+      },
+    });
+
+    console.error(
+      `[email] Intento ${intentos}/${MAX_INTENTOS} fallido para ${registro.to}` +
+        `${agotado ? ' — SE ABANDONA' : `, se reintentará en ${ESPERAS_MIN[Math.min(intentos - 1, ESPERAS_MIN.length - 1)]} min`}: ${motivo}`
+    );
+  }
+}
+
+/** Reintenta los correos pendientes cuyo momento ya llegó. */
+export async function procesarBuzonDeSalida(): Promise<number> {
+  const pendientes = await prisma.emailOutbox.findMany({
+    where: { status: 'PENDING', nextAttemptAt: { lte: new Date() }, attempts: { gt: 0 } },
+    select: { id: true },
+    take: 20,
+    orderBy: { nextAttemptAt: 'asc' },
+  });
+
+  for (const { id } of pendientes) await intentarEnvio(id);
+  return pendientes.length;
 }
 
 export async function sendVerificationEmail(

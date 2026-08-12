@@ -6,6 +6,7 @@ import { prisma } from '../../prisma/client';
 
 /** Tablas en orden inverso de dependencia, para que los borrados no choquen con las FK. */
 const TABLAS = [
+  'email_outbox',
   'order_items',
   'orders',
   'services',

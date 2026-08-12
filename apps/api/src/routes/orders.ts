@@ -10,6 +10,9 @@ import { sendOrderConfirmedEmail } from '../services/email.service';
 
 const router = Router();
 
+/** Tiempo que se espera antes de dar por fallido un intento de impresión sin confirmar. */
+const MARGEN_REINTENTO_IMPRESION_MS = 90_000;
+
 // Todas las rutas requieren autenticación
 router.use(authMiddleware);
 
@@ -30,7 +33,19 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
     deletedAt: null,
     serviceId: activeService?.id ?? '__no_service__',
     ...(status ? { status: status as OrderStatus } : {}),
-    ...(notPrinted === 'true' ? { printedAt: null } : {}),
+    // Pendientes de imprimir: sin confirmación de impresión y sin un intento reciente.
+    // El margen evita que el agente reimprima el mismo pedido en cada vuelta mientras
+    // está enviándolo a la impresora, y a la vez permite reintentarlo si el intento
+    // anterior se quedó a medias.
+    ...(notPrinted === 'true'
+      ? {
+          printedAt: null,
+          OR: [
+            { printRequestedAt: null },
+            { printRequestedAt: { lt: new Date(Date.now() - MARGEN_REINTENTO_IMPRESION_MS) } },
+          ],
+        }
+      : {}),
   };
 
   // Los pedidos RECEIVED_ONLINE también se muestran aunque no coincidan el serviceId
@@ -327,7 +342,11 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
 
   // Cuando el comercio acepta un pedido online, notificar al cliente por email
   if (order.status === 'RECEIVED_ONLINE' && parsed.data.status === 'PENDING' && order.customerAccount?.email) {
-    const trackingUrl = `${process.env.APP_URL?.replace(':4000', ':3000').replace('/api', '') ?? 'http://localhost:3000'}/tracking/${order.trackingToken}`;
+    // APP_URL ya apunta al frontend (lo comprueba el arranque, y de ahí sale también la
+    // lista de CORS). El `replace(':4000', ':3000')` que había aquí era un apaño de la
+    // época en que se confundía con la URL de la API: solo acertaba si el frontend estaba
+    // en el puerto 3000, y en producción habría generado enlaces rotos.
+    const trackingUrl = `${process.env.APP_URL}/tracking/${order.trackingToken}`;
     sendOrderConfirmedEmail(
       order.customerAccount.email,
       order.customerAccount.name,
@@ -439,10 +458,13 @@ router.post('/:id/print', async (req: AuthenticatedRequest, res) => {
 
   const buffer = await generateEscPosBuffer(payload);
 
-  // Marcar como impreso
+  // Se registra que se PIDIÓ el ticket, no que se imprimiera: el papel sale en el equipo
+  // del local, y el transporte puede fallar después de esta respuesta. Marcarlo como
+  // impreso aquí hacía que un fallo de transporte dejara el pedido como impreso sin
+  // haberlo estado, y el agente nunca lo reintentaba.
   await prisma.order.update({
     where: { id: order.id },
-    data: { printedAt: new Date() },
+    data: { printRequestedAt: new Date() },
   });
 
   // Devolver buffer binario ESC/POS
@@ -453,6 +475,39 @@ router.post('/:id/print', async (req: AuthenticatedRequest, res) => {
     console.error('[print] Error generando ticket:', (err as Error).message, (err as Error).stack);
     res.status(500).json({ error: 'Error generando ticket de impresión' });
   }
+});
+
+// ──────────────────────────────────────────────
+// POST /orders/:id/printed — Confirmar que el ticket salió de verdad
+// ──────────────────────────────────────────────
+// Lo llama quien imprime (el panel tras un envío correcto por WebUSB o Bluetooth, o el
+// agente local tras entregar el trabajo a CUPS). Sin esta confirmación, `printedAt` se
+// marcaba al generar el buffer y un fallo de transporte dejaba el pedido como impreso sin
+// haber salido papel.
+router.post('/:id/printed', async (req: AuthenticatedRequest, res) => {
+  const order = await prisma.order.findFirst({
+    where: { id: req.params.id, businessId: req.businessId!, deletedAt: null },
+    select: { id: true, printedAt: true },
+  });
+
+  if (!order) {
+    res.status(404).json({ error: 'Pedido no encontrado' });
+    return;
+  }
+
+  // Idempotente: reimprimir a mano no debe alterar la marca original
+  if (order.printedAt) {
+    res.json({ printedAt: order.printedAt, alreadyPrinted: true });
+    return;
+  }
+
+  const updated = await prisma.order.update({
+    where: { id: order.id },
+    data: { printedAt: new Date() },
+    select: { printedAt: true },
+  });
+
+  res.json({ printedAt: updated.printedAt, alreadyPrinted: false });
 });
 
 export default router;

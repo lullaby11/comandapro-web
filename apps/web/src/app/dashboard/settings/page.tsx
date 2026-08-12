@@ -112,7 +112,11 @@ export default function SettingsPage() {
       });
       if (!res.ok) throw new Error('Error eliminando tarifa');
       setShippingRates((prev) => prev.filter((r) => r.id !== id));
-      toast.success('Tarifa eliminada');
+
+      // Si la tarifa la usan pedidos anteriores, la API la desactiva en lugar de
+      // borrarla para no romper su histórico. Conviene decirlo, no fingir un borrado.
+      const data = res.status === 204 ? null : await res.json().catch(() => null);
+      toast.success(data?.deactivated ? data.message : 'Tarifa eliminada');
     } catch {
       toast.error('Error eliminando tarifa');
     }

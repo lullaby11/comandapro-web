@@ -7,9 +7,11 @@ const router = Router();
 router.use(authMiddleware);
 
 // GET /shipping-rates — Listar tarifas del local
+// Se omiten las desactivadas: para quien gestiona el local están retiradas. Siguen en la
+// base de datos porque los pedidos antiguos las referencian.
 router.get('/', async (req: AuthenticatedRequest, res) => {
   const rates = await prisma.shippingRate.findMany({
-    where: { businessId: req.businessId! },
+    where: { businessId: req.businessId!, active: true },
     orderBy: { createdAt: 'asc' },
   });
   res.json(rates);
@@ -69,7 +71,15 @@ router.patch('/:id', requireAdmin, async (req: AuthenticatedRequest, res) => {
   res.json(rate);
 });
 
-// DELETE /shipping-rates/:id — Eliminar tarifa (solo ADMIN/OWNER)
+// DELETE /shipping-rates/:id — Retirar tarifa (solo ADMIN/OWNER)
+//
+// Una tarifa usada por pedidos anteriores NO se puede borrar: el ticket y las
+// estadísticas de esos pedidos la referencian, y PostgreSQL rechazaba el borrado con un
+// error de clave foránea que llegaba al cliente como un 500 sin explicación.
+//
+// Si está en uso se desactiva —deja de ofrecerse en pedidos nuevos pero el histórico se
+// conserva—, y si no lo está se borra de verdad. En ambos casos el resultado para quien
+// la retira es el mismo: desaparece de la lista de tarifas disponibles.
 router.delete('/:id', requireAdmin, async (req: AuthenticatedRequest, res) => {
   const existing = await prisma.shippingRate.findFirst({
     where: { id: req.params.id, businessId: req.businessId! },
@@ -79,7 +89,24 @@ router.delete('/:id', requireAdmin, async (req: AuthenticatedRequest, res) => {
     return;
   }
 
-  await prisma.shippingRate.delete({ where: { id: req.params.id } });
+  const pedidosQueLaUsan = await prisma.order.count({
+    where: { shippingRateId: existing.id },
+  });
+
+  if (pedidosQueLaUsan > 0) {
+    await prisma.shippingRate.update({
+      where: { id: existing.id },
+      data: { active: false },
+    });
+    res.json({
+      deactivated: true,
+      ordersAffected: pedidosQueLaUsan,
+      message: `La tarifa se ha desactivado en lugar de borrarse, porque ${pedidosQueLaUsan} pedido(s) la usan. Ya no se ofrecerá en pedidos nuevos.`,
+    });
+    return;
+  }
+
+  await prisma.shippingRate.delete({ where: { id: existing.id } });
   res.status(204).end();
 });
 

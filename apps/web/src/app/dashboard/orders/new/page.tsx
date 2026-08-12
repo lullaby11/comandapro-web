@@ -358,6 +358,9 @@ export default function NewOrderPage() {
       const res = await fetch(`${API}/api/orders/${id}/print`, { method: 'POST', headers: apiHeaders() });
       if (!res.ok) throw new Error('Error generando comanda');
       await printViaWebUSB(new Uint8Array(await res.arrayBuffer()));
+      // Se confirma solo tras un envío correcto: si el transporte falla, el pedido sigue
+      // constando como pendiente y el agente local puede recogerlo.
+      await fetch(`${API}/api/orders/${id}/printed`, { method: 'POST', headers: apiHeaders() }).catch(() => {});
       toast.success('¡Comanda enviada a la impresora!', { icon: '🖨️' });
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Error de impresión');

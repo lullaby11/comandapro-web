@@ -349,6 +349,11 @@ export default function OrdersPage() {
         await printViaWebUSB(buffer);
       }
 
+      // Se confirma solo tras un envío correcto: si el transporte falla, el pedido sigue
+      // constando como pendiente de imprimir y el agente local puede recogerlo.
+      await fetch(`${API}/api/orders/${id}/printed`, { method: 'POST', headers: apiHeaders() })
+        .catch(() => printLog('no se pudo confirmar la impresión'));
+
       toast.success('¡Comanda enviada a la impresora!', { icon: '🖨️' });
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Error de impresión');

@@ -22,6 +22,7 @@ import shippingRatesRoutes from './routes/shipping-rates';
 import servicesRoutes from './routes/services';
 import statsRoutes from './routes/stats';
 import publicRoutes from './routes/public';
+import { procesarBuzonDeSalida } from './services/email.service';
 import usersRoutes from './routes/users';
 import invitationsRoutes from './routes/invitations';
 
@@ -128,6 +129,19 @@ app.use(
     });
   }
 );
+
+// ─── Reintento de correos pendientes ─────────────────────────────────────────
+// Un fallo puntual del proveedor ya no pierde el correo: queda en el buzón de salida y
+// se reintenta aquí con espera creciente. Corre dentro del propio proceso porque el
+// volumen es bajo; si algún día hay varias instancias, conviene moverlo a un único
+// worker para que no compitan por los mismos registros.
+const INTERVALO_BUZON_MS = 60_000;
+
+setInterval(() => {
+  procesarBuzonDeSalida()
+    .then((n) => { if (n > 0) console.log(`[email] Reintentados ${n} correo(s) pendientes`); })
+    .catch((err) => console.error('[email] Error procesando el buzón de salida:', err));
+}, INTERVALO_BUZON_MS).unref(); // unref: no impide que el proceso termine
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
