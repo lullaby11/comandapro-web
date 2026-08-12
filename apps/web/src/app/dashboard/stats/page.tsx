@@ -118,8 +118,13 @@ function ProductsTable({ products }: { products: TopProduct[] }) {
 function ServiceTab() {
   const [services, setServices] = useState<ServiceSummary[]>([]);
   const [selectedId, setSelectedId] = useState('');
-  const [stats, setStats] = useState<ServiceStats | null>(null);
-  const [loading, setLoading] = useState(false);
+  // Se guarda a qué selección pertenecen los datos cargados. `stats` y `loading` se
+  // DERIVAN de ahí, en lugar de fijarlos con setState al principio del efecto: eso
+  // provocaba un render extra en cascada y, de paso, dejaba ver un instante los datos de
+  // la selección anterior.
+  const [cargado, setCargado] = useState<{ para: string; datos: ServiceStats } | null>(null);
+  const stats = cargado?.para === selectedId ? cargado.datos : null;
+  const loading = selectedId !== null && stats === null;
 
   useEffect(() => {
     fetch(`${API}/api/stats/services`, { headers: apiHeaders() })
@@ -133,13 +138,10 @@ function ServiceTab() {
 
   useEffect(() => {
     if (!selectedId) return;
-    setLoading(true);
-    setStats(null);
     fetch(`${API}/api/stats/service/${selectedId}`, { headers: apiHeaders() })
       .then((r) => r.json())
-      .then((d) => setStats(d))
-      .catch(() => toast.error('Error cargando estadísticas'))
-      .finally(() => setLoading(false));
+      .then((d) => setCargado({ para: selectedId, datos: d }))
+      .catch(() => toast.error('Error cargando estadísticas'));
   }, [selectedId]);
 
   function formatService(s: ServiceSummary) {
@@ -341,8 +343,13 @@ function CustomerTab() {
 function ProductTab() {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedId, setSelectedId] = useState('');
-  const [stats, setStats] = useState<ProductStats | null>(null);
-  const [loading, setLoading] = useState(false);
+  // Se guarda a qué selección pertenecen los datos cargados. `stats` y `loading` se
+  // DERIVAN de ahí, en lugar de fijarlos con setState al principio del efecto: eso
+  // provocaba un render extra en cascada y, de paso, dejaba ver un instante los datos de
+  // la selección anterior.
+  const [cargado, setCargado] = useState<{ para: string; datos: ProductStats } | null>(null);
+  const stats = cargado?.para === selectedId ? cargado.datos : null;
+  const loading = selectedId !== null && stats === null;
 
   useEffect(() => {
     fetch(`${API}/api/products`, { headers: apiHeaders() })
@@ -353,13 +360,10 @@ function ProductTab() {
 
   useEffect(() => {
     if (!selectedId) return;
-    setLoading(true);
-    setStats(null);
     fetch(`${API}/api/stats/product/${selectedId}`, { headers: apiHeaders() })
       .then((r) => r.json())
-      .then((d) => setStats(d))
-      .catch(() => toast.error('Error cargando estadísticas'))
-      .finally(() => setLoading(false));
+      .then((d) => setCargado({ para: selectedId, datos: d }))
+      .catch(() => toast.error('Error cargando estadísticas'));
   }, [selectedId]);
 
   // Group products by category for optgroup
@@ -523,29 +527,32 @@ function toDateStr(d: Date) { return d.toISOString().slice(0, 10); }
 
 function PeriodTab() {
   const [groupBy, setGroupBy] = useState<'day' | 'week' | 'month'>('day');
-  const [from, setFrom] = useState(toDateStr(new Date(Date.now() - 7 * 86400_000)));
-  const [to, setTo]     = useState(toDateStr(new Date()));
-  const [stats, setStats] = useState<PeriodStats | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [from, setFrom] = useState(() => toDateStr(new Date(Date.now() - 7 * 86400_000)));
+  const [to, setTo]     = useState(() => toDateStr(new Date()));
+  // Igual que en las otras pestañas: se recuerda para qué consulta son los datos y de
+  // ahí se derivan `stats` y `loading`, en lugar de fijarlos con setState al principio.
+  const consulta = `${groupBy}|${from}|${to}`;
+  const [cargado, setCargado] = useState<{ para: string; datos: PeriodStats } | null>(null);
+  const stats = cargado?.para === consulta ? cargado.datos : null;
+  const loading = stats === null;
 
   const load = useCallback(() => {
-    setLoading(true);
-    setStats(null);
+    const para = `${groupBy}|${from}|${to}`;
     fetch(`${API}/api/stats/period?groupBy=${groupBy}&from=${from}&to=${to}`, { headers: apiHeaders() })
       .then(async (r) => {
         if (!r.ok) throw new Error(`Error ${r.status}`);
         return r.json();
       })
-      .then((d) => setStats(d))
-      .catch(() => toast.error('Error cargando estadísticas de período'))
-      .finally(() => setLoading(false));
+      .then((d) => setCargado({ para, datos: d }))
+      .catch(() => toast.error('Error cargando estadísticas de período'));
   }, [groupBy, from, to]);
 
   useEffect(() => { load(); }, [load]);
 
   function applyPreset(p: typeof PRESETS[0]) {
     const end   = new Date();
-    const start = new Date(Date.now() - p.days * 86400_000);
+    // start se deriva de end para que ambas fechas correspondan al mismo instante
+    const start = new Date(end.getTime() - p.days * 86400_000);
     setGroupBy(p.groupBy);
     setFrom(toDateStr(start));
     setTo(toDateStr(end));

@@ -56,7 +56,12 @@
       "Bash(psql \"postgresql://juanma@localhost:5432/postgres\" -c \"DROP DATABASE IF EXISTS shadow_chk;\" -c \"CREATE DATABASE shadow_chk OWNER comandapro;\")",
       "Bash(grep -vE \"Update available|prisma@latest|major-version|^│|^┌|^└|^$\")",
       "Bash(psql \"postgresql://juanma@localhost:5432/postgres\" -c \"DROP DATABASE IF EXISTS shadow_inv;\" -c \"CREATE DATABASE shadow_inv OWNER comandapro;\")",
-      "Bash(mkdir -p prisma/migrations/20260812180000_equipo_e_invitaciones)"
+      "Bash(mkdir -p prisma/migrations/20260812180000_equipo_e_invitaciones)",
+      "Bash(python3 -c ' *)",
+      "Bash(pip3 install *)",
+      "Bash(npx eslint *)",
+      "Bash(awk '/^\\\\/Users/{f=$0} / error /{print f\" :: \"$0}')",
+      "Bash(awk '/^\\\\/Users/{f=$0} / error /{print f}')"
     ]
   }
 }

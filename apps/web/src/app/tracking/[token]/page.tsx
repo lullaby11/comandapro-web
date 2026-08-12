@@ -66,7 +66,6 @@ export default function TrackingPage({ params }: { params: Promise<{ token: stri
   const countdown             = useCountdown(data?.estimatedDeliveryAt ?? null);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
     async function fetchStatus() {
       try {
         const res = await fetch(`${API}/api/tracking/${token}`);
@@ -83,7 +82,7 @@ export default function TrackingPage({ params }: { params: Promise<{ token: stri
 
     fetchStatus();
     // Polling cada 30s
-    interval = setInterval(fetchStatus, 30_000);
+    const interval = setInterval(fetchStatus, 30_000);
     return () => clearInterval(interval);
   }, [token]);
 

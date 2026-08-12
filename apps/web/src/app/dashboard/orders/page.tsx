@@ -598,7 +598,7 @@ export default function OrdersPage() {
         <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem', color: 'hsl(220 18% 55%)' }}>
           <Play size={40} style={{ margin: '0 auto 1rem', opacity: 0.3 }} />
           <p style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>No hay ningún servicio activo</p>
-          <p style={{ fontSize: '0.875rem', opacity: 0.7 }}>Pulsa "Iniciar servicio" para comenzar a recibir pedidos</p>
+          <p style={{ fontSize: '0.875rem', opacity: 0.7 }}>Pulsa &laquo;Iniciar servicio&raquo; para comenzar a recibir pedidos</p>
         </div>
       )}
 
