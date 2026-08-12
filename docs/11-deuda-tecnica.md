@@ -65,9 +65,37 @@ Ver [10-seguridad.md](10-seguridad.md) A1 y A2. Resumen de lo aplicado:
 - **Arreglo:** al pasar a `CANCELLED` desde un estado no cancelado, restaurar stock dentro
   de una transacción y marcar el pedido para no restaurar dos veces.
 
-### <a id="p1-permisos"></a>P1-2. `STAFF` puede borrar pedidos y editar precios — ⚠️ parcial: el borrado ya exige administración; los precios siguen abiertos
+### <a id="p1-permisos"></a>P1-2. `STAFF` puede borrar pedidos y editar precios — ✅ corregido
 
 Ver [10-seguridad.md](10-seguridad.md) A3.
+
+**Arreglo aplicado.** El borrado de pedidos exige administración desde v1.1. Los precios se
+cerraron después, con una autorización **por campo y no por ruta**:
+
+| Acción | STAFF | ADMIN / OWNER |
+|--------|:-----:|:-------------:|
+| Ver el catálogo | ✅ | ✅ |
+| **Ajustar stock** | ✅ | ✅ |
+| Cambiar el precio | ❌ | ✅ |
+| Renombrar, recategorizar, ocultar o publicar online | ❌ | ✅ |
+| Crear un producto | ❌ | ✅ |
+| Retirar un producto | ❌ | ✅ |
+
+Dos decisiones que conviene no deshacer por descuido:
+
+- **El stock se queda abierto al personal a propósito.** Se repone a diario, y el flujo de
+  nueva comanda incluye un modal para ajustarlo sin salir del pedido. Bloquear la ruta
+  entera —que era lo cómodo— habría dejado al personal sin poder cerrar un pedido cuando
+  falta género.
+- **Crear producto exige administración** aunque la petición no sea una "edición de
+  precio": crear es fijar un precio, y sin esa restricción la regla se saltaría creando un
+  duplicado más barato.
+
+Si un empleado envía precio y stock en la misma petición, **no se aplica nada**: ni
+siquiera la parte permitida. Es preferible a un cambio a medias que nadie esperaba.
+
+La interfaz oculta lo que la API va a rechazar y explica al personal qué sí puede hacer,
+en lugar de dejar botones que devuelven 403.
 
 ### P1-3. Borrado físico de pedidos — ✅ corregido en v1.1
 

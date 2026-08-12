@@ -29,6 +29,15 @@ function apiHeaders() {
 const EMPTY_FORM = { name: '', description: '', price: '', stock: '', category: '', imageUrl: '' };
 
 export default function ProductsPage() {
+  // El personal puede reponer stock —lo hace a diario— pero no tocar precios ni el
+  // catálogo. Se oculta lo que la API va a rechazar: enseñar botones que devuelven 403
+  // es peor que no enseñarlos.
+  const [esAdmin, setEsAdmin] = useState(true);
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem('user') ?? '{}');
+    setEsAdmin(['OWNER', 'ADMIN'].includes(user.role));
+  }, []);
+
   const [products, setProducts]   = useState<Product[]>([]);
   const [loading, setLoading]     = useState(true);
   const [search, setSearch]       = useState('');
@@ -156,11 +165,16 @@ export default function ProductsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.25rem' }}>Productos & Stock</h1>
-          <p style={{ color: 'hsl(220 18% 65%)', fontSize: '0.9rem' }}>{totalItems} productos activos</p>
+          <p style={{ color: 'hsl(220 18% 65%)', fontSize: '0.9rem' }}>
+            {totalItems} productos activos
+            {!esAdmin && ' · puedes ajustar el stock; los precios los gestiona la administración'}
+          </p>
         </div>
-        <button className="btn btn-primary" onClick={openCreate} id="create-product-btn">
-          <Plus size={16} /> Nuevo producto
-        </button>
+        {esAdmin && (
+          <button className="btn btn-primary" onClick={openCreate} id="create-product-btn">
+            <Plus size={16} /> Nuevo producto
+          </button>
+        )}
       </div>
 
       {/* Stats */}
@@ -273,25 +287,27 @@ export default function ProductsPage() {
                       </div>
                     </div>
 
-                    {/* Edit / Delete */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', flexShrink: 0 }}>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => openEdit(p)}
-                        id={`edit-${p.id}`}
-                        style={{ padding: '0.3rem 0.6rem' }}
-                      >
-                        <Edit2 size={13} />
-                      </button>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={() => handleDelete(p.id)}
-                        id={`delete-${p.id}`}
-                        style={{ padding: '0.3rem 0.6rem' }}
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
+                    {/* Editar y retirar: solo administración */}
+                    {esAdmin && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', flexShrink: 0 }}>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => openEdit(p)}
+                          id={`edit-${p.id}`}
+                          style={{ padding: '0.3rem 0.6rem' }}
+                        >
+                          <Edit2 size={13} />
+                        </button>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => handleDelete(p.id)}
+                          id={`delete-${p.id}`}
+                          style={{ padding: '0.3rem 0.6rem' }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}

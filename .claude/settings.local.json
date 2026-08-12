@@ -70,7 +70,12 @@
       "Bash(git cherry-pick *)",
       "Bash(git branch *)",
       "Bash(git stash *)",
-      "Bash(aws amplify *)"
+      "Bash(aws amplify *)",
+      "Bash(curl -s -o /dev/null -w \"  /dashboard/equipo      → HTTP %{http_code}\\\\n\" -L https://olyda.app/dashboard/equipo)",
+      "Bash(curl -s -o /dev/null -w \"  /invitacion/prueba     → HTTP %{http_code}\\\\n\" -L https://olyda.app/invitacion/prueba)",
+      "Bash(curl -s -o /dev/null -w \"  /dashboard            → HTTP %{http_code}\\\\n\" -L https://olyda.app/dashboard)",
+      "Bash(curl -s -L https://olyda.app/dashboard/equipo)",
+      "Bash(sed 's/^/  encontrado: /')"
     ]
   }
 }
