@@ -9,6 +9,14 @@ A partir de ahora, **cada release se anota aquí antes de desplegar**.
 
 ## [No publicado]
 
+### Añadido
+- **Trazabilidad por mensaje del correo enviado.** Conjunto de configuración de SES
+  (`comandapro-prod`) con destino de eventos a CloudWatch Logs vía EventBridge: cada envío
+  registra entrega, rebote con su motivo, queja, retraso y la respuesta SMTP del servidor
+  receptor. Antes solo había métricas agregadas. Consulta en `docs/09-despliegue.md`.
+- TLS obligatorio en la entrega de los correos (`tls_policy = REQUIRE`): llevan nombre,
+  dirección y detalle del pedido.
+
 ### Corregido
 - **Los correos incluyen alternativa en texto plano.** Iban solo en HTML, que es una señal
   de spam clásica y penaliza la entregabilidad en dominios sin histórico de envío. También

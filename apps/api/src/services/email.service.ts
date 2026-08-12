@@ -71,6 +71,13 @@ const TRANSPORT: Transport =
 const sesClient =
   TRANSPORT === 'ses' ? new SESv2Client({ region: process.env.SES_REGION }) : null;
 
+/**
+ * Conjunto de configuración de SES. Sin él, SES solo publica métricas agregadas y no hay
+ * forma de saber qué pasó con un mensaje concreto: si rebotó, por qué, o si alguien lo
+ * marcó como spam. Opcional para no romper el envío si no está configurado.
+ */
+const SES_CONFIGURATION_SET = process.env.SES_CONFIGURATION_SET;
+
 const smtpTransporter =
   TRANSPORT === 'smtp'
     ? nodemailer.createTransport({
@@ -87,7 +94,8 @@ const smtpTransporter =
     : null;
 
 console.log(
-  `[email] Transporte: ${TRANSPORT}${TRANSPORT === 'ses' ? ` (${process.env.SES_REGION})` : ''} · remitente: ${FROM_ADDRESS}`
+  `[email] Transporte: ${TRANSPORT}${TRANSPORT === 'ses' ? ` (${process.env.SES_REGION})` : ''} · remitente: ${FROM_ADDRESS}` +
+    (SES_CONFIGURATION_SET ? ` · conjunto: ${SES_CONFIGURATION_SET}` : '')
 );
 
 interface Mail {
@@ -120,9 +128,10 @@ async function deliver({ to, subject: rawSubject, html, text, businessName }: Ma
   if (TRANSPORT === 'ses') {
     await sesClient!.send(
       new SendEmailCommand({
-        FromEmailAddress: fromHeader,
-        Destination:      { ToAddresses: [to] },
-        ReplyToAddresses: REPLY_TO ? [REPLY_TO] : undefined,
+        FromEmailAddress:     fromHeader,
+        Destination:          { ToAddresses: [to] },
+        ReplyToAddresses:     REPLY_TO ? [REPLY_TO] : undefined,
+        ConfigurationSetName: SES_CONFIGURATION_SET,
         Content: {
           Simple: {
             Subject: { Data: subject, Charset: 'UTF-8' },
