@@ -7,6 +7,15 @@ Las versiones anteriores a `1.0.0` se han reconstruido a partir del historial de
 11 de agosto de 2026; agrupan el trabajo por fecha, no por etiquetas reales (no existían).
 A partir de ahora, **cada release se anota aquí antes de desplegar**.
 
+## [No publicado]
+
+### Corregido
+- **Los correos incluyen alternativa en texto plano.** Iban solo en HTML, que es una señal
+  de spam clásica y penaliza la entregabilidad en dominios sin histórico de envío. También
+  mejora la accesibilidad y los clientes que bloquean HTML.
+
+---
+
 ## [1.1.0] — 2026-08-11
 
 Desplegado en producción el 11/08/2026 a las 21:45 (Madrid).

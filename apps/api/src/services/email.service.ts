@@ -94,6 +94,13 @@ interface Mail {
   to: string;
   subject: string;
   html: string;
+  /**
+   * Alternativa en texto plano. Un correo solo-HTML es una señal de spam de manual y
+   * los filtros de Microsoft y Google la penalizan, especialmente en dominios sin
+   * histórico de envío. Además es lo que ven los lectores de pantalla y los clientes
+   * que bloquean HTML.
+   */
+  text: string;
   businessName: string;
 }
 
@@ -106,7 +113,7 @@ function sanitizeSubject(value: string): string {
   return value.replace(/[\r\n]+/g, ' ').trim().slice(0, 200);
 }
 
-async function deliver({ to, subject: rawSubject, html, businessName }: Mail): Promise<void> {
+async function deliver({ to, subject: rawSubject, html, text, businessName }: Mail): Promise<void> {
   const fromHeader = from(businessName);
   const subject    = sanitizeSubject(rawSubject);
 
@@ -119,7 +126,10 @@ async function deliver({ to, subject: rawSubject, html, businessName }: Mail): P
         Content: {
           Simple: {
             Subject: { Data: subject, Charset: 'UTF-8' },
-            Body:    { Html: { Data: html, Charset: 'UTF-8' } },
+            Body: {
+              Html: { Data: html, Charset: 'UTF-8' },
+              Text: { Data: text, Charset: 'UTF-8' },
+            },
           },
         },
       })
@@ -128,7 +138,7 @@ async function deliver({ to, subject: rawSubject, html, businessName }: Mail): P
   }
 
   if (TRANSPORT === 'smtp') {
-    await smtpTransporter!.sendMail({ from: fromHeader, replyTo: REPLY_TO, to, subject, html });
+    await smtpTransporter!.sendMail({ from: fromHeader, replyTo: REPLY_TO, to, subject, html, text });
     return;
   }
 
@@ -192,9 +202,25 @@ export async function sendVerificationEmail(
       Este enlace caduca en 24 horas. Si no has solicitado este registro, ignora este email.
     </p>`;
 
+  const text = [
+    `${businessName}`,
+    '',
+    'Confirma tu correo electrónico',
+    '',
+    `Para completar tu registro en ${businessName}, confirma tu dirección de correo`,
+    'abriendo este enlace:',
+    '',
+    verifyUrl,
+    '',
+    'El enlace caduca en 24 horas. Si no has solicitado este registro, ignora este mensaje.',
+    '',
+    `Enviado por ${businessName} a través de ${BRAND}.`,
+  ].join('\n');
+
   await deliver({
     to,
     businessName,
+    text,
     subject: `Verifica tu email — ${businessName}`,
     html:    baseTemplate(businessName, 'Confirma tu correo electrónico', body),
   });
@@ -216,9 +242,26 @@ export async function sendOrderConfirmedEmail(
     </p>
     ${button(trackingUrl, 'Seguir mi pedido')}`;
 
+  const text = [
+    `${businessName}`,
+    '',
+    'Pedido confirmado',
+    '',
+    `Hola ${customerName},`,
+    '',
+    `Tu pedido #${orderRef} en ${businessName} ha sido confirmado y está siendo`,
+    'preparado. Te avisaremos cuando esté listo.',
+    '',
+    'Sigue tu pedido aquí:',
+    trackingUrl,
+    '',
+    `Enviado por ${businessName} a través de ${BRAND}.`,
+  ].join('\n');
+
   await deliver({
     to,
     businessName,
+    text,
     subject: `¡Tu pedido ha sido confirmado! — ${businessName}`,
     html:    baseTemplate(businessName, '¡Pedido confirmado!', body),
   });

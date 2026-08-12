@@ -152,10 +152,12 @@ variable "mail_from_brand" {
 
 variable "mail_reply_to" {
   description = <<-EOT
-    Buzón al que llegan las respuestas de los clientes. Vacío = sin Reply-To.
-    Ideal: un buzón atendido de soporte. Cuando Business tenga un campo de email
-    propio, esto debería pasar a ser el del local (ver docs/11-deuda-tecnica.md P1-8b).
+    Buzón al que llegan las respuestas de los clientes a los correos transaccionales.
+    Vacío = sin Reply-To, y entonces responder a un aviso no lleva a ninguna parte.
+    Es un buzón de Arsys (MX en mx.serviciodecorreo.es), distinto del remitente de SES.
+    Cuando Business tenga un campo de email propio, esto debería pasar a ser el del
+    local en lugar del de la plataforma (ver docs/11-deuda-tecnica.md P1-8b).
   EOT
   type        = string
-  default     = ""
+  default     = "info@olyda.app"
 }
