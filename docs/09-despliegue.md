@@ -214,6 +214,48 @@ remitente muestra el nombre del local y que el enlace de verificación funciona.
 falla, los errores de SES aparecen en CloudWatch (el envío es *fire-and-forget*: no
 devuelve error al usuario).
 
+### Rastrear un correo concreto
+
+Cada envío queda registrado en `/aws/events/comandapro/ses` (CloudWatch Logs, **eu-west-3**,
+30 días de retención), vía el conjunto de configuración `comandapro-prod`.
+
+Cuando un cliente diga que no le ha llegado el correo:
+
+```bash
+aws logs tail /aws/events/comandapro/ses --region eu-west-3 --since 24h --format short \
+  | grep "correo@delcliente.com"
+```
+
+O con Logs Insights, para ver el desenlace de cada mensaje:
+
+```
+fields @timestamp, detail.eventType, detail.mail.destination.0 as destinatario,
+       detail.delivery.smtpResponse as respuesta,
+       detail.bounce.bounceType as rebote,
+       detail.bounce.bouncedRecipients.0.diagnosticCode as motivo
+| filter detail.mail.destination.0 = "correo@delcliente.com"
+| sort @timestamp desc
+```
+
+Lectura de los eventos:
+
+| Evento | Significado | Qué hacer |
+|--------|-------------|-----------|
+| `Send` | SES aceptó el mensaje | — |
+| `Delivery` | El servidor receptor lo aceptó (`250 OK`) | Si el cliente no lo ve, **está en su spam o en la cuarentena de su organización**: SES ya no puede decir más |
+| `Bounce` (Permanent) | Buzón inexistente o dominio caído | La dirección entra en la lista de supresión; corregirla |
+| `Bounce` (Transient) | Buzón lleno, receptor caído | SES reintenta; si persiste, avisar al cliente |
+| `Complaint` | **Alguien marcó el correo como spam** | Lo más grave: si la tasa sube, AWS suspende la cuenta. Investigar de inmediato |
+| `DeliveryDelay` | El receptor está difiriendo | Suele resolverse solo |
+| `Reject` | SES rechazó el envío (p. ej. virus) | Revisar el contenido |
+
+> **Límite importante:** un `Delivery` no significa que el cliente lo haya visto. Para el
+> servidor receptor, meter un correo en cuarentena **es** una entrega correcta. Ocurrió el
+> 12/08/2026 con Office 365: los eventos decían `Delivery` y los mensajes estaban retenidos
+> en la cuarentena del tenant. Ese diagnóstico solo se hace desde el lado receptor
+> (en Microsoft 365: **security.microsoft.com → Quarantine**, y **Seguimiento de mensajes**
+> en el centro de administración de Exchange).
+
 ### Identidad y DNS no están en Terraform
 
 La identidad de SES, su DKIM y el MAIL FROM se verificaron desde la consola y **no** se

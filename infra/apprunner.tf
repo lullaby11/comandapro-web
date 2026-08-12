@@ -41,10 +41,11 @@ resource "aws_apprunner_service" "api" {
 
             # Correo saliente con SES. Sin credenciales: el permiso lo da el rol de
             # instancia (ver ses.tf).
-            MAIL_TRANSPORT    = "ses"
-            SES_REGION        = var.ses_region
-            MAIL_FROM_ADDRESS = var.mail_from_address
-            MAIL_FROM_BRAND   = var.mail_from_brand
+            MAIL_TRANSPORT        = "ses"
+            SES_REGION            = var.ses_region
+            SES_CONFIGURATION_SET = aws_sesv2_configuration_set.main.configuration_set_name
+            MAIL_FROM_ADDRESS     = var.mail_from_address
+            MAIL_FROM_BRAND       = var.mail_from_brand
           },
           # Reply-To solo si hay un buzón atendido configurado
           var.mail_reply_to != "" ? { MAIL_REPLY_TO = var.mail_reply_to } : {}

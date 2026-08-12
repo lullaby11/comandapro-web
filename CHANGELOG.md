@@ -7,6 +7,23 @@ Las versiones anteriores a `1.0.0` se han reconstruido a partir del historial de
 11 de agosto de 2026; agrupan el trabajo por fecha, no por etiquetas reales (no existían).
 A partir de ahora, **cada release se anota aquí antes de desplegar**.
 
+## [No publicado]
+
+### Añadido
+- **Trazabilidad por mensaje del correo enviado.** Conjunto de configuración de SES
+  (`comandapro-prod`) con destino de eventos a CloudWatch Logs vía EventBridge: cada envío
+  registra entrega, rebote con su motivo, queja, retraso y la respuesta SMTP del servidor
+  receptor. Antes solo había métricas agregadas. Consulta en `docs/09-despliegue.md`.
+- TLS obligatorio en la entrega de los correos (`tls_policy = REQUIRE`): llevan nombre,
+  dirección y detalle del pedido.
+
+### Corregido
+- **Los correos incluyen alternativa en texto plano.** Iban solo en HTML, que es una señal
+  de spam clásica y penaliza la entregabilidad en dominios sin histórico de envío. También
+  mejora la accesibilidad y los clientes que bloquean HTML.
+
+---
+
 ## [1.1.0] — 2026-08-11
 
 Desplegado en producción el 11/08/2026 a las 21:45 (Madrid).

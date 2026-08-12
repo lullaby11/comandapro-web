@@ -23,6 +23,22 @@ terraform {
   }
 }
 
+# Proveedor para los recursos de SES: la identidad de olyda.app está verificada en
+# eu-west-3, y tanto el conjunto de configuración como sus eventos deben vivir en la
+# misma región que la identidad que los usa.
+provider "aws" {
+  alias  = "ses"
+  region = var.ses_region
+
+  default_tags {
+    tags = {
+      Project     = var.project_name
+      Environment = var.environment
+      ManagedBy   = "terraform"
+    }
+  }
+}
+
 provider "aws" {
   region = var.aws_region
 

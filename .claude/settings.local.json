@@ -40,7 +40,9 @@
       "Bash(psql \"postgresql://comandapro:comandapro@localhost:5432/comandapro_dev\" -tc \"SELECT rolname, rolcreatedb, rolsuper FROM pg_roles WHERE rolcanlogin;\")",
       "Bash(echo \"  exit code: $?\")",
       "Bash(aws rds *)",
-      "Bash(aws ec2 *)"
+      "Bash(aws ec2 *)",
+      "Bash(aws sesv2 *)",
+      "Bash(MAIL_TRANSPORT=ses SES_REGION=eu-west-3 MAIL_FROM_ADDRESS=no-reply@olyda.app MAIL_FROM_BRAND=Olyda MAIL_REPLY_TO=info@olyda.app SES_CONFIGURATION_SET=comandapro-prod npx tsx -e ' *)"
     ]
   }
 }
