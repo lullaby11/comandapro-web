@@ -10,7 +10,9 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "db:migrate": "prisma migrate dev"
+    "db:migrate": "prisma migrate dev",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.1107.0",
@@ -41,8 +43,11 @@
     "@types/node": "^20.14.2",
     "@types/nodemailer": "^6.4.23",
     "@types/qrcode": "^1.5.5",
+    "@types/supertest": "^7.2.1",
     "prisma": "^5.14.0",
+    "supertest": "^7.2.2",
     "tsx": "^4.15.6",
-    "typescript": "^5.5.2"
+    "typescript": "^5.5.2",
+    "vitest": "^4.1.10"
   }
 }

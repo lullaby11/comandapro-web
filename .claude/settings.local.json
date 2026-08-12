@@ -42,7 +42,13 @@
       "Bash(aws rds *)",
       "Bash(aws ec2 *)",
       "Bash(aws sesv2 *)",
-      "Bash(MAIL_TRANSPORT=ses SES_REGION=eu-west-3 MAIL_FROM_ADDRESS=no-reply@olyda.app MAIL_FROM_BRAND=Olyda MAIL_REPLY_TO=info@olyda.app SES_CONFIGURATION_SET=comandapro-prod npx tsx -e ' *)"
+      "Bash(MAIL_TRANSPORT=ses SES_REGION=eu-west-3 MAIL_FROM_ADDRESS=no-reply@olyda.app MAIL_FROM_BRAND=Olyda MAIL_REPLY_TO=info@olyda.app SES_CONFIGURATION_SET=comandapro-prod npx tsx -e ' *)",
+      "Bash(psql \"postgresql://juanma@localhost:5432/postgres\" -c \"DROP DATABASE IF EXISTS comandapro_test;\" -c \"CREATE DATABASE comandapro_test OWNER comandapro;\")",
+      "Bash(DATABASE_URL_TEST=\"postgresql://comandapro:comandapro@localhost:5432/comandapro_test\" npm test)",
+      "Bash(DATABASE_URL_TEST=\"postgresql://comandapro:comandapro@localhost:5432/comandapro_test\" npx vitest run)",
+      "Bash(DATABASE_URL_TEST=postgresql://comandapro:comandapro@localhost:5432/comandapro_test npx tsx -e ' *)",
+      "Bash(DATABASE_URL_TEST=\"postgresql://comandapro:comandapro@localhost:5432/comandapro_test\" npx vitest run src/routes/__tests__/tenant-isolation.test.ts)",
+      "Bash(DATABASE_URL_TEST=\"postgresql://comandapro:comandapro@localhost:5432/comandapro_test\" npx vitest run src/routes/__tests__/orders.test.ts)"
     ]
   }
 }

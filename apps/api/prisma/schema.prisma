@@ -154,6 +154,9 @@ model Order {
   paymentMethod       PaymentMethod @default(CASH)
   cashGiven           Decimal?      @db.Decimal(10, 2)
   printedAt           DateTime?
+  // Marca de que el stock de este pedido ya volvió al inventario, al cancelarlo o al
+  // borrarlo. Evita devolverlo dos veces si se encadenan ambas acciones.
+  stockRestoredAt     DateTime?
   createdAt           DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 

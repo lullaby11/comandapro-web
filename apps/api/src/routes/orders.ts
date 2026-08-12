@@ -220,6 +220,42 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
 });
 
 // ──────────────────────────────────────────────
+// Transiciones de estado permitidas
+// ──────────────────────────────────────────────
+// Antes se aceptaba cualquier valor del enum, así que un error de la interfaz o una
+// petición manual podía llevar un pedido de PENDING a DELIVERED sin pasar por cocina, o
+// resucitar uno cancelado —lo que además descuadraría el stock ya devuelto—.
+
+const TRANSICIONES: Record<OrderStatus, OrderStatus[]> = {
+  RECEIVED_ONLINE:  ['PENDING', 'CANCELLED'],
+  PENDING:          ['PREPARING', 'CANCELLED'],
+  PREPARING:        ['READY', 'CANCELLED'],
+  READY:            ['OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'],
+  OUT_FOR_DELIVERY: ['DELIVERED', 'CANCELLED'],
+  // Estados finales: de aquí no se sale. Un pedido cancelado ya devolvió su stock.
+  DELIVERED:        [],
+  CANCELLED:        [],
+};
+
+const ETIQUETAS_ESTADO: Record<OrderStatus, string> = {
+  RECEIVED_ONLINE:  'Recibido online',
+  PENDING:          'Pendiente',
+  PREPARING:        'En preparación',
+  READY:            'Listo',
+  OUT_FOR_DELIVERY: 'En reparto',
+  DELIVERED:        'Entregado',
+  CANCELLED:        'Cancelado',
+};
+
+function esTransicionValida(desde: OrderStatus, hasta: OrderStatus, isPickup: boolean): boolean {
+  // Repetir el estado actual es inofensivo y evita que un doble clic dé error
+  if (desde === hasta) return true;
+  // Un pedido de recogida nunca sale a reparto
+  if (hasta === 'OUT_FOR_DELIVERY' && isPickup) return false;
+  return TRANSICIONES[desde].includes(hasta);
+}
+
+// ──────────────────────────────────────────────
 // PATCH /orders/:id/status — Actualizar estado
 // ──────────────────────────────────────────────
 router.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
@@ -237,6 +273,7 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
     include: {
       business:        { select: { name: true } },
       customerAccount: { select: { email: true, name: true } },
+      items:           { select: { productId: true, quantity: true } },
     },
   });
 
@@ -245,9 +282,33 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
     return;
   }
 
-  const updated = await prisma.order.update({
-    where: { id: req.params.id },
-    data: { status: parsed.data.status },
+  const nuevoEstado = parsed.data.status;
+
+  if (!esTransicionValida(order.status, nuevoEstado, order.isPickup)) {
+    res.status(409).json({
+      error: `No se puede pasar de "${ETIQUETAS_ESTADO[order.status]}" a "${ETIQUETAS_ESTADO[nuevoEstado]}"`,
+      from: order.status,
+      to: nuevoEstado,
+      allowed: TRANSICIONES[order.status],
+    });
+    return;
+  }
+
+  // Cancelar devuelve el stock al inventario. `stockRestoredAt` evita devolverlo dos
+  // veces si después se borra el pedido, o si llegan dos cancelaciones seguidas.
+  const debeRestaurarStock = nuevoEstado === 'CANCELLED' && order.stockRestoredAt === null;
+
+  const updated = await prisma.$transaction(async (tx) => {
+    if (debeRestaurarStock) {
+      await restoreStock(tx, order.items);
+    }
+    return tx.order.update({
+      where: { id: order.id },
+      data: {
+        status: nuevoEstado,
+        ...(debeRestaurarStock ? { stockRestoredAt: new Date() } : {}),
+      },
+    });
   });
 
   // Cuando el comercio acepta un pedido online, notificar al cliente por email
@@ -280,7 +341,11 @@ router.delete('/:id', async (req: AuthenticatedRequest, res) => {
   }
 
   await prisma.$transaction(async (tx) => {
-    await restoreStock(tx, order.items);
+    // Si el pedido ya se canceló, su stock volvió al inventario en ese momento:
+    // devolverlo otra vez inflaría las existencias.
+    if (order.stockRestoredAt === null) {
+      await restoreStock(tx, order.items);
+    }
     await tx.order.delete({ where: { id: order.id } });
   });
 
