@@ -22,12 +22,12 @@ router.get('/services', async (req: AuthenticatedRequest, res) => {
   const [counts, revenues] = await Promise.all([
     prisma.order.groupBy({
       by: ['serviceId'],
-      where: { businessId, serviceId: { in: serviceIds }, status: { notIn: ['CANCELLED'] } },
+      where: { businessId, serviceId: { in: serviceIds }, status: { notIn: ['CANCELLED'] }, deletedAt: null },
       _count: { id: true },
     }),
     prisma.order.groupBy({
       by: ['serviceId'],
-      where: { businessId, serviceId: { in: serviceIds }, status: { notIn: ['CANCELLED'] } },
+      where: { businessId, serviceId: { in: serviceIds }, status: { notIn: ['CANCELLED'] }, deletedAt: null },
       _sum: { total: true },
     }),
   ]);
@@ -56,19 +56,19 @@ router.get('/service/:id', async (req: AuthenticatedRequest, res) => {
 
   const [aggregate, deliveries, pickups, topItems] = await Promise.all([
     prisma.order.aggregate({
-      where: { serviceId: id, businessId, status: { notIn: ['CANCELLED'] } },
+      where: { serviceId: id, businessId, status: { notIn: ['CANCELLED'] }, deletedAt: null },
       _sum: { total: true },
       _count: { id: true },
     }),
     prisma.order.count({
-      where: { serviceId: id, businessId, isPickup: false, status: { notIn: ['CANCELLED'] } },
+      where: { serviceId: id, businessId, isPickup: false, status: { notIn: ['CANCELLED'] }, deletedAt: null },
     }),
     prisma.order.count({
-      where: { serviceId: id, businessId, isPickup: true, status: { notIn: ['CANCELLED'] } },
+      where: { serviceId: id, businessId, isPickup: true, status: { notIn: ['CANCELLED'] }, deletedAt: null },
     }),
     prisma.orderItem.groupBy({
       by: ['productId'],
-      where: { order: { serviceId: id, businessId, status: { notIn: ['CANCELLED'] } } },
+      where: { order: { serviceId: id, businessId, status: { notIn: ['CANCELLED'] }, deletedAt: null } },
       _sum: { quantity: true, subtotal: true },
       orderBy: { _sum: { subtotal: 'desc' } },
       take: 15,
@@ -111,13 +111,13 @@ router.get('/customer/:id', async (req: AuthenticatedRequest, res) => {
 
   const [aggregate, orders] = await Promise.all([
     prisma.order.aggregate({
-      where: { customerId: id, businessId, status: { notIn: ['CANCELLED'] } },
+      where: { customerId: id, businessId, status: { notIn: ['CANCELLED'] }, deletedAt: null },
       _sum: { total: true },
       _count: { id: true },
       _avg: { total: true },
     }),
     prisma.order.findMany({
-      where: { customerId: id, businessId, status: { notIn: ['CANCELLED'] } },
+      where: { customerId: id, businessId, status: { notIn: ['CANCELLED'] }, deletedAt: null },
       include: {
         items: { include: { product: { select: { name: true } } } },
         service: { select: { startedAt: true } },
@@ -153,12 +153,12 @@ router.get('/product/:id', async (req: AuthenticatedRequest, res) => {
 
   const [aggregate, itemsByOrder] = await Promise.all([
     prisma.orderItem.aggregate({
-      where: { productId: id, order: { businessId, status: { notIn: ['CANCELLED'] } } },
+      where: { productId: id, order: { businessId, status: { notIn: ['CANCELLED'] }, deletedAt: null } },
       _sum: { quantity: true, subtotal: true },
     }),
     prisma.orderItem.groupBy({
       by: ['orderId'],
-      where: { productId: id, order: { businessId, status: { notIn: ['CANCELLED'] } } },
+      where: { productId: id, order: { businessId, status: { notIn: ['CANCELLED'] }, deletedAt: null } },
       _sum: { quantity: true, subtotal: true },
     }),
   ]);
@@ -203,7 +203,7 @@ router.get('/categories', async (req: AuthenticatedRequest, res) => {
 
   const items = await prisma.orderItem.groupBy({
     by: ['productId'],
-    where: { order: { businessId, status: { notIn: ['CANCELLED'] } } },
+    where: { order: { businessId, status: { notIn: ['CANCELLED'] }, deletedAt: null } },
     _sum: { quantity: true, subtotal: true },
   });
 
@@ -271,6 +271,7 @@ router.get('/period', async (req: AuthenticatedRequest, res) => {
     FROM orders
     WHERE "businessId" = ${businessId}
       AND status::text != 'CANCELLED'
+      AND "deletedAt" IS NULL
       AND "createdAt" >= ${fromDate}
       AND "createdAt" <= ${toDate}
     GROUP BY DATE_TRUNC(${truncFn}, "createdAt")
@@ -280,7 +281,7 @@ router.get('/period', async (req: AuthenticatedRequest, res) => {
   const topItems = await prisma.orderItem.groupBy({
     by: ['productId'],
     where: {
-      order: { businessId, status: { notIn: ['CANCELLED'] }, createdAt: { gte: fromDate, lte: toDate } },
+      order: { businessId, status: { notIn: ['CANCELLED'] }, deletedAt: null, createdAt: { gte: fromDate, lte: toDate } },
     },
     _sum: { quantity: true, subtotal: true },
     orderBy: { _sum: { subtotal: 'desc' } },

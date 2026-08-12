@@ -44,9 +44,10 @@ modelo de datos transversal, cambio de protocolo de impresión, etc.).
 | Impresión térmica ESC/POS (WebUSB + agente local) | ✅ Funcional, con matices por modelo de impresora |
 | Venta online por tienda (`/[slug]/pedidos`) | ✅ Funcional |
 | Estadísticas por servicio / cliente / producto | ✅ Funcional |
-| Multi-tenant (aislamiento de datos) | ⚠️ Implementado, sin gestión de usuarios ni panel de administración SaaS |
+| Multi-tenant (aislamiento de datos) | ✅ Implementado y cubierto por tests. Sin panel de administración SaaS |
+| Gestión de usuarios del local | ✅ Invitaciones, roles y revocación de acceso (v1.1) |
 | Facturación / planes / suscripciones | ❌ No existe |
-| Tests automatizados | ❌ No existe (0 tests) |
+| Tests automatizados | ✅ 94 tests (Vitest + PostgreSQL real), con CI que bloquea el merge |
 | Tiempo real (pedidos online al instante) | ⚠️ Polling, no push |
 
 Detalle completo en [11-deuda-tecnica.md](11-deuda-tecnica.md) y [12-roadmap.md](12-roadmap.md).

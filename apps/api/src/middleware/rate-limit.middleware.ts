@@ -124,3 +124,18 @@ export const registerRateLimiter = createRateLimiter({
   keyGenerator: (req) => `register:${getClientIp(req)}`,
   message: 'Demasiados registros desde esta conexión. Inténtalo de nuevo más tarde.',
 });
+
+/**
+ * Aceptación de invitaciones: 30 por IP y hora.
+ *
+ * Mucho más holgado que el registro porque el escenario legítimo es un local dando de
+ * alta a todo su equipo desde el mismo wifi, y con el límite de 5 se bloqueaban entre
+ * ellos. Aquí lo que autoriza de verdad es el token de 32 bytes del enlace, que no se
+ * puede adivinar; el límite solo evita que alguien machaque el endpoint.
+ */
+export const invitationRateLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 30,
+  keyGenerator: (req) => `invitation:${getClientIp(req)}`,
+  message: 'Demasiados intentos desde esta conexión. Inténtalo de nuevo más tarde.',
+});

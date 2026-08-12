@@ -12,8 +12,16 @@ env:
   AWS_REGION: eu-west-1
 
 jobs:
+  # El despliegue solo arranca si la calidad pasa: hasta v1.1 se podía desplegar código
+  # que ni siquiera compilaba, y de hecho el pipeline llevaba meses roto sin que nadie
+  # lo notara porque los despliegues se hacían a mano.
+  calidad:
+    name: Calidad
+    uses: ./.github/workflows/ci.yml
+
   deploy:
     name: Build → Push ECR → Deploy App Runner
+    needs: calidad
     runs-on: ubuntu-latest
     permissions:
       contents: read

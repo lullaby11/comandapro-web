@@ -1,8 +1,34 @@
 # 13 — Estrategia de testing
 
-**Estado actual: 0 tests.** No hay framework instalado, ni CI que valide nada antes de
-desplegar. Cualquier push a `main` que toque `apps/api/**` va a producción sin más red que
-el snapshot de RDS.
+**Estado actual (v1.1): 94 tests en 8 ficheros**, con Vitest contra un PostgreSQL real, y
+un workflow de calidad del que depende el despliegue.
+
+```bash
+cd apps/api
+DATABASE_URL_TEST="postgresql://comandapro:comandapro@localhost:5432/comandapro_test" npm test
+```
+
+La base de test se recrea aplicando **las migraciones**, no `db push`: así se cubre el SQL
+que Prisma no sabe declarar —el índice único parcial del servicio activo— y se obliga a que
+todo cambio de esquema lleve su migración.
+
+| Fichero | Qué cubre |
+|---------|-----------|
+| `services/__tests__/printer.service.test.ts` | Ticket ESC/POS: contenido, anchos de papel, sanitización de acentos, truncado, QR, corte |
+| `services/__tests__/money.test.ts` | Aritmética en céntimos, con propiedades sobre 2000 combinaciones |
+| `routes/__tests__/tenant-isolation.test.ts` | Que un local no vea ni toque nada de otro |
+| `routes/__tests__/orders.test.ts` | Stock, concurrencia, precios congelados, importes |
+| `routes/__tests__/order-status.test.ts` | Transiciones válidas e inválidas |
+| `routes/__tests__/order-delete.test.ts` | Borrado lógico y su efecto en estadísticas |
+| `routes/__tests__/services.test.ts` | Turnos y la garantía de uno solo activo |
+| `routes/__tests__/users.test.ts` | Equipo, invitaciones y reglas de rol |
+
+Lo que sigue describe el plan original y las fases que quedan pendientes.
+
+---
+
+**Punto de partida (agosto 2026): 0 tests.** No había framework instalado, ni CI que
+validara nada antes de desplegar.
 
 Este documento define qué probar, con qué y en qué orden, con criterio de coste/beneficio:
 no se busca cobertura alta, se busca **no romper lo que da dinero**.

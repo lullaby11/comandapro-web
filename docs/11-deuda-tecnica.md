@@ -57,7 +57,7 @@ Ver [10-seguridad.md](10-seguridad.md) A1 y A2. Resumen de lo aplicado:
 
 ## P1 — Corrección funcional
 
-### <a id="p1-stock-cancelado"></a>P1-1. Cancelar un pedido no devuelve el stock
+### <a id="p1-stock-cancelado"></a>P1-1. Cancelar un pedido no devuelve el stock — ✅ corregido en v1.1
 
 - **Dónde:** [`apps/api/src/routes/orders.ts`](../apps/api/src/routes/orders.ts),
   `PATCH /:id/status`. `restoreStock` solo se llama en `DELETE`.
@@ -65,18 +65,18 @@ Ver [10-seguridad.md](10-seguridad.md) A1 y A2. Resumen de lo aplicado:
 - **Arreglo:** al pasar a `CANCELLED` desde un estado no cancelado, restaurar stock dentro
   de una transacción y marcar el pedido para no restaurar dos veces.
 
-### <a id="p1-permisos"></a>P1-2. `STAFF` puede borrar pedidos y editar precios
+### <a id="p1-permisos"></a>P1-2. `STAFF` puede borrar pedidos y editar precios — ⚠️ parcial: el borrado ya exige administración; los precios siguen abiertos
 
 Ver [10-seguridad.md](10-seguridad.md) A3.
 
-### P1-3. Borrado físico de pedidos
+### P1-3. Borrado físico de pedidos — ✅ corregido en v1.1
 
 - **Dónde:** `DELETE /api/orders/:id`.
 - **Efecto:** se pierde el histórico contable; las estadísticas cambian retroactivamente;
   no queda rastro de quién lo borró.
 - **Arreglo:** borrado lógico (`deletedAt`, `deletedBy`) y exclusión en las consultas.
 
-### <a id="p1-dinero"></a>P1-4. Aritmética monetaria en coma flotante
+### <a id="p1-dinero"></a>P1-4. Aritmética monetaria en coma flotante — ✅ corregido en v1.1
 
 - **Dónde:** cálculo de `subtotal`/`tax`/`total` en `routes/orders.ts` y `routes/public.ts`.
 - **Efecto:** descuadres de céntimos entre `total` y la suma de sus componentes.
@@ -84,7 +84,7 @@ Ver [10-seguridad.md](10-seguridad.md) A3.
   explícitamente a 2 decimales antes de persistir, y añadir un test que verifique
   `total === subtotal + tax + shippingCost` para 1.000 combinaciones aleatorias.
 
-### P1-5. Transiciones de estado sin validar
+### P1-5. Transiciones de estado sin validar — ✅ corregido en v1.1
 
 - **Dónde:** `PATCH /orders/:id/status` acepta cualquier valor del enum.
 - **Arreglo:** tabla de transiciones permitidas y 409 en las inválidas.
@@ -147,7 +147,7 @@ Corregido con `lifecycle { ignore_changes = [repository, oauth_token, access_tok
 - **Arreglo:** confirmar la impresión desde el cliente (`POST /orders/:id/printed`) o
   reintentar tras N segundos sin confirmación.
 
-### P1-10. Sin índice sobre `orders.createdAt`
+### P1-10. Sin índice sobre `orders.createdAt` — ✅ corregido en v1.1
 
 - **Efecto:** `GET /orders` (ordena por `createdAt`) y `/stats/period` degradan con
   volumen.
@@ -158,7 +158,7 @@ Corregido con `lifecycle { ignore_changes = [repository, oauth_token, access_tok
 El README pide `cp .env.example apps/api/.env` y **el fichero no existe**. Ver el añadido en
 la raíz del repositorio.
 
-### P1-12. Invariante "un servicio activo" solo a nivel de aplicación
+### P1-12. Invariante "un servicio activo" solo a nivel de aplicación — ✅ corregido en v1.1
 
 - **Arreglo:** índice único parcial en PostgreSQL (SQL en
   [03-modelo-datos.md](03-modelo-datos.md#service--turno-de-trabajo)).
@@ -294,8 +294,8 @@ de seguridad. Coste total: unos céntimos y ~15 minutos.
 
 ## P3 — Calidad de vida
 
-- **Cero tests.** Ver [13-testing.md](13-testing.md).
-- **Sin CI de calidad:** el único workflow despliega. No hay `tsc --noEmit` ni lint en PR.
+- ~~**Cero tests.**~~ ✅ 94 tests desde v1.1. Ver [13-testing.md](13-testing.md).
+- ~~**Sin CI de calidad.**~~ ✅ Desde v1.1 hay un workflow que comprueba tipos, tests y lint, y del que depende el despliegue.
 - **Sin observabilidad:** solo `morgan`. Sin métricas, trazas ni alertas.
 - **Historial de commits ruidoso:** mensajes duplicados consecutivos y commits
   "trigger deploy". Ver convenciones en [08-entorno-desarrollo.md](08-entorno-desarrollo.md).

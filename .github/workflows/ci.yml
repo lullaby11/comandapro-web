@@ -1,0 +1,79 @@
+name: Calidad
+
+# Se ejecuta en cada PR y en cada push a main. El workflow de despliegue depende de
+# este: hasta v1.1 se podía desplegar código que ni siquiera compilaba.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # Permite que deploy-api.yml lo invoque como puerta previa al despliegue
+  workflow_call:
+
+jobs:
+  calidad:
+    name: Tipos, lint y tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: comandapro
+          POSTGRES_PASSWORD: comandapro
+          POSTGRES_DB: comandapro_test
+        ports:
+          - 5432:5432
+        # Sin el healthcheck, los tests arrancan antes de que la base acepte conexiones
+        options: >-
+          --health-cmd "pg_isready -U comandapro"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL_TEST: postgresql://comandapro:comandapro@localhost:5432/comandapro_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Cada app se instala por separado: los binarios nativos de Tailwind y Prisma dan
+      # problemas con los workspaces (ver docs/08-entorno-desarrollo.md).
+      - name: Instalar dependencias de la API
+        working-directory: apps/api
+        run: npm ci --no-workspaces
+
+      - name: Generar el cliente de Prisma
+        working-directory: apps/api
+        run: npx prisma generate
+
+      - name: Comprobar tipos de la API
+        working-directory: apps/api
+        run: npm run typecheck
+
+      - name: Comprobar tipos de los tests
+        working-directory: apps/api
+        run: npm run typecheck:test
+
+      - name: Tests
+        working-directory: apps/api
+        run: npm test
+
+      - name: Compilar la API
+        working-directory: apps/api
+        run: npm run build
+
+      - name: Instalar dependencias del frontend
+        working-directory: apps/web
+        run: npm ci --no-workspaces
+
+      - name: Comprobar tipos del frontend
+        working-directory: apps/web
+        run: npm run typecheck
+
+      - name: Lint del frontend
+        working-directory: apps/web
+        run: npm run lint

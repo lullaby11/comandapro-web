@@ -2,9 +2,10 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../prisma/client';
 import { OrderStatus } from '@prisma/client';
-import { authMiddleware, AuthenticatedRequest } from '../middleware/auth.middleware';
+import { authMiddleware, requireAdmin, AuthenticatedRequest } from '../middleware/auth.middleware';
 import { validateStock, deductStock, restoreStock } from '../services/stock.service';
 import { generateEscPosBuffer, PrintOrderPayload } from '../services/printer.service';
+import { calcularImportes, aCentimos, aEuros } from '../services/money.service';
 import { sendOrderConfirmedEmail } from '../services/email.service';
 
 const router = Router();
@@ -26,6 +27,7 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
 
   const where = {
     businessId: req.businessId!,
+    deletedAt: null,
     serviceId: activeService?.id ?? '__no_service__',
     ...(status ? { status: status as OrderStatus } : {}),
     ...(notPrinted === 'true' ? { printedAt: null } : {}),
@@ -39,6 +41,7 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
           where,
           {
             businessId: req.businessId!,
+            deletedAt:  null,
             status:     'RECEIVED_ONLINE' as OrderStatus,
             ...(status && status !== 'RECEIVED_ONLINE' ? { id: '__never__' } : {}),
           },
@@ -70,7 +73,7 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
 // ──────────────────────────────────────────────
 router.get('/:id', async (req: AuthenticatedRequest, res) => {
   const order = await prisma.order.findFirst({
-    where: { id: req.params.id, businessId: req.businessId! },
+    where: { id: req.params.id, businessId: req.businessId!, deletedAt: null },
     include: {
       customer: true,
       items: { include: { product: true } },
@@ -167,16 +170,27 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     shippingCost = Number(rate.price);
   }
 
-  const orderItems = items.map((item) => {
-    const product = productMap.get(item.productId)!;
-    const unitPrice = Number(product.price);
-    const subtotal = unitPrice * item.quantity;
-    return { productId: item.productId, quantity: item.quantity, unitPrice, subtotal };
+  // Todo el cálculo va en céntimos enteros: con coma flotante el total guardado podía
+  // diferir un céntimo de la suma de sus componentes. Ver money.service.ts.
+  const importes = calcularImportes({
+    lineas: items.map((item) => ({
+      unitPriceCents: aCentimos(Number(productMap.get(item.productId)!.price)),
+      quantity: item.quantity,
+    })),
+    taxRate: business?.taxRate ?? 0,
+    shippingCents: aCentimos(shippingCost),
   });
 
-  const subtotal = orderItems.reduce((sum, i) => sum + i.subtotal, 0);
-  const tax = subtotal * ((business?.taxRate ?? 0) / 100);
-  const total = subtotal + tax + shippingCost;
+  const orderItems = items.map((item, i) => ({
+    productId: item.productId,
+    quantity: item.quantity,
+    unitPrice: aEuros(importes.lineas[i].unitPriceCents),
+    subtotal: aEuros(importes.lineas[i].subtotalCents),
+  }));
+
+  const subtotal = aEuros(importes.subtotalCents);
+  const tax = aEuros(importes.taxCents);
+  const total = aEuros(importes.totalCents);
 
   // 4. Crear pedido + descontar stock en transacción atómica
   const order = await prisma.$transaction(async (tx) => {
@@ -220,6 +234,42 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
 });
 
 // ──────────────────────────────────────────────
+// Transiciones de estado permitidas
+// ──────────────────────────────────────────────
+// Antes se aceptaba cualquier valor del enum, así que un error de la interfaz o una
+// petición manual podía llevar un pedido de PENDING a DELIVERED sin pasar por cocina, o
+// resucitar uno cancelado —lo que además descuadraría el stock ya devuelto—.
+
+const TRANSICIONES: Record<OrderStatus, OrderStatus[]> = {
+  RECEIVED_ONLINE:  ['PENDING', 'CANCELLED'],
+  PENDING:          ['PREPARING', 'CANCELLED'],
+  PREPARING:        ['READY', 'CANCELLED'],
+  READY:            ['OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'],
+  OUT_FOR_DELIVERY: ['DELIVERED', 'CANCELLED'],
+  // Estados finales: de aquí no se sale. Un pedido cancelado ya devolvió su stock.
+  DELIVERED:        [],
+  CANCELLED:        [],
+};
+
+const ETIQUETAS_ESTADO: Record<OrderStatus, string> = {
+  RECEIVED_ONLINE:  'Recibido online',
+  PENDING:          'Pendiente',
+  PREPARING:        'En preparación',
+  READY:            'Listo',
+  OUT_FOR_DELIVERY: 'En reparto',
+  DELIVERED:        'Entregado',
+  CANCELLED:        'Cancelado',
+};
+
+function esTransicionValida(desde: OrderStatus, hasta: OrderStatus, isPickup: boolean): boolean {
+  // Repetir el estado actual es inofensivo y evita que un doble clic dé error
+  if (desde === hasta) return true;
+  // Un pedido de recogida nunca sale a reparto
+  if (hasta === 'OUT_FOR_DELIVERY' && isPickup) return false;
+  return TRANSICIONES[desde].includes(hasta);
+}
+
+// ──────────────────────────────────────────────
 // PATCH /orders/:id/status — Actualizar estado
 // ──────────────────────────────────────────────
 router.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
@@ -233,10 +283,11 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
   }
 
   const order = await prisma.order.findFirst({
-    where: { id: req.params.id, businessId: req.businessId! },
+    where: { id: req.params.id, businessId: req.businessId!, deletedAt: null },
     include: {
       business:        { select: { name: true } },
       customerAccount: { select: { email: true, name: true } },
+      items:           { select: { productId: true, quantity: true } },
     },
   });
 
@@ -245,9 +296,33 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
     return;
   }
 
-  const updated = await prisma.order.update({
-    where: { id: req.params.id },
-    data: { status: parsed.data.status },
+  const nuevoEstado = parsed.data.status;
+
+  if (!esTransicionValida(order.status, nuevoEstado, order.isPickup)) {
+    res.status(409).json({
+      error: `No se puede pasar de "${ETIQUETAS_ESTADO[order.status]}" a "${ETIQUETAS_ESTADO[nuevoEstado]}"`,
+      from: order.status,
+      to: nuevoEstado,
+      allowed: TRANSICIONES[order.status],
+    });
+    return;
+  }
+
+  // Cancelar devuelve el stock al inventario. `stockRestoredAt` evita devolverlo dos
+  // veces si después se borra el pedido, o si llegan dos cancelaciones seguidas.
+  const debeRestaurarStock = nuevoEstado === 'CANCELLED' && order.stockRestoredAt === null;
+
+  const updated = await prisma.$transaction(async (tx) => {
+    if (debeRestaurarStock) {
+      await restoreStock(tx, order.items);
+    }
+    return tx.order.update({
+      where: { id: order.id },
+      data: {
+        status: nuevoEstado,
+        ...(debeRestaurarStock ? { stockRestoredAt: new Date() } : {}),
+      },
+    });
   });
 
   // Cuando el comercio acepta un pedido online, notificar al cliente por email
@@ -266,11 +341,14 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
 });
 
 // ──────────────────────────────────────────────
-// DELETE /orders/:id — Eliminar pedido y restaurar stock
+// DELETE /orders/:id — Borrado lógico, restaurando stock
 // ──────────────────────────────────────────────
-router.delete('/:id', async (req: AuthenticatedRequest, res) => {
+// Antes borraba físicamente el pedido: se perdía el histórico contable, las estadísticas
+// cambiaban de forma retroactiva y no quedaba rastro de quién lo había hecho. Ahora se
+// marca, y se exige rol de administración porque altera lo facturado del servicio.
+router.delete('/:id', requireAdmin, async (req: AuthenticatedRequest, res) => {
   const order = await prisma.order.findFirst({
-    where: { id: req.params.id, businessId: req.businessId! },
+    where: { id: req.params.id, businessId: req.businessId!, deletedAt: null },
     include: { items: { select: { productId: true, quantity: true } } },
   });
 
@@ -279,9 +357,22 @@ router.delete('/:id', async (req: AuthenticatedRequest, res) => {
     return;
   }
 
+  const ahora = new Date();
+
   await prisma.$transaction(async (tx) => {
-    await restoreStock(tx, order.items);
-    await tx.order.delete({ where: { id: order.id } });
+    // Si el pedido ya se canceló, su stock volvió al inventario en ese momento:
+    // devolverlo otra vez inflaría las existencias.
+    if (order.stockRestoredAt === null) {
+      await restoreStock(tx, order.items);
+    }
+    await tx.order.update({
+      where: { id: order.id },
+      data: {
+        deletedAt: ahora,
+        deletedBy: req.userId!,
+        ...(order.stockRestoredAt === null ? { stockRestoredAt: ahora } : {}),
+      },
+    });
   });
 
   res.status(204).end();
@@ -293,7 +384,7 @@ router.delete('/:id', async (req: AuthenticatedRequest, res) => {
 router.post('/:id/print', async (req: AuthenticatedRequest, res) => {
   try {
   const order = await prisma.order.findFirst({
-    where: { id: req.params.id, businessId: req.businessId! },
+    where: { id: req.params.id, businessId: req.businessId!, deletedAt: null },
     include: {
       customer: true,
       items: { include: { product: true } },
