@@ -245,15 +245,50 @@ El historial no reproduce la base de producción.
 haciendo el *baseline* de la migración inicial desde el `CMD` del Dockerfile
 (`migrate resolve --applied`), que es el procedimiento que documenta Prisma.
 
-**Sigue pendiente lo de fondo:** la migración `init` está marcada como aplicada, pero
-**nadie ha comprobado que su SQL describa realmente el esquema de producción**. Si no
-coinciden, la próxima migración generada a partir del schema puede fallar o, peor, aplicar
-un cambio contra una estructura distinta de la que espera.
+**El baseline está verificado (12/08/2026):** se restauró el snapshot previo al despliegue
+en una instancia temporal aislada y se comparó con `prisma migrate diff`. Resultado en las
+tres direcciones:
 
-**Arreglo pendiente:** comparar el esquema real con el declarado
-(`prisma migrate diff --from-url $DATABASE_URL --to-schema-datamodel prisma/schema.prisma`)
-y, si hay diferencias, generar una migración correctiva. **Hazlo antes de la primera
-migración de verdad.**
+| Comparación | Resultado |
+|-------------|-----------|
+| `prisma/migrations` → `schema.prisma` | Sin diferencias |
+| `prisma/migrations` → **esquema real de producción** | **Sin diferencias** |
+| Esquema real de producción → `schema.prisma` | Sin diferencias |
+
+La migración `init` describe fielmente lo que hay en producción, así que marcarla como
+aplicada fue correcto y **las próximas migraciones partirán de una base fiable**.
+
+**Lo que queda de esta deuda es de proceso, no de datos:** prohibir `db push` fuera de
+desarrollo y generar siempre migración versionada, para que el historial no vuelva a
+divergir. Ver [08-entorno-desarrollo.md](08-entorno-desarrollo.md).
+
+<details>
+<summary>Cómo repetir la verificación sin tocar producción</summary>
+
+RDS no es accesible desde fuera de la VPC y no hay bastión, así que se restaura un snapshot
+en una instancia temporal en la **VPC por defecto** (aislada de la de producción), con un
+grupo de seguridad que solo admite tu IP:
+
+```bash
+aws rds create-db-subnet-group --db-subnet-group-name verificacion-temp \
+  --db-subnet-group-description temporal --subnet-ids <subredes de la VPC por defecto>
+
+aws rds restore-db-instance-from-db-snapshot \
+  --db-instance-identifier comandapro-verificacion-esquema \
+  --db-snapshot-identifier <snapshot> \
+  --db-instance-class db.t3.micro --no-multi-az --publicly-accessible \
+  --vpc-security-group-ids <sg-solo-tu-ip> --db-subnet-group-name verificacion-temp
+
+npx prisma migrate diff --from-migrations ./prisma/migrations \
+  --to-url "<url de la instancia temporal>" \
+  --shadow-database-url "<postgres local vacío>" --exit-code
+```
+
+La contraseña sale de SSM (`/comandapro/prod/DATABASE_URL`) a una variable de shell; no la
+imprimas ni la guardes en ficheros. Al terminar: borra instancia, grupo de subredes y grupo
+de seguridad. Coste total: unos céntimos y ~15 minutos.
+
+</details>
 
 ---
 

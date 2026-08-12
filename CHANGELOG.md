@@ -62,6 +62,13 @@ Desplegado en producción el 11/08/2026 a las 21:45 (Madrid).
   **Producción no se vio afectada**: App Runner mantuvo la versión anterior.
 - Detalle completo en `docs/09-despliegue.md` §3 ter.
 
+### Verificado después del despliegue (12/08/2026)
+- La migración `init` coincide exactamente con el esquema real de producción, comprobado
+  restaurando el snapshot previo al despliegue en una instancia aislada. El baseline fue
+  correcto y las próximas migraciones parten de una base fiable (`docs/11-deuda-tecnica.md`
+  P2-9).
+- La API lleva 12 h sin un solo error en los logs.
+
 ### Conocido y sin resolver
 - **La contraseña de aplicación antigua de Office 365 sigue siendo válida.** Ya no se usa,
   pero estuvo legible en la configuración de App Runner y hay que revocarla en la cuenta de

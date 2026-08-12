@@ -34,7 +34,13 @@
       "Bash(git commit *)",
       "Bash(git push *)",
       "Bash(terraform apply *)",
-      "Bash(python3 -)"
+      "Bash(python3 -)",
+      "Bash(psql \"postgresql://comandapro:comandapro@localhost:5432/comandapro_dev\" -c \"\\\\du comandapro\")",
+      "Bash(psql \"postgresql://postgres@localhost:5432/postgres\" -c \"SELECT 1;\")",
+      "Bash(psql \"postgresql://comandapro:comandapro@localhost:5432/comandapro_dev\" -tc \"SELECT rolname, rolcreatedb, rolsuper FROM pg_roles WHERE rolcanlogin;\")",
+      "Bash(echo \"  exit code: $?\")",
+      "Bash(aws rds *)",
+      "Bash(aws ec2 *)"
     ]
   }
 }
