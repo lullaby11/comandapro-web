@@ -235,6 +235,55 @@ export async function sendVerificationEmail(
   });
 }
 
+const ETIQUETA_ROL: Record<string, string> = {
+  OWNER: 'propietario',
+  ADMIN: 'administrador',
+  STAFF: 'empleado',
+};
+
+export async function sendTeamInvitationEmail(
+  to: string,
+  inviteUrl: string,
+  businessName: string,
+  invitedByName: string,
+  role: string,
+) {
+  const rol = ETIQUETA_ROL[role] ?? 'miembro del equipo';
+
+  const body = `
+    <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 20px">
+      <strong>${escapeHtml(invitedByName)}</strong> te ha invitado a unirte al equipo de
+      <strong>${escapeHtml(businessName)}</strong> como <strong>${rol}</strong>.
+    </p>
+    ${button(inviteUrl, 'Aceptar invitación')}
+    <p style="color:#999;font-size:13px;margin:20px 0 0;line-height:1.5">
+      Esta invitación caduca en 7 días. Si no esperabas este mensaje, ignóralo.
+    </p>`;
+
+  const text = [
+    `${businessName}`,
+    '',
+    'Te han invitado al equipo',
+    '',
+    `${invitedByName} te ha invitado a unirte al equipo de ${businessName} como ${rol}.`,
+    '',
+    'Acepta la invitación aquí:',
+    inviteUrl,
+    '',
+    'La invitación caduca en 7 días. Si no esperabas este mensaje, ignóralo.',
+    '',
+    `Enviado por ${businessName} a través de ${BRAND}.`,
+  ].join('\n');
+
+  await deliver({
+    to,
+    businessName,
+    text,
+    subject: `Te han invitado al equipo de ${businessName}`,
+    html: baseTemplate(businessName, 'Únete al equipo', body),
+  });
+}
+
 export async function sendOrderConfirmedEmail(
   to: string,
   customerName: string,

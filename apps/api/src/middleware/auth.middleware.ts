@@ -44,6 +44,14 @@ export async function authMiddleware(
       return;
     }
 
+    // El acceso se puede revocar sin borrar la pertenencia, para conservar el rastro de
+    // quién trabajó en el local. Se comprueba en cada petición, así que desactivar a
+    // alguien surte efecto de inmediato aunque su token siga vigente.
+    if (businessUser.disabledAt !== null) {
+      res.status(403).json({ error: 'Tu acceso a este local está desactivado' });
+      return;
+    }
+
     req.userId = payload.userId;
     req.businessId = payload.businessId;
     req.role = businessUser.role;

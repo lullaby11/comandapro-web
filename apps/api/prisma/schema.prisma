@@ -36,6 +36,7 @@ model Business {
 
   // Relaciones
   users            BusinessUser[]
+  invitations      TeamInvitation[]
   products         Product[]
   customers        Customer[]
   orders           Order[]
@@ -68,6 +69,9 @@ model BusinessUser {
   businessId String
   role       Role     @default(STAFF)
   createdAt  DateTime @default(now())
+  // Desactivar en lugar de borrar: mantiene el rastro de quién trabajó en el local.
+  // El middleware de autenticación rechaza el acceso si está desactivado.
+  disabledAt DateTime?
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
@@ -75,6 +79,31 @@ model BusinessUser {
   @@unique([userId, businessId])
   @@index([businessId])
   @@map("business_users")
+}
+
+// ─────────────────────────────────────────────
+// INVITACIONES DE EQUIPO
+// ─────────────────────────────────────────────
+// Hasta v1.1 el único usuario que existía era el OWNER creado en el registro: dar de
+// alta a un empleado obligaba a tocar la base de datos a mano.
+model TeamInvitation {
+  id         String    @id @default(cuid())
+  businessId String
+  email      String
+  role       Role      @default(STAFF)
+  token      String    @unique
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  invitedBy  String
+  createdAt  DateTime  @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  // Una invitación viva por email y local; las aceptadas o caducadas se pueden reemplazar
+  @@unique([businessId, email])
+  @@index([businessId])
+  @@index([token])
+  @@map("team_invitations")
 }
 
 enum Role {
