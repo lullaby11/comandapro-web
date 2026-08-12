@@ -77,3 +77,16 @@ jobs:
       - name: Lint del frontend
         working-directory: apps/web
         run: npm run lint
+
+      # `tsc` no basta: Amplify construye con `next build`, que comprueba tipos de otra
+      # forma y además instala con NODE_ENV=production, saltándose devDependencies. Entre
+      # mayo y agosto de 2026 el frontend estuvo TRES MESES sin desplegarse por eso, sin
+      # que nadie lo notara. Este paso reproduce ese entorno exacto.
+      - name: Compilar el frontend como lo hace Amplify
+        working-directory: apps/web
+        env:
+          NODE_ENV: production
+        run: |
+          rm -rf node_modules
+          npm install --no-workspaces
+          npx next build

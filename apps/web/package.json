@@ -14,6 +14,8 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/w3c-web-usb": "^1.0.14",
+    "@types/web-bluetooth": "^0.0.21",
     "@types/wicg-file-system-access": "^2023.10.7",
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
@@ -29,9 +31,5 @@
     "lightningcss-darwin-arm64": "*",
     "lightningcss-darwin-x64": "*",
     "lightningcss-linux-x64-gnu": "*"
-  },
-  "devDependencies": {
-    "@types/w3c-web-usb": "^1.0.14",
-    "@types/web-bluetooth": "^0.0.21"
   }
 }

@@ -5,9 +5,14 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Turbopack infiere mal la raíz del workspace en este monorepo y avisa en cada build.
+  // Se fija explícitamente, y con ella `outputFileTracingRoot`: si solo se fija una de
+  // las dos, Amplify establece la otra al raíz del repositorio y Next avisa de que deben
+  // coincidir.
   turbopack: {
     root: path.resolve(__dirname),
   },
+  outputFileTracingRoot: path.resolve(__dirname),
   async rewrites() {
     return [
       {

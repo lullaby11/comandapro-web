@@ -338,6 +338,46 @@ aplicar Terraform.**
 3. `terraform apply`.
 4. Esperar a `RUNNING` otra vez: el cambio de variables provoca un segundo reinicio.
 
+### 🚨 El frontend estuvo tres meses sin desplegarse (11/05 → 12/08/2026)
+
+Descubierto el 12/08/2026 al no aparecer una pantalla recién desplegada. **Los trece
+builds de Amplify desde el 11 de mayo habían fallado**, así que producción servía el
+frontend del 8 de mayo. Nadie lo notó porque Amplify falla en silencio: no hay aviso, y la
+web sigue funcionando con la última versión buena.
+
+Nunca llegaron a producción, entre otras cosas, **los arreglos de detección de endpoints
+WebUSB para impresoras genéricas** — precisamente el problema de impresión que más soporte
+genera.
+
+**Causa:** `@types/w3c-web-usb` y `@types/web-bluetooth` se añadieron a
+`devDependencies` en el commit `1a56d73`, el mismo día en que empezaron los fallos.
+**Amplify instala con `NODE_ENV=production`, que se salta las dependencias de
+desarrollo**, así que esos tipos no existían durante el build y `next build` abortaba con
+`Property 'interfaces' does not exist on type 'USBConfiguration'`.
+
+Todos los demás `@types` del frontend ya estaban en `dependencies` por este mismo motivo
+—hay un commit de abril de 2026 titulado *"move all build deps to dependencies to fix
+Amplify NODE_ENV=production install"*—. La lección se había aprendido y se volvió a perder.
+
+> **Norma:** en `apps/web`, **todo lo que necesite el build va en `dependencies`**, incluidos
+> los `@types`. `devDependencies` no existe para esta app.
+
+**Por qué el CI no lo cazaba:** ejecutaba `tsc --noEmit`, que pasa porque en CI sí se
+instalan las devDependencies. Se añade un paso que reproduce el entorno de Amplify
+—`NODE_ENV=production npm install` seguido de `next build`— y que sí falla cuando debe.
+
+### Comprobar que el frontend se ha desplegado
+
+El workflow de GitHub **solo despliega la API**. El frontend lo construye Amplify por su
+cuenta, y su resultado no aparece en GitHub:
+
+```bash
+aws amplify list-jobs --app-id d33spjlfz445rx --branch-name main --region eu-west-1 \
+  --max-results 5 --query 'jobSummaries[].[jobId,status,commitId]' --output text
+```
+
+Si un despliegue incluye cambios de interfaz, **comprobar esto además del workflow**.
+
 ## 4. Rollback
 
 ### Aplicación
