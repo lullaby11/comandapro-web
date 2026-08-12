@@ -94,7 +94,7 @@ router.post('/invite', requireAdmin, async (req: AuthenticatedRequest, res) => {
 
   const business = await prisma.business.findUniqueOrThrow({
     where: { id: businessId },
-    select: { name: true, slug: true },
+    select: { name: true, slug: true, email: true },
   });
 
   const token = crypto.randomBytes(32).toString('hex');
@@ -110,7 +110,7 @@ router.post('/invite', requireAdmin, async (req: AuthenticatedRequest, res) => {
   const invitador = await prisma.user.findUnique({ where: { id: req.userId! }, select: { name: true } });
   const url = `${process.env.APP_URL ?? 'http://localhost:3000'}/invitacion/${token}`;
 
-  sendTeamInvitationEmail(email, url, business.name, invitador?.name ?? 'El equipo', parsed.data.role).catch(console.error);
+  sendTeamInvitationEmail(email, url, business.name, invitador?.name ?? 'El equipo', parsed.data.role, business.email).catch(console.error);
 
   res.status(201).json({
     id: invitacion.id,

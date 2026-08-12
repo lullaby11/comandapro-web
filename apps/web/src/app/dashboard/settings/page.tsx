@@ -12,6 +12,8 @@ interface BusinessSettings {
   slug: string;
   logoUrl?: string;
   phone?: string;
+  /** Buzón del local: recibe las respuestas de los clientes a sus correos. */
+  email?: string | null;
   address?: string;
   paperWidth: number;
   printerMode: string;
@@ -133,6 +135,7 @@ export default function SettingsPage() {
         body: JSON.stringify({
           name: settings.name,
           phone: settings.phone || undefined,
+          email: settings.email ?? '',
           address: settings.address || undefined,
           logoUrl: settings.logoUrl || null,
           paperWidth: String(settings.paperWidth),
@@ -195,6 +198,22 @@ export default function SettingsPage() {
           ))}
           {field('Teléfono', 'phone', (
             <input id="phone" type="tel" value={settings.phone ?? ''} onChange={(e) => setSettings({ ...settings, phone: e.target.value })} placeholder="+34 912 345 678" />
+          ))}
+          {field('Email del local', 'email', (
+            <>
+              <input
+                id="email"
+                type="email"
+                value={settings.email ?? ''}
+                onChange={(e) => setSettings({ ...settings, email: e.target.value })}
+                placeholder="pedidos@milocal.com"
+              />
+              <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted))', marginTop: '0.375rem', lineHeight: 1.5 }}>
+                Cuando un cliente responda a un correo de tu local —la confirmación de un
+                pedido, por ejemplo— su respuesta llegará aquí. Si lo dejas vacío, irá al
+                soporte de Olyda.
+              </p>
+            </>
           ))}
           {field('Dirección', 'address', (
             <input id="address" type="text" value={settings.address ?? ''} onChange={(e) => setSettings({ ...settings, address: e.target.value })} placeholder="Calle Principal 1, Madrid" />

@@ -161,9 +161,14 @@ en lugar de dejar botones que devuelven 403.
   `MAIL_FROM_ADDRESS` y, si no existe, de `SMTP_FROM`, para poder desplegar antes de tener
   el buzón. El nombre del local se limpia antes de meterlo en la cabecera (lo escribe el
   propio cliente: inyección de cabeceras) y se escapa en el HTML.
-- **Queda pendiente:** `Business` no tiene columna de email, así que el `Reply-To` solo
-  puede ser de plataforma (`MAIL_REPLY_TO`). Para que las respuestas lleguen al local hace
-  falta añadir `Business.email` y pasarlo a las dos funciones de envío.
+- **Completado el 12/08/2026:** `Business.email` permite que el `Reply-To` sea el buzón del
+  local. Cuando un cliente responde a la confirmación de su pedido, la respuesta llega a
+  quien le está haciendo la comida y no al soporte de la plataforma. Si el local no lo
+  configura, se sigue usando `MAIL_REPLY_TO`, que es mejor que un agujero negro.
+
+  El `Reply-To` se persiste **en el buzón de salida junto al mensaje**: un reintento
+  posterior conserva el buzón con el que se encoló, aunque el local lo haya cambiado
+  entretanto.
 
 ### P1-8c. Configuración de SMTP fuera de Terraform y contraseña en claro — ✅ corregido
 

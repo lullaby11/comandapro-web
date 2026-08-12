@@ -26,6 +26,10 @@ router.patch('/', requireAdmin, async (req: AuthenticatedRequest, res) => {
     name: z.string().min(2).max(100).optional(),
     logoUrl: z.string().url().nullable().optional(),
     phone: z.string().optional(),
+    // Buzón del local: va como Reply-To de los correos enviados en su nombre.
+    // Cadena vacía = quitarlo, y entonces se usa el buzón de plataforma.
+    email: z.union([z.string().email(), z.literal('')]).nullable().optional()
+      .transform((v) => (v === '' ? null : v)),
     address: z.string().optional(),
     paperWidth: z.enum(['58', '80']).transform(Number).optional(),
     printerMode: z.enum(['webusb', 'bluetooth', 'printserver']).optional(),

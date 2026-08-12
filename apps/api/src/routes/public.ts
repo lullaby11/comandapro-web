@@ -85,7 +85,7 @@ router.post('/:slug/auth/register', registerRateLimiter, async (req, res) => {
 
   const business = await prisma.business.findUnique({
     where: { slug: req.params.slug },
-    select: { id: true, name: true, onlineOrderEnabled: true },
+    select: { id: true, name: true, email: true, onlineOrderEnabled: true },
   });
   if (!business?.onlineOrderEnabled) {
     res.status(404).json({ error: 'Tienda no encontrada' });
@@ -109,7 +109,7 @@ router.post('/:slug/auth/register', registerRateLimiter, async (req, res) => {
         data: { verifyToken: token, verifyExpiresAt: new Date(Date.now() + 24 * 3600_000) },
       });
       const verifyUrl = `${process.env.APP_URL ?? 'http://localhost:3000'}/${req.params.slug}/pedidos?verify=${token}`;
-      sendVerificationEmail(email, verifyUrl, business.name).catch(console.error);
+      sendVerificationEmail(email, verifyUrl, business.name, business.email).catch(console.error);
       res.status(409).json({ code: 'EMAIL_UNVERIFIED', message: 'Revisa tu email para verificar tu cuenta.' });
     }
     return;
@@ -128,7 +128,7 @@ router.post('/:slug/auth/register', registerRateLimiter, async (req, res) => {
   });
 
   const verifyUrl = `${process.env.APP_URL ?? 'http://localhost:3000'}/${req.params.slug}/pedidos?verify=${verifyToken}`;
-  sendVerificationEmail(email, verifyUrl, business.name).catch(console.error);
+  sendVerificationEmail(email, verifyUrl, business.name, business.email).catch(console.error);
 
   res.status(201).json({ message: 'Cuenta creada. Revisa tu email para verificarla antes de continuar.' });
 });

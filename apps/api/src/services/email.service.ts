@@ -111,6 +111,12 @@ interface Mail {
    */
   text: string;
   businessName: string;
+  /**
+   * Buzón al que responde el cliente. Se pasa el del local para que sus respuestas
+   * lleguen a quien le está haciendo la comida; si no lo tiene configurado, se cae al
+   * buzón de plataforma (MAIL_REPLY_TO), que es mejor que un agujero negro.
+   */
+  replyTo?: string | null;
 }
 
 /**
@@ -123,16 +129,17 @@ function sanitizeSubject(value: string): string {
 }
 
 /** Envío crudo, sin reintentos. Solo lo llama el buzón de salida. */
-async function enviarAhora({ to, subject: rawSubject, html, text, businessName }: Mail): Promise<void> {
+async function enviarAhora({ to, subject: rawSubject, html, text, businessName, replyTo }: Mail): Promise<void> {
   const fromHeader = from(businessName);
   const subject    = sanitizeSubject(rawSubject);
+  const destinoRespuestas = replyTo || REPLY_TO;
 
   if (TRANSPORT === 'ses') {
     await sesClient!.send(
       new SendEmailCommand({
         FromEmailAddress:     fromHeader,
         Destination:          { ToAddresses: [to] },
-        ReplyToAddresses:     REPLY_TO ? [REPLY_TO] : undefined,
+        ReplyToAddresses:     destinoRespuestas ? [destinoRespuestas] : undefined,
         ConfigurationSetName: SES_CONFIGURATION_SET,
         Content: {
           Simple: {
@@ -149,7 +156,7 @@ async function enviarAhora({ to, subject: rawSubject, html, text, businessName }
   }
 
   if (TRANSPORT === 'smtp') {
-    await smtpTransporter!.sendMail({ from: fromHeader, replyTo: REPLY_TO, to, subject, html, text });
+    await smtpTransporter!.sendMail({ from: fromHeader, replyTo: destinoRespuestas, to, subject, html, text });
     return;
   }
 
@@ -221,6 +228,7 @@ async function deliver(mail: Mail): Promise<void> {
       html: mail.html,
       text: mail.text,
       businessName: mail.businessName,
+      replyTo: mail.replyTo ?? null,
     },
   });
 
@@ -241,6 +249,7 @@ async function intentarEnvio(id: string): Promise<void> {
       html: registro.html,
       text: registro.text,
       businessName: registro.businessName,
+      replyTo: registro.replyTo,
     });
     await prisma.emailOutbox.update({
       where: { id },
@@ -284,6 +293,7 @@ export async function sendVerificationEmail(
   to: string,
   verifyUrl: string,
   businessName: string,
+  businessEmail?: string | null,
 ) {
   const body = `
     <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 20px">
@@ -312,6 +322,7 @@ export async function sendVerificationEmail(
   await deliver({
     to,
     businessName,
+    replyTo: businessEmail,
     text,
     subject: `Verifica tu email — ${businessName}`,
     html:    baseTemplate(businessName, 'Confirma tu correo electrónico', body),
@@ -330,6 +341,7 @@ export async function sendTeamInvitationEmail(
   businessName: string,
   invitedByName: string,
   role: string,
+  businessEmail?: string | null,
 ) {
   const rol = ETIQUETA_ROL[role] ?? 'miembro del equipo';
 
@@ -361,6 +373,7 @@ export async function sendTeamInvitationEmail(
   await deliver({
     to,
     businessName,
+    replyTo: businessEmail,
     text,
     subject: `Te han invitado al equipo de ${businessName}`,
     html: baseTemplate(businessName, 'Únete al equipo', body),
@@ -373,6 +386,7 @@ export async function sendOrderConfirmedEmail(
   orderRef: string,
   businessName: string,
   trackingUrl: string,
+  businessEmail?: string | null,
 ) {
   const body = `
     <p style="color:#555;font-size:15px;line-height:1.6;margin:0 0 8px">
@@ -402,6 +416,7 @@ export async function sendOrderConfirmedEmail(
   await deliver({
     to,
     businessName,
+    replyTo: businessEmail,
     text,
     subject: `¡Tu pedido ha sido confirmado! — ${businessName}`,
     html:    baseTemplate(businessName, '¡Pedido confirmado!', body),

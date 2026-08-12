@@ -300,7 +300,7 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
   const order = await prisma.order.findFirst({
     where: { id: req.params.id, businessId: req.businessId!, deletedAt: null },
     include: {
-      business:        { select: { name: true } },
+      business:        { select: { name: true, email: true } },
       customerAccount: { select: { email: true, name: true } },
       items:           { select: { productId: true, quantity: true } },
     },
@@ -353,6 +353,7 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
       order.id.slice(-8).toUpperCase(),
       order.business.name,
       trackingUrl,
+      order.business.email,
     ).catch(console.error);
   }
 

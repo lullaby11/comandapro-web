@@ -20,6 +20,10 @@ model Business {
   slug           String   @unique
   logoUrl        String?
   phone          String?
+  // Buzón del local. Va como Reply-To de los correos que se envían en su nombre, para que
+  // la respuesta de un cliente llegue a quien le está haciendo la comida y no a la
+  // plataforma. Si está vacío se usa el buzón de plataforma (MAIL_REPLY_TO).
+  email          String?
   address        String?
   // Configuración de impresión
   paperWidth     Int      @default(80)        // 58 o 80 mm
@@ -299,6 +303,9 @@ model EmailOutbox {
   // Nombre del local: da el remitente visible. No es una relación porque el correo debe
   // poder enviarse aunque el local se borre entretanto.
   businessName  String
+  // Se persiste con el mensaje: un reintento posterior debe usar el mismo Reply-To
+  // aunque el local haya cambiado su buzón entretanto.
+  replyTo       String?
   status        EmailStatus @default(PENDING)
   attempts      Int       @default(0)
   lastError     String?
