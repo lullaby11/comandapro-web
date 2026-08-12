@@ -52,11 +52,11 @@ jobs:
 
       - name: Comprobar tipos de la API
         working-directory: apps/api
-        run: npx tsc --noEmit -p tsconfig.json
+        run: npm run typecheck
 
       - name: Comprobar tipos de los tests
         working-directory: apps/api
-        run: npx tsc --noEmit -p tsconfig.test.json
+        run: npm run typecheck:test
 
       - name: Tests
         working-directory: apps/api
@@ -72,7 +72,7 @@ jobs:
 
       - name: Comprobar tipos del frontend
         working-directory: apps/web
-        run: npx tsc --noEmit -p tsconfig.json
+        run: npm run typecheck
 
       - name: Lint del frontend
         working-directory: apps/web

@@ -61,7 +61,8 @@
       "Bash(pip3 install *)",
       "Bash(npx eslint *)",
       "Bash(awk '/^\\\\/Users/{f=$0} / error /{print f\" :: \"$0}')",
-      "Bash(awk '/^\\\\/Users/{f=$0} / error /{print f}')"
+      "Bash(awk '/^\\\\/Users/{f=$0} / error /{print f}')",
+      "Bash(git credential *)"
     ]
   }
 }
