@@ -49,7 +49,12 @@
       "Bash(DATABASE_URL_TEST=postgresql://comandapro:comandapro@localhost:5432/comandapro_test npx tsx -e ' *)",
       "Bash(DATABASE_URL_TEST=\"postgresql://comandapro:comandapro@localhost:5432/comandapro_test\" npx vitest run src/routes/__tests__/tenant-isolation.test.ts)",
       "Bash(DATABASE_URL_TEST=\"postgresql://comandapro:comandapro@localhost:5432/comandapro_test\" npx vitest run src/routes/__tests__/orders.test.ts)",
-      "Bash(DATABASE_URL_TEST=\"postgresql://comandapro:comandapro@localhost:5432/comandapro_test\" npx vitest run src/services/__tests__/money.test.ts)"
+      "Bash(DATABASE_URL_TEST=\"postgresql://comandapro:comandapro@localhost:5432/comandapro_test\" npx vitest run src/services/__tests__/money.test.ts)",
+      "Bash(psql \"postgresql://juanma@localhost:5432/postgres\" -c \"DROP DATABASE IF EXISTS shadow_v11;\" -c \"CREATE DATABASE shadow_v11 OWNER comandapro;\")",
+      "Bash(DATABASE_URL=\"postgresql://comandapro:comandapro@localhost:5432/shadow_v11\" npx prisma migrate deploy)",
+      "Bash(psql \"postgresql://comandapro:comandapro@localhost:5432/shadow_v11\" -tc \"SELECT indexdef FROM pg_indexes WHERE indexname = 'un_servicio_activo_por_local';\")",
+      "Bash(psql \"postgresql://juanma@localhost:5432/postgres\" -c \"DROP DATABASE IF EXISTS shadow_chk;\" -c \"CREATE DATABASE shadow_chk OWNER comandapro;\")",
+      "Bash(grep -vE \"Update available|prisma@latest|major-version|^│|^┌|^└|^$\")"
     ]
   }
 }

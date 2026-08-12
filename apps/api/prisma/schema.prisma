@@ -157,6 +157,11 @@ model Order {
   // Marca de que el stock de este pedido ya volvió al inventario, al cancelarlo o al
   // borrarlo. Evita devolverlo dos veces si se encadenan ambas acciones.
   stockRestoredAt     DateTime?
+  // Borrado lógico: un pedido borrado desaparece de listados y estadísticas, pero deja
+  // rastro de quién lo borró y cuándo. Antes se borraba físicamente y se perdía el
+  // histórico contable, además de alterar las estadísticas de forma retroactiva.
+  deletedAt           DateTime?
+  deletedBy           String?
   createdAt           DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -170,6 +175,8 @@ model Order {
   @@index([businessId])
   @@index([businessId, status])
   @@index([businessId, serviceId])
+  // El listado de pedidos y las estadísticas por periodo ordenan y filtran por fecha
+  @@index([businessId, createdAt])
   @@index([trackingToken])
   @@map("orders")
 }

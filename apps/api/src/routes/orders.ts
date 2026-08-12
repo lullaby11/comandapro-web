@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../prisma/client';
 import { OrderStatus } from '@prisma/client';
-import { authMiddleware, AuthenticatedRequest } from '../middleware/auth.middleware';
+import { authMiddleware, requireAdmin, AuthenticatedRequest } from '../middleware/auth.middleware';
 import { validateStock, deductStock, restoreStock } from '../services/stock.service';
 import { generateEscPosBuffer, PrintOrderPayload } from '../services/printer.service';
 import { calcularImportes, aCentimos, aEuros } from '../services/money.service';
@@ -27,6 +27,7 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
 
   const where = {
     businessId: req.businessId!,
+    deletedAt: null,
     serviceId: activeService?.id ?? '__no_service__',
     ...(status ? { status: status as OrderStatus } : {}),
     ...(notPrinted === 'true' ? { printedAt: null } : {}),
@@ -40,6 +41,7 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
           where,
           {
             businessId: req.businessId!,
+            deletedAt:  null,
             status:     'RECEIVED_ONLINE' as OrderStatus,
             ...(status && status !== 'RECEIVED_ONLINE' ? { id: '__never__' } : {}),
           },
@@ -71,7 +73,7 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
 // ──────────────────────────────────────────────
 router.get('/:id', async (req: AuthenticatedRequest, res) => {
   const order = await prisma.order.findFirst({
-    where: { id: req.params.id, businessId: req.businessId! },
+    where: { id: req.params.id, businessId: req.businessId!, deletedAt: null },
     include: {
       customer: true,
       items: { include: { product: true } },
@@ -281,7 +283,7 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
   }
 
   const order = await prisma.order.findFirst({
-    where: { id: req.params.id, businessId: req.businessId! },
+    where: { id: req.params.id, businessId: req.businessId!, deletedAt: null },
     include: {
       business:        { select: { name: true } },
       customerAccount: { select: { email: true, name: true } },
@@ -339,11 +341,14 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
 });
 
 // ──────────────────────────────────────────────
-// DELETE /orders/:id — Eliminar pedido y restaurar stock
+// DELETE /orders/:id — Borrado lógico, restaurando stock
 // ──────────────────────────────────────────────
-router.delete('/:id', async (req: AuthenticatedRequest, res) => {
+// Antes borraba físicamente el pedido: se perdía el histórico contable, las estadísticas
+// cambiaban de forma retroactiva y no quedaba rastro de quién lo había hecho. Ahora se
+// marca, y se exige rol de administración porque altera lo facturado del servicio.
+router.delete('/:id', requireAdmin, async (req: AuthenticatedRequest, res) => {
   const order = await prisma.order.findFirst({
-    where: { id: req.params.id, businessId: req.businessId! },
+    where: { id: req.params.id, businessId: req.businessId!, deletedAt: null },
     include: { items: { select: { productId: true, quantity: true } } },
   });
 
@@ -352,13 +357,22 @@ router.delete('/:id', async (req: AuthenticatedRequest, res) => {
     return;
   }
 
+  const ahora = new Date();
+
   await prisma.$transaction(async (tx) => {
     // Si el pedido ya se canceló, su stock volvió al inventario en ese momento:
     // devolverlo otra vez inflaría las existencias.
     if (order.stockRestoredAt === null) {
       await restoreStock(tx, order.items);
     }
-    await tx.order.delete({ where: { id: order.id } });
+    await tx.order.update({
+      where: { id: order.id },
+      data: {
+        deletedAt: ahora,
+        deletedBy: req.userId!,
+        ...(order.stockRestoredAt === null ? { stockRestoredAt: ahora } : {}),
+      },
+    });
   });
 
   res.status(204).end();
@@ -370,7 +384,7 @@ router.delete('/:id', async (req: AuthenticatedRequest, res) => {
 router.post('/:id/print', async (req: AuthenticatedRequest, res) => {
   try {
   const order = await prisma.order.findFirst({
-    where: { id: req.params.id, businessId: req.businessId! },
+    where: { id: req.params.id, businessId: req.businessId!, deletedAt: null },
     include: {
       customer: true,
       items: { include: { product: true } },

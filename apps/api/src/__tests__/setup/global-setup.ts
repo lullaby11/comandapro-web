@@ -23,9 +23,13 @@ export default function globalSetup() {
     throw new Error(`DATABASE_URL_TEST debe apuntar a una base con "test" en el nombre. Recibido: ${url}`);
   }
 
-  // `db push` en lugar de `migrate deploy`: aquí interesa el esquema declarado en
-  // schema.prisma, no reproducir el historial de migraciones.
-  execSync('npx prisma db push --skip-generate --accept-data-loss', {
+  // Se aplican las MIGRACIONES, no `db push`. Dos motivos:
+  //   1. El esquema incluye SQL que Prisma no sabe declarar —el índice único parcial que
+  //      garantiza un solo servicio activo por local—, y `db push` se lo saltaría.
+  //   2. Obliga a que todo cambio de esquema lleve su migración: si alguien toca
+  //      schema.prisma sin generarla, los tests corren contra el esquema viejo y fallan.
+  //      Es justo la disciplina que faltaba y que dejó producción sin historial.
+  execSync('npx prisma migrate reset --force --skip-seed --skip-generate', {
     env: { ...process.env, DATABASE_URL: url },
     stdio: 'pipe',
   });
