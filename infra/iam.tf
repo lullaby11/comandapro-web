@@ -127,7 +127,15 @@ resource "aws_iam_policy" "github_actions" {
           "rds:CreateDBSnapshot",
           "rds:DescribeDBInstances"
         ]
-        Resource = [aws_db_instance.postgres.arn]
+        # rds:CreateDBSnapshot exige permiso sobre DOS recursos: la instancia de origen y
+        # el snapshot que se va a crear. Con solo el primero, la llamada falla con un
+        # AccessDenied que menciona el ARN del snapshot, no el de la instancia.
+        # El comodín se limita al prefijo que usa el workflow, para no autorizar la
+        # creación de snapshots arbitrarios.
+        Resource = [
+          aws_db_instance.postgres.arn,
+          "arn:aws:rds:${var.aws_region}:${data.aws_caller_identity.current.account_id}:snapshot:${var.project_name}-db-predeploy-*"
+        ]
       },
       {
         Sid      = "RDSDescribeSnapshots"

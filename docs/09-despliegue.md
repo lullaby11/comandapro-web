@@ -70,6 +70,25 @@ a `aws_amplify_app.web`.
 > bomba de relojería que estalla en el siguiente `apply`, meses después y sin relación
 > aparente con el cambio que se estaba haciendo.
 
+### `rds:CreateDBSnapshot` necesita permiso sobre DOS recursos
+
+El 12/08/2026 el despliegue volvió a fallar en el snapshot previo, con un error casi
+idéntico al de la víspera pero apuntando a otro recurso:
+
+```
+no autorizado sobre arn:aws:rds:...:db:comandapro-db          ← 11/08
+no autorizado sobre arn:aws:rds:...:snapshot:...-predeploy-…  ← 12/08
+```
+
+`rds:CreateDBSnapshot` evalúa **la instancia de origen y el snapshot de destino**. La
+política solo concedía la primera. Corregido añadiendo el ARN del snapshot con el prefijo
+del workflow, para no autorizar snapshots arbitrarios.
+
+> **Lección sobre `iam simulate-principal-policy`:** la primera verificación dio `allowed`
+> porque solo se simuló contra el ARN de la instancia. **Una simulación solo prueba los
+> recursos que le pasas.** Cuando una acción actúa sobre varios, hay que simularlos todos —
+> y comprobar además que lo que debe estar denegado lo esté.
+
 ### Estado del plan tras el parche
 
 ```
