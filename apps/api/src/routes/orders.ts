@@ -5,6 +5,7 @@ import { OrderStatus } from '@prisma/client';
 import { authMiddleware, AuthenticatedRequest } from '../middleware/auth.middleware';
 import { validateStock, deductStock, restoreStock } from '../services/stock.service';
 import { generateEscPosBuffer, PrintOrderPayload } from '../services/printer.service';
+import { calcularImportes, aCentimos, aEuros } from '../services/money.service';
 import { sendOrderConfirmedEmail } from '../services/email.service';
 
 const router = Router();
@@ -167,16 +168,27 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     shippingCost = Number(rate.price);
   }
 
-  const orderItems = items.map((item) => {
-    const product = productMap.get(item.productId)!;
-    const unitPrice = Number(product.price);
-    const subtotal = unitPrice * item.quantity;
-    return { productId: item.productId, quantity: item.quantity, unitPrice, subtotal };
+  // Todo el cálculo va en céntimos enteros: con coma flotante el total guardado podía
+  // diferir un céntimo de la suma de sus componentes. Ver money.service.ts.
+  const importes = calcularImportes({
+    lineas: items.map((item) => ({
+      unitPriceCents: aCentimos(Number(productMap.get(item.productId)!.price)),
+      quantity: item.quantity,
+    })),
+    taxRate: business?.taxRate ?? 0,
+    shippingCents: aCentimos(shippingCost),
   });
 
-  const subtotal = orderItems.reduce((sum, i) => sum + i.subtotal, 0);
-  const tax = subtotal * ((business?.taxRate ?? 0) / 100);
-  const total = subtotal + tax + shippingCost;
+  const orderItems = items.map((item, i) => ({
+    productId: item.productId,
+    quantity: item.quantity,
+    unitPrice: aEuros(importes.lineas[i].unitPriceCents),
+    subtotal: aEuros(importes.lineas[i].subtotalCents),
+  }));
+
+  const subtotal = aEuros(importes.subtotalCents);
+  const tax = aEuros(importes.taxCents);
+  const total = aEuros(importes.totalCents);
 
   // 4. Crear pedido + descontar stock en transacción atómica
   const order = await prisma.$transaction(async (tx) => {

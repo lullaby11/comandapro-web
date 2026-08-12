@@ -48,7 +48,8 @@
       "Bash(DATABASE_URL_TEST=\"postgresql://comandapro:comandapro@localhost:5432/comandapro_test\" npx vitest run)",
       "Bash(DATABASE_URL_TEST=postgresql://comandapro:comandapro@localhost:5432/comandapro_test npx tsx -e ' *)",
       "Bash(DATABASE_URL_TEST=\"postgresql://comandapro:comandapro@localhost:5432/comandapro_test\" npx vitest run src/routes/__tests__/tenant-isolation.test.ts)",
-      "Bash(DATABASE_URL_TEST=\"postgresql://comandapro:comandapro@localhost:5432/comandapro_test\" npx vitest run src/routes/__tests__/orders.test.ts)"
+      "Bash(DATABASE_URL_TEST=\"postgresql://comandapro:comandapro@localhost:5432/comandapro_test\" npx vitest run src/routes/__tests__/orders.test.ts)",
+      "Bash(DATABASE_URL_TEST=\"postgresql://comandapro:comandapro@localhost:5432/comandapro_test\" npx vitest run src/services/__tests__/money.test.ts)"
     ]
   }
 }

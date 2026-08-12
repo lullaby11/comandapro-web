@@ -8,6 +8,7 @@ import { validateStock, deductStock } from '../services/stock.service';
 import { sendVerificationEmail, sendOrderConfirmedEmail } from '../services/email.service';
 import { customerAuthMiddleware, CustomerAuthRequest } from '../middleware/customer-auth.middleware';
 import { loginRateLimiter, registerRateLimiter } from '../middleware/rate-limit.middleware';
+import { calcularImportes, aCentimos, aEuros } from '../services/money.service';
 
 const router = Router();
 
@@ -269,15 +270,27 @@ router.post('/:slug/orders', customerAuthMiddleware, async (req: CustomerAuthReq
     shippingCost = Number(rate.price);
   }
 
-  const orderItems = items.map((item) => {
-    const product = productMap.get(item.productId)!;
-    const unitPrice = Number(product.price);
-    return { productId: item.productId, quantity: item.quantity, unitPrice, subtotal: unitPrice * item.quantity };
+  // Mismo cálculo en céntimos enteros que en la comanda del local (money.service.ts):
+  // un pedido online y uno de mostrador con los mismos productos deben dar el mismo total.
+  const importes = calcularImportes({
+    lineas: items.map((item) => ({
+      unitPriceCents: aCentimos(Number(productMap.get(item.productId)!.price)),
+      quantity: item.quantity,
+    })),
+    taxRate: business.taxRate ?? 0,
+    shippingCents: aCentimos(shippingCost),
   });
 
-  const subtotal = orderItems.reduce((s, i) => s + i.subtotal, 0);
-  const tax = subtotal * ((business.taxRate ?? 0) / 100);
-  const total = subtotal + tax + shippingCost;
+  const orderItems = items.map((item, i) => ({
+    productId: item.productId,
+    quantity: item.quantity,
+    unitPrice: aEuros(importes.lineas[i].unitPriceCents),
+    subtotal: aEuros(importes.lineas[i].subtotalCents),
+  }));
+
+  const subtotal = aEuros(importes.subtotalCents);
+  const tax = aEuros(importes.taxCents);
+  const total = aEuros(importes.totalCents);
 
   const order = await prisma.$transaction(async (tx) => {
     await deductStock(tx, businessId, items);
