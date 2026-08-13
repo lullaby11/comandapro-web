@@ -37,6 +37,7 @@ export async function authMiddleware(
           businessId: payload.businessId,
         },
       },
+      include: { business: { select: { suspendedAt: true } } },
     });
 
     if (!businessUser) {
@@ -49,6 +50,17 @@ export async function authMiddleware(
     // alguien surte efecto de inmediato aunque su token siga vigente.
     if (businessUser.disabledAt !== null) {
       res.status(403).json({ error: 'Tu acceso a este local está desactivado' });
+      return;
+    }
+
+    // Local suspendido por la plataforma: nadie de su equipo puede operar. Se comprueba
+    // en cada petición, así que la suspensión surte efecto de inmediato aunque tengan la
+    // sesión abierta.
+    if (businessUser.business?.suspendedAt) {
+      res.status(403).json({
+        error: 'Este local está suspendido. Ponte en contacto con el soporte de Olyda.',
+        suspended: true,
+      });
       return;
     }
 

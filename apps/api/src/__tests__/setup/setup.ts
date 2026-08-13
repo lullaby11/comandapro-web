@@ -7,6 +7,8 @@ import { reiniciarLimitadores } from '../../middleware/rate-limit.middleware';
 
 /** Tablas en orden inverso de dependencia, para que los borrados no choquen con las FK. */
 const TABLAS = [
+  'platform_audit_log',
+  'platform_admins',
   'email_outbox',
   'order_items',
   'orders',

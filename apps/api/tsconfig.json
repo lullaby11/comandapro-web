@@ -22,5 +22,5 @@
   "include": ["src/**/*"],
   // Los tests no se compilan a dist: no deben viajar en la imagen de producción.
   // Para comprobar sus tipos existe tsconfig.test.json.
-  "exclude": ["node_modules", "dist", "prisma", "src/**/__tests__/**", "vitest.config.ts"]
+  "exclude": ["node_modules", "dist", "prisma", "scripts", "src/**/__tests__/**", "vitest.config.ts"]
 }

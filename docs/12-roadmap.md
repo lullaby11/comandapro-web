@@ -95,9 +95,13 @@ Plan (BASIC | PRO | CHAIN)
 
 ### Administración de la plataforma
 
-- **Panel de superadministrador**: listado de tenants, actividad, suspender/reactivar,
-  entrar como el tenant para dar soporte (con registro de auditoría).
-- Métricas de negocio: locales activos, pedidos por local, MRR, tasa de abandono.
+- ✅ **Panel de superadministrador** en `/plataforma`: listado de locales con su actividad,
+  métricas de plataforma, suspender y reactivar, y registro de auditoría.
+- ⏳ **Entrar como el local para dar soporte** (suplantación): deliberadamente fuera de la
+  primera entrega. Implica emitir un token de un local al que no perteneces, que es la
+  superficie más peligrosa de todo el sistema. Merece su propia tanda, con token de vida
+  muy corta, aviso visible en la interfaz mientras dura y registro de todo lo que se hace.
+- ⏳ MRR y tasa de abandono: dependen de la facturación, que aún no existe.
 
 ### Cumplimiento
 

@@ -17,10 +17,11 @@ const router = Router();
 router.get('/:slug', async (req, res) => {
   const business = await prisma.business.findUnique({
     where: { slug: req.params.slug },
-    select: { id: true, name: true, logoUrl: true, address: true, onlineOrderEnabled: true },
+    select: { id: true, name: true, logoUrl: true, address: true, onlineOrderEnabled: true, suspendedAt: true },
   });
 
-  if (!business || !business.onlineOrderEnabled) {
+  // Un local suspendido desaparece de cara al público: ni siquiera se revela que existe
+  if (!business || !business.onlineOrderEnabled || business.suspendedAt) {
     res.status(404).json({ error: 'Tienda no encontrada o sin venta online activa' });
     return;
   }
@@ -40,9 +41,9 @@ router.get('/:slug', async (req, res) => {
 router.get('/:slug/products', async (req, res) => {
   const business = await prisma.business.findUnique({
     where: { slug: req.params.slug },
-    select: { id: true, onlineOrderEnabled: true },
+    select: { id: true, onlineOrderEnabled: true, suspendedAt: true },
   });
-  if (!business?.onlineOrderEnabled) { res.status(404).end(); return; }
+  if (!business?.onlineOrderEnabled || business.suspendedAt) { res.status(404).end(); return; }
 
   const products = await prisma.product.findMany({
     where: { businessId: business.id, active: true, onlineVisible: true, stock: { gt: 0 } },
@@ -56,9 +57,9 @@ router.get('/:slug/products', async (req, res) => {
 router.get('/:slug/shipping-rates', async (req, res) => {
   const business = await prisma.business.findUnique({
     where: { slug: req.params.slug },
-    select: { id: true, onlineOrderEnabled: true },
+    select: { id: true, onlineOrderEnabled: true, suspendedAt: true },
   });
-  if (!business?.onlineOrderEnabled) { res.status(404).end(); return; }
+  if (!business?.onlineOrderEnabled || business.suspendedAt) { res.status(404).end(); return; }
 
   const rates = await prisma.shippingRate.findMany({
     where: { businessId: business.id, active: true },
@@ -90,9 +91,9 @@ router.post('/:slug/auth/register', registerRateLimiter, async (req, res) => {
 
   const business = await prisma.business.findUnique({
     where: { slug: req.params.slug },
-    select: { id: true, name: true, email: true, onlineOrderEnabled: true },
+    select: { id: true, name: true, email: true, onlineOrderEnabled: true, suspendedAt: true },
   });
-  if (!business?.onlineOrderEnabled) {
+  if (!business?.onlineOrderEnabled || business.suspendedAt) {
     res.status(404).json({ error: 'Tienda no encontrada' });
     return;
   }
@@ -176,9 +177,9 @@ router.post('/:slug/auth/login', loginRateLimiter, async (req, res) => {
 
   const business = await prisma.business.findUnique({
     where: { slug: req.params.slug },
-    select: { id: true, onlineOrderEnabled: true },
+    select: { id: true, onlineOrderEnabled: true, suspendedAt: true },
   });
-  if (!business?.onlineOrderEnabled) { res.status(404).json({ error: 'Tienda no encontrada' }); return; }
+  if (!business?.onlineOrderEnabled || business.suspendedAt) { res.status(404).json({ error: 'Tienda no encontrada' }); return; }
 
   const account = await prisma.customerAccount.findUnique({
     where: { businessId_email: { businessId: business.id, email: parsed.data.email } },
@@ -223,7 +224,7 @@ router.post('/:slug/orders', customerAuthMiddleware, async (req: CustomerAuthReq
   const businessId = req.businessId!;
 
   const business = await prisma.business.findFirst({
-    where: { id: businessId, slug: req.params.slug, onlineOrderEnabled: true },
+    where: { id: businessId, slug: req.params.slug, onlineOrderEnabled: true, suspendedAt: null },
     select: { id: true, name: true, taxRate: true },
   });
   if (!business) { res.status(404).json({ error: 'Tienda no encontrada' }); return; }

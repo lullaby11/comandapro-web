@@ -83,7 +83,8 @@
       "Bash(grep -rn \"fetch\\(\\\\`/api\\\\|fetch\\('/api\" apps/web/src/app/dashboard/)",
       "Bash(psql \"postgresql://juanma@localhost:5432/postgres\" -c \"DROP DATABASE IF EXISTS shadow_rgpd;\" -c \"CREATE DATABASE shadow_rgpd OWNER comandapro;\")",
       "Bash(mkdir -p prisma/migrations/20260813100000_rgpd)",
-      "Bash(psql \"postgresql://juanma@localhost:5432/postgres\" -c \"DROP DATABASE IF EXISTS shadow_rgpd;\")"
+      "Bash(psql \"postgresql://juanma@localhost:5432/postgres\" -c \"DROP DATABASE IF EXISTS shadow_rgpd;\")",
+      "Bash(psql \"postgresql://juanma@localhost:5432/postgres\" -c \"DROP DATABASE IF EXISTS shadow_plat;\" -c \"CREATE DATABASE shadow_plat OWNER comandapro;\")"
     ]
   }
 }

@@ -14,7 +14,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "typecheck:test": "tsc --noEmit -p tsconfig.test.json"
+    "typecheck:test": "tsc --noEmit -p tsconfig.test.json",
+    "platform:grant": "tsx scripts/conceder-acceso-plataforma.ts grant",
+    "platform:revoke": "tsx scripts/conceder-acceso-plataforma.ts revoke",
+    "platform:list": "tsx scripts/conceder-acceso-plataforma.ts list"
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.1107.0",

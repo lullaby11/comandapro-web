@@ -25,6 +25,7 @@ import publicRoutes from './routes/public';
 import { procesarBuzonDeSalida } from './services/email.service';
 import usersRoutes from './routes/users';
 import exportRoutes from './routes/export';
+import platformRoutes from './routes/platform';
 import invitationsRoutes from './routes/invitations';
 
 const app = express();
@@ -115,6 +116,7 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/export', exportRoutes);
+app.use('/api/platform', platformRoutes);
 app.use('/api/invitations', invitationsRoutes);
 
 // ─── Error Handler ───────────────────────────────────────────────────────────

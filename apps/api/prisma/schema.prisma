@@ -34,6 +34,11 @@ model Business {
   taxRate        Float    @default(0)         // % de IVA
   // Venta online
   onlineOrderEnabled Boolean @default(false)
+  // Suspensión del local por la plataforma: impago, incumplimiento o petición propia.
+  // Mientras esté suspendido nadie de su equipo puede operar y su tienda queda cerrada.
+  // Es el enganche que necesitará la facturación cuando exista.
+  suspendedAt     DateTime?
+  suspendedReason String?
   // Timestamps
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -63,8 +68,50 @@ model User {
   updatedAt    DateTime @updatedAt
 
   businesses BusinessUser[]
+  platformAdmin PlatformAdmin?
 
   @@map("users")
+}
+
+// ─────────────────────────────────────────────
+// ADMINISTRACIÓN DE LA PLATAFORMA
+// ─────────────────────────────────────────────
+// Eje de identidad SEPARADO del de los locales. Toda la autorización del producto cuelga
+// de BusinessUser, que por definición ata una persona a un local; un administrador de
+// plataforma es justo lo contrario: alguien sin local que ve todos.
+//
+// Es una tabla aparte y no un campo en User a propósito: el permiso más peligroso del
+// sistema debe concederse de forma explícita y quedar registrado, no ser un booleano que
+// se activa sin querer en un update.
+model PlatformAdmin {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  createdAt DateTime @default(now())
+  // Quién concedió el acceso. El primero se crea por consola (npm run platform:grant).
+  grantedBy String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("platform_admins")
+}
+
+// Registro de auditoría de la plataforma.
+//
+// Todo lo que un administrador hace sobre un local ajeno queda aquí. Sin esto, el acceso
+// transversal es un riesgo en lugar de una herramienta: nadie podría responder a "quién
+// suspendió este local y cuándo".
+model PlatformAuditLog {
+  id         String   @id @default(cuid())
+  adminEmail String
+  action     String
+  businessId String?
+  businessName String?
+  detail     String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([businessId])
+  @@map("platform_audit_log")
 }
 
 model BusinessUser {
