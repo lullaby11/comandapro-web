@@ -8,7 +8,8 @@ import {
   registrarAuditoria,
   PlatformRequest,
 } from '../middleware/platform-auth.middleware';
-import { loginRateLimiter } from '../middleware/rate-limit.middleware';
+import { loginRateLimiter, registerRateLimiter } from '../middleware/rate-limit.middleware';
+import crypto from 'crypto';
 
 const router = Router();
 
@@ -45,6 +46,80 @@ router.post('/auth/login', loginRateLimiter, async (req, res) => {
   res.json({
     token: firmarTokenDePlataforma(usuario!.platformAdmin!.id),
     admin: { name: usuario!.name, email: usuario!.email },
+  });
+});
+
+// ──────────────────────────────────────────────
+// POST /platform/bootstrap — Crear el PRIMER administrador
+// ──────────────────────────────────────────────
+// Problema del huevo y la gallina: el primer administrador no puede concederse desde la
+// interfaz —no hay nadie que pueda concederlo— y la base de datos está en subred privada,
+// sin bastión, así que tampoco se llega por consola desde fuera.
+//
+// Este endpoint lo resuelve con tres condiciones que lo hacen seguro:
+//
+//   1. SE AUTODESACTIVA. Solo funciona mientras NO exista ningún administrador. En cuanto
+//      hay uno, responde 409 para siempre. No es una puerta trasera permanente: es un
+//      arranque que se cierra solo.
+//   2. Exige un secreto que vive en SSM y se compara en tiempo constante.
+//   3. No crea usuarios: solo eleva una cuenta que ya existe.
+//
+// Aun así, conviene retirar PLATFORM_BOOTSTRAP_TOKEN de la configuración después de usarlo.
+router.post('/bootstrap', registerRateLimiter, async (req, res) => {
+  const secreto = process.env.PLATFORM_BOOTSTRAP_TOKEN;
+
+  if (!secreto) {
+    res.status(404).end();
+    return;
+  }
+
+  const yaHayAdmin = await prisma.platformAdmin.count();
+  if (yaHayAdmin > 0) {
+    res.status(409).json({
+      error: 'Ya existe un administrador de plataforma. Este endpoint solo sirve para crear el primero.',
+    });
+    return;
+  }
+
+  const schema = z.object({ token: z.string(), email: z.string().email() });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Hacen falta token y email' });
+    return;
+  }
+
+  // Comparación en tiempo constante: una comparación normal filtra información sobre el
+  // secreto a través de cuánto tarda en fallar.
+  const recibido = Buffer.from(parsed.data.token);
+  const esperado = Buffer.from(secreto);
+  const coincide =
+    recibido.length === esperado.length && crypto.timingSafeEqual(recibido, esperado);
+
+  if (!coincide) {
+    res.status(401).json({ error: 'Token de arranque incorrecto' });
+    return;
+  }
+
+  const usuario = await prisma.user.findUnique({
+    where: { email: parsed.data.email.toLowerCase().trim() },
+  });
+
+  if (!usuario) {
+    res.status(404).json({
+      error: 'No existe ninguna cuenta con ese correo. Este endpoint no crea usuarios: eleva uno existente.',
+    });
+    return;
+  }
+
+  await prisma.platformAdmin.create({ data: { userId: usuario.id, grantedBy: 'bootstrap' } });
+  await registrarAuditoria('bootstrap', 'conceder_acceso_plataforma', { detail: usuario.email });
+
+  res.status(201).json({
+    granted: true,
+    email: usuario.email,
+    message:
+      `${usuario.name} ya es administrador de plataforma. Entra en /plataforma con su contraseña habitual. ` +
+      'Este endpoint queda desactivado para siempre.',
   });
 });
 

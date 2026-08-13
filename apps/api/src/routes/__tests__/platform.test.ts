@@ -274,3 +274,87 @@ describe('Registro de auditoría', () => {
     expect((await request(app).get('/api/platform/audit').set(e.auth)).status).toBe(403);
   });
 });
+
+describe('Arranque del primer administrador', () => {
+  const TOKEN = 'token-de-arranque-de-prueba';
+
+  async function conSecreto<T>(fn: () => Promise<T>): Promise<T> {
+    process.env.PLATFORM_BOOTSTRAP_TOKEN = TOKEN;
+    try {
+      return await fn();
+    } finally {
+      delete process.env.PLATFORM_BOOTSTRAP_TOKEN;
+    }
+  }
+
+  it('eleva a un usuario existente cuando no hay ningún administrador', async () => {
+    const local = await crearLocal();
+    const { user } = await crearUsuario(local.id, { role: 'OWNER' });
+
+    const res = await conSecreto(() =>
+      request(app).post('/api/platform/bootstrap').send({ token: TOKEN, email: user.email })
+    );
+
+    expect(res.status).toBe(201);
+    expect(res.body.granted).toBe(true);
+    expect(await prisma.platformAdmin.count({ where: { userId: user.id } })).toBe(1);
+  });
+
+  it('SE AUTODESACTIVA en cuanto existe un administrador', async () => {
+    // Es la propiedad que lo hace seguro: no es una puerta trasera permanente
+    await crearAdminDePlataforma();
+    const local = await crearLocal();
+    const { user } = await crearUsuario(local.id);
+
+    const res = await conSecreto(() =>
+      request(app).post('/api/platform/bootstrap').send({ token: TOKEN, email: user.email })
+    );
+
+    expect(res.status).toBe(409);
+  });
+
+  it('no existe si no está configurado el secreto', async () => {
+    const local = await crearLocal();
+    const { user } = await crearUsuario(local.id);
+
+    // Sin PLATFORM_BOOTSTRAP_TOKEN la ruta responde 404, como si no existiera
+    const res = await request(app).post('/api/platform/bootstrap').send({ token: 'x', email: user.email });
+    expect(res.status).toBe(404);
+  });
+
+  it('rechaza un token incorrecto', async () => {
+    const local = await crearLocal();
+    const { user } = await crearUsuario(local.id);
+
+    const res = await conSecreto(() =>
+      request(app).post('/api/platform/bootstrap').send({ token: 'incorrecto', email: user.email })
+    );
+
+    expect(res.status).toBe(401);
+    expect(await prisma.platformAdmin.count()).toBe(0);
+  });
+
+  it('no crea usuarios: solo eleva los que existen', async () => {
+    const res = await conSecreto(() =>
+      request(app).post('/api/platform/bootstrap').send({ token: TOKEN, email: 'nadie@ejemplo.com' })
+    );
+
+    expect(res.status).toBe(404);
+    expect(await prisma.user.count({ where: { email: 'nadie@ejemplo.com' } })).toBe(0);
+  });
+
+  it('deja constancia en la auditoría', async () => {
+    const local = await crearLocal();
+    const { user } = await crearUsuario(local.id);
+
+    await conSecreto(() =>
+      request(app).post('/api/platform/bootstrap').send({ token: TOKEN, email: user.email }).expect(201)
+    );
+
+    const registro = await prisma.platformAuditLog.findFirstOrThrow({
+      where: { action: 'conceder_acceso_plataforma' },
+    });
+    expect(registro.adminEmail).toBe('bootstrap');
+    expect(registro.detail).toBe(user.email);
+  });
+});
