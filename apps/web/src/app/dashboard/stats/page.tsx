@@ -6,15 +6,10 @@ import {
   Truck, Store, ChevronDown, ChevronUp, Calendar,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { apiRes } from '@/lib/api';
 
-const API = '';
 const EUR = (n: number) => n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 const NUM = (n: number) => n.toLocaleString('es-ES');
-
-function apiHeaders() {
-  const token = localStorage.getItem('token');
-  return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -127,7 +122,7 @@ function ServiceTab() {
   const loading = selectedId !== null && stats === null;
 
   useEffect(() => {
-    fetch(`${API}/api/stats/services`, { headers: apiHeaders() })
+    apiRes(`/api/stats/services`)
       .then((r) => r.json())
       .then((d) => {
         setServices(d.services ?? []);
@@ -138,7 +133,7 @@ function ServiceTab() {
 
   useEffect(() => {
     if (!selectedId) return;
-    fetch(`${API}/api/stats/service/${selectedId}`, { headers: apiHeaders() })
+    apiRes(`/api/stats/service/${selectedId}`)
       .then((r) => r.json())
       .then((d) => setCargado({ para: selectedId, datos: d }))
       .catch(() => toast.error('Error cargando estadísticas'));
@@ -209,7 +204,7 @@ function CustomerTab() {
       try {
         const isPhone = /^\d/.test(searchInput);
         const param = isPhone ? `phone=${encodeURIComponent(searchInput)}` : `name=${encodeURIComponent(searchInput)}`;
-        const r = await fetch(`${API}/api/customers?${param}&limit=6`, { headers: apiHeaders() });
+        const r = await apiRes(`/api/customers?${param}&limit=6`);
         if (r.ok) { const d = await r.json(); setSuggestions(d.customers ?? []); setShowDrop(true); }
       } catch {}
     }, 300);
@@ -232,7 +227,7 @@ function CustomerTab() {
     setLoading(true);
     setStats(null);
     try {
-      const r = await fetch(`${API}/api/stats/customer/${c.id}`, { headers: apiHeaders() });
+      const r = await apiRes(`/api/stats/customer/${c.id}`);
       const d = await r.json();
       setStats(d);
     } catch { toast.error('Error cargando estadísticas'); }
@@ -352,7 +347,7 @@ function ProductTab() {
   const loading = selectedId !== null && stats === null;
 
   useEffect(() => {
-    fetch(`${API}/api/products`, { headers: apiHeaders() })
+    apiRes(`/api/products`)
       .then((r) => r.json())
       .then((d: Product[]) => { setProducts(d); if (d.length) setSelectedId(d[0].id); })
       .catch(() => toast.error('Error cargando productos'));
@@ -360,7 +355,7 @@ function ProductTab() {
 
   useEffect(() => {
     if (!selectedId) return;
-    fetch(`${API}/api/stats/product/${selectedId}`, { headers: apiHeaders() })
+    apiRes(`/api/stats/product/${selectedId}`)
       .then((r) => r.json())
       .then((d) => setCargado({ para: selectedId, datos: d }))
       .catch(() => toast.error('Error cargando estadísticas'));
@@ -453,7 +448,7 @@ function CategoryTab() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    fetch(`${API}/api/stats/categories`, { headers: apiHeaders() })
+    apiRes(`/api/stats/categories`)
       .then((r) => r.json())
       .then((d) => setCategories(d.categories ?? []))
       .catch(() => toast.error('Error cargando categorías'))
@@ -538,7 +533,7 @@ function PeriodTab() {
 
   const load = useCallback(() => {
     const para = `${groupBy}|${from}|${to}`;
-    fetch(`${API}/api/stats/period?groupBy=${groupBy}&from=${from}&to=${to}`, { headers: apiHeaders() })
+    apiRes(`/api/stats/period?groupBy=${groupBy}&from=${from}&to=${to}`)
       .then(async (r) => {
         if (!r.ok) throw new Error(`Error ${r.status}`);
         return r.json();

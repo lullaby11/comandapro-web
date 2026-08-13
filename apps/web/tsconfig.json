@@ -19,6 +19,7 @@
       }
     ],
     "paths": {
+      "@comandapro/shared-types": ["../../packages/shared-types/src/index.ts"],
       "@/*": ["./src/*"]
     }
   },

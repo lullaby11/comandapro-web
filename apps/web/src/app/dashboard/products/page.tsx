@@ -6,8 +6,8 @@ import {
   TrendingUp, TrendingDown, X, Check, Globe,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { apiRes } from '@/lib/api';
 
-const API = '';
 
 interface Product {
   id: string;
@@ -19,11 +19,6 @@ interface Product {
   imageUrl?: string;
   active: boolean;
   onlineVisible: boolean;
-}
-
-function apiHeaders() {
-  const token = localStorage.getItem('token');
-  return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
 }
 
 const EMPTY_FORM = { name: '', description: '', price: '', stock: '', category: '', imageUrl: '' };
@@ -50,7 +45,7 @@ export default function ProductsPage() {
 
   const loadProducts = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/api/products?active=true`, { headers: apiHeaders() });
+      const res = await apiRes(`/api/products?active=true`);
       if (!res.ok) throw new Error();
       setProducts(await res.json());
     } catch {
@@ -97,10 +92,10 @@ export default function ProductsPage() {
         onlineVisible,
       };
 
-      const url    = editTarget ? `${API}/api/products/${editTarget.id}` : `${API}/api/products`;
+      const url    = editTarget ? `/api/products/${editTarget.id}` : `/api/products`;
       const method = editTarget ? 'PATCH' : 'POST';
 
-      const res = await fetch(url, { method, headers: apiHeaders(), body: JSON.stringify(body) });
+      const res = await apiRes(url, { method, body });
       if (!res.ok) throw new Error('Error guardando');
 
       toast.success(editTarget ? 'Producto actualizado' : 'Producto creado');
@@ -116,7 +111,7 @@ export default function ProductsPage() {
   async function handleDelete(id: string) {
     if (!confirm('¿Desactivar este producto?')) return;
     try {
-      await fetch(`${API}/api/products/${id}`, { method: 'DELETE', headers: apiHeaders() });
+      await apiRes(`/api/products/${id}`, { method: 'DELETE' });
       toast.success('Producto desactivado');
       loadProducts();
     } catch {
@@ -129,11 +124,7 @@ export default function ProductsPage() {
     try {
       const product = products.find((p) => p.id === id)!;
       const newStock = Math.max(0, product.stock + delta);
-      const res = await fetch(`${API}/api/products/${id}`, {
-        method: 'PATCH',
-        headers: apiHeaders(),
-        body: JSON.stringify({ stock: newStock }),
-      });
+      const res = await apiRes(`/api/products/${id}`, { method: 'PATCH', body: { stock: newStock } });
       if (!res.ok) throw new Error();
       setProducts((prev) => prev.map((p) => p.id === id ? { ...p, stock: newStock } : p));
     } catch {

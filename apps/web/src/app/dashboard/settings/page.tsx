@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Save, Printer, Globe, Layers, Truck, Plus, Trash2, Pencil, Check, X, ShoppingBag, Copy, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { apiRes } from '@/lib/api';
 
-const API = '';
 
 interface BusinessSettings {
   id: string;
@@ -42,17 +42,12 @@ export default function SettingsPage() {
   const [editingRateId, setEditingRateId]       = useState<string | null>(null);
   const [editingRate, setEditingRate]           = useState({ name: '', price: '' });
 
-  function apiHeaders() {
-    const token = localStorage.getItem('token');
-    return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-  }
-
   useEffect(() => {
     async function load() {
       try {
         const [settingsRes, ratesRes] = await Promise.all([
-          fetch(`${API}/api/settings`, { headers: apiHeaders() }),
-          fetch(`${API}/api/shipping-rates`, { headers: apiHeaders() }),
+          apiRes(`/api/settings`),
+          apiRes(`/api/shipping-rates`),
         ]);
         if (!settingsRes.ok) throw new Error('Error cargando ajustes');
         setSettings(await settingsRes.json());
@@ -71,10 +66,7 @@ export default function SettingsPage() {
     if (!newRate.name || newRate.price === '') return;
     setAddingRate(true);
     try {
-      const res = await fetch(`${API}/api/shipping-rates`, {
-        method: 'POST',
-        headers: apiHeaders(),
-        body: JSON.stringify({ name: newRate.name, price: Number(newRate.price) }),
+      const res = await apiRes(`/api/shipping-rates`, { method: 'POST', body: { name: newRate.name, price: Number(newRate.price) },
       });
       if (!res.ok) throw new Error('Error creando tarifa');
       const rate = await res.json();
@@ -91,10 +83,7 @@ export default function SettingsPage() {
   async function saveEditingRate() {
     if (!editingRateId) return;
     try {
-      const res = await fetch(`${API}/api/shipping-rates/${editingRateId}`, {
-        method: 'PATCH',
-        headers: apiHeaders(),
-        body: JSON.stringify({ name: editingRate.name, price: Number(editingRate.price) }),
+      const res = await apiRes(`/api/shipping-rates/${editingRateId}`, { method: 'PATCH', body: { name: editingRate.name, price: Number(editingRate.price) },
       });
       if (!res.ok) throw new Error('Error actualizando tarifa');
       const updated = await res.json();
@@ -108,10 +97,7 @@ export default function SettingsPage() {
 
   async function deleteShippingRate(id: string) {
     try {
-      const res = await fetch(`${API}/api/shipping-rates/${id}`, {
-        method: 'DELETE',
-        headers: apiHeaders(),
-      });
+      const res = await apiRes(`/api/shipping-rates/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Error eliminando tarifa');
       setShippingRates((prev) => prev.filter((r) => r.id !== id));
 
@@ -129,10 +115,7 @@ export default function SettingsPage() {
     if (!settings) return;
     setSaving(true);
     try {
-      const res = await fetch(`${API}/api/settings`, {
-        method: 'PATCH',
-        headers: apiHeaders(),
-        body: JSON.stringify({
+      const res = await apiRes(`/api/settings`, { method: 'PATCH', body: {
           name: settings.name,
           phone: settings.phone || undefined,
           email: settings.email ?? '',
@@ -144,8 +127,7 @@ export default function SettingsPage() {
           currency: settings.currency,
           taxRate: settings.taxRate,
           onlineOrderEnabled: settings.onlineOrderEnabled,
-        }),
-      });
+        } });
       if (!res.ok) throw new Error('Error guardando ajustes');
       const updated = await res.json();
       setSettings(updated);

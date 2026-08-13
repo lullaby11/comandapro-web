@@ -7,6 +7,7 @@ import {
   Phone, X, Truck, User, Play, Package, ChevronLeft, ShoppingCart, MapPin, Clock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { apiRes } from '@/lib/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Customer     { id: string; name: string; phone: string; address?: string }
@@ -16,12 +17,6 @@ interface ShippingRate { id: string; name: string; price: number; active: boolea
 type Step = 1 | 2 | 3;
 
 // ─── API Helper ───────────────────────────────────────────────────────────────
-function apiHeaders() {
-  const token = localStorage.getItem('token');
-  return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-}
-const API = '';
-
 // ─── WebUSB Print ─────────────────────────────────────────────────────────────
 async function printViaWebUSB(buffer: Uint8Array) {
   if (!navigator.usb) throw new Error('WebUSB no soportado. Usa Chrome o Edge.');
@@ -141,7 +136,7 @@ export default function NewOrderPage() {
   useEffect(() => {
     async function checkService() {
       try {
-        const res = await fetch(`${API}/api/services/active`, { headers: apiHeaders() });
+        const res = await apiRes(`/api/services/active`);
         if (res.ok) {
           const data = await res.json();
           setHasActiveService(!!data.service);
@@ -158,8 +153,8 @@ export default function NewOrderPage() {
     async function loadData() {
       try {
         const [prodRes, ratesRes] = await Promise.all([
-          fetch(`${API}/api/products?active=true`, { headers: apiHeaders() }),
-          fetch(`${API}/api/shipping-rates`, { headers: apiHeaders() }),
+          apiRes(`/api/products?active=true`),
+          apiRes(`/api/shipping-rates`),
         ]);
         if (!prodRes.ok) throw new Error('Error cargando productos');
         const data: Product[] = await prodRes.json();
@@ -195,7 +190,7 @@ export default function NewOrderPage() {
         const param = searchMode === 'name'
           ? `name=${encodeURIComponent(searchInput)}`
           : `phone=${encodeURIComponent(searchInput)}`;
-        const res = await fetch(`${API}/api/customers?${param}&limit=6`, { headers: apiHeaders() });
+        const res = await apiRes(`/api/customers?${param}&limit=6`);
         if (res.ok) {
           const data = await res.json();
           setSuggestions(data.customers as Customer[]);
@@ -235,7 +230,7 @@ export default function NewOrderPage() {
     setSearchingCustomer(true);
     setShowDropdown(false);
     try {
-      const res = await fetch(`${API}/api/customers/by-phone/${encodeURIComponent(phone)}`, { headers: apiHeaders() });
+      const res = await apiRes(`/api/customers/by-phone/${encodeURIComponent(phone)}`);
       if (res.ok) {
         const data: Customer = await res.json();
         setCustomer(data);
@@ -257,9 +252,7 @@ export default function NewOrderPage() {
   async function createCustomer() {
     if (!newCust.name || !newCust.phone) return;
     try {
-      const res = await fetch(`${API}/api/customers`, {
-        method: 'POST', headers: apiHeaders(), body: JSON.stringify(newCust),
-      });
+      const res = await apiRes(`/api/customers`, { method: 'POST', body: newCust });
       const data = await res.json();
       if (!res.ok) {
         if (res.status === 409 && data.customer) { setCustomer(data.customer); setShowNewCustomer(false); return; }
@@ -325,14 +318,12 @@ export default function NewOrderPage() {
         if (d <= new Date()) d.setDate(d.getDate() + 1);
         estimatedDeliveryAt = d.toISOString();
       }
-      const res = await fetch(`${API}/api/orders`, {
-        method: 'POST', headers: apiHeaders(),
-        body: JSON.stringify({
+      const res = await apiRes(`/api/orders`, { method: 'POST', body: {
           customerId: customer.id, notes: orderNotes, isPickup, estimatedDeliveryAt, paymentMethod,
           cashGiven: paymentMethod === 'CASH' && cashGiven ? Number(cashGiven) : undefined,
           shippingRateId: !isPickup && selectedShippingRateId ? selectedShippingRateId : undefined,
           items: cart.map((i) => ({ productId: i.id, quantity: i.quantity })),
-        }),
+        },
       });
       const data = await res.json();
       if (!res.ok) {
@@ -355,12 +346,12 @@ export default function NewOrderPage() {
   async function handlePrint(id: string) {
     setPrinting(true);
     try {
-      const res = await fetch(`${API}/api/orders/${id}/print`, { method: 'POST', headers: apiHeaders() });
+      const res = await apiRes(`/api/orders/${id}/print`, { method: 'POST' });
       if (!res.ok) throw new Error('Error generando comanda');
       await printViaWebUSB(new Uint8Array(await res.arrayBuffer()));
       // Se confirma solo tras un envío correcto: si el transporte falla, el pedido sigue
       // constando como pendiente y el agente local puede recogerlo.
-      await fetch(`${API}/api/orders/${id}/printed`, { method: 'POST', headers: apiHeaders() }).catch(() => {});
+      await apiRes(`/api/orders/${id}/printed`, { method: 'POST' }).catch(() => {});
       toast.success('¡Comanda enviada a la impresora!', { icon: '🖨️' });
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Error de impresión');
@@ -379,7 +370,7 @@ export default function NewOrderPage() {
 
   async function refreshProducts() {
     try {
-      const res = await fetch(`${API}/api/products?active=true`, { headers: apiHeaders() });
+      const res = await apiRes(`/api/products?active=true`);
       if (!res.ok) return;
       const data: Product[] = await res.json();
       setProducts(data);
@@ -401,9 +392,7 @@ export default function NewOrderPage() {
     setSavingStock(true);
     try {
       const newStock = stockModal.stock + amount;
-      const res = await fetch(`${API}/api/products/${stockModal.id}`, {
-        method: 'PATCH', headers: apiHeaders(), body: JSON.stringify({ stock: newStock }),
-      });
+      const res = await apiRes(`/api/products/${stockModal.id}`, { method: 'PATCH', body: { stock: newStock } });
       if (!res.ok) throw new Error('Error actualizando stock');
       await refreshProducts();
       toast.success(`Stock actualizado: ${newStock} unidades`);

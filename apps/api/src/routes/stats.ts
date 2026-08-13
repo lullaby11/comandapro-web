@@ -151,36 +151,41 @@ router.get('/product/:id', async (req: AuthenticatedRequest, res) => {
   });
   if (!product) { res.status(404).json({ error: 'Producto no encontrado' }); return; }
 
-  const [aggregate, itemsByOrder] = await Promise.all([
+  const [aggregate] = await Promise.all([
     prisma.orderItem.aggregate({
-      where: { productId: id, order: { businessId, status: { notIn: ['CANCELLED'] }, deletedAt: null } },
-      _sum: { quantity: true, subtotal: true },
-    }),
-    prisma.orderItem.groupBy({
-      by: ['orderId'],
       where: { productId: id, order: { businessId, status: { notIn: ['CANCELLED'] }, deletedAt: null } },
       _sum: { quantity: true, subtotal: true },
     }),
   ]);
 
-  // Aggregate by customer
-  const orderIds = itemsByOrder.map((x) => x.orderId);
-  const orders = await prisma.order.findMany({
-    where: { id: { in: orderIds } },
-    select: { id: true, customerId: true, customer: { select: { id: true, name: true, phone: true } } },
-  });
+  // Los mejores clientes se agregan en SQL. Antes se traían todos los pedidos y se
+  // cruzaban en memoria con un `orders.find()` dentro de un bucle —cuadrático—, lo que
+  // se degrada con el histórico de un local que lleve tiempo funcionando.
+  type FilaCliente = {
+    customerId: string;
+    name: string;
+    phone: string;
+    totalQty: bigint;
+    totalSpent: number;
+  };
 
-  const customerStats = new Map<string, { name: string; phone: string; totalQty: number; totalSpent: number }>();
-  for (const row of itemsByOrder) {
-    const order = orders.find((o) => o.id === row.orderId);
-    if (!order) continue;
-    const prev = customerStats.get(order.customerId) ?? {
-      name: order.customer.name, phone: order.customer.phone, totalQty: 0, totalSpent: 0,
-    };
-    prev.totalQty += row._sum.quantity ?? 0;
-    prev.totalSpent += Number(row._sum.subtotal ?? 0);
-    customerStats.set(order.customerId, prev);
-  }
+  const topCustomers = await prisma.$queryRaw<FilaCliente[]>`
+    SELECT c."id"                        AS "customerId",
+           c."name",
+           c."phone",
+           SUM(oi."quantity")::bigint    AS "totalQty",
+           SUM(oi."subtotal")::float     AS "totalSpent"
+    FROM "order_items" oi
+    JOIN "orders"    o ON o."id" = oi."orderId"
+    JOIN "customers" c ON c."id" = o."customerId"
+    WHERE oi."productId"  = ${id}
+      AND o."businessId"  = ${businessId}
+      AND o."status"::text <> 'CANCELLED'
+      AND o."deletedAt" IS NULL
+    GROUP BY c."id", c."name", c."phone"
+    ORDER BY "totalQty" DESC
+    LIMIT 15
+  `;
 
   res.json({
     product,
@@ -188,10 +193,13 @@ router.get('/product/:id', async (req: AuthenticatedRequest, res) => {
       totalSold: aggregate._sum.quantity ?? 0,
       totalRevenue: Number(aggregate._sum.subtotal ?? 0),
     },
-    topCustomers: Array.from(customerStats.entries())
-      .map(([customerId, data]) => ({ customerId, ...data }))
-      .sort((a, b) => b.totalQty - a.totalQty)
-      .slice(0, 15),
+    topCustomers: topCustomers.map((c) => ({
+      customerId: c.customerId,
+      name: c.name,
+      phone: c.phone,
+      totalQty: Number(c.totalQty),
+      totalSpent: c.totalSpent ?? 0,
+    })),
   });
 });
 
@@ -201,43 +209,65 @@ router.get('/product/:id', async (req: AuthenticatedRequest, res) => {
 router.get('/categories', async (req: AuthenticatedRequest, res) => {
   const businessId = req.businessId!;
 
-  const items = await prisma.orderItem.groupBy({
-    by: ['productId'],
-    where: { order: { businessId, status: { notIn: ['CANCELLED'] }, deletedAt: null } },
-    _sum: { quantity: true, subtotal: true },
-  });
+  // Todo se agrega en SQL. Antes se traían TODOS los items del histórico y se agrupaban
+  // en memoria con dos Map: funciona con pocos pedidos y se degrada sin avisar.
+  type FilaCategoria = { category: string; totalSold: bigint; totalRevenue: number };
 
-  const productIds = items.map((i) => i.productId);
-  const products = await prisma.product.findMany({
-    where: { id: { in: productIds } },
-    select: { id: true, name: true, category: true },
-  });
-  const productMap = new Map(products.map((p) => [p.id, p]));
+  const categorias = await prisma.$queryRaw<FilaCategoria[]>`
+    SELECT COALESCE(p."category", 'Sin categoría') AS "category",
+           SUM(oi."quantity")::bigint              AS "totalSold",
+           SUM(oi."subtotal")::float               AS "totalRevenue"
+    FROM "order_items" oi
+    JOIN "orders"   o ON o."id" = oi."orderId"
+    JOIN "products" p ON p."id" = oi."productId"
+    WHERE o."businessId"   = ${businessId}
+      AND o."status"::text <> 'CANCELLED'
+      AND o."deletedAt" IS NULL
+    GROUP BY COALESCE(p."category", 'Sin categoría')
+    ORDER BY "totalRevenue" DESC
+  `;
 
-  const catMap = new Map<string, { totalSold: number; totalRevenue: number; products: Array<{ name: string; totalQty: number; totalRevenue: number }> }>();
-  for (const item of items) {
-    const prod = productMap.get(item.productId);
-    const cat = prod?.category ?? 'Sin categoría';
-    const prev = catMap.get(cat) ?? { totalSold: 0, totalRevenue: 0, products: [] };
-    prev.totalSold += item._sum.quantity ?? 0;
-    prev.totalRevenue += Number(item._sum.subtotal ?? 0);
-    prev.products.push({
-      name: prod?.name ?? 'Producto eliminado',
-      totalQty: item._sum.quantity ?? 0,
-      totalRevenue: Number(item._sum.subtotal ?? 0),
-    });
-    catMap.set(cat, prev);
+  // Los diez productos más vendidos de cada categoría, en una sola consulta con función
+  // de ventana en lugar de una consulta por categoría.
+  type FilaProducto = { category: string; name: string; totalQty: bigint; totalRevenue: number };
+
+  const productos = await prisma.$queryRaw<FilaProducto[]>`
+    SELECT "category", "name", "totalQty", "totalRevenue"
+    FROM (
+      SELECT COALESCE(p."category", 'Sin categoría') AS "category",
+             p."name"                                AS "name",
+             SUM(oi."quantity")::bigint              AS "totalQty",
+             SUM(oi."subtotal")::float               AS "totalRevenue",
+             ROW_NUMBER() OVER (
+               PARTITION BY COALESCE(p."category", 'Sin categoría')
+               ORDER BY SUM(oi."quantity") DESC
+             ) AS "posicion"
+      FROM "order_items" oi
+      JOIN "orders"   o ON o."id" = oi."orderId"
+      JOIN "products" p ON p."id" = oi."productId"
+      WHERE o."businessId"   = ${businessId}
+        AND o."status"::text <> 'CANCELLED'
+        AND o."deletedAt" IS NULL
+      GROUP BY COALESCE(p."category", 'Sin categoría'), p."id", p."name"
+    ) AS ranking
+    WHERE "posicion" <= 10
+    ORDER BY "category", "posicion"
+  `;
+
+  const porCategoria = new Map<string, Array<{ name: string; totalQty: number; totalRevenue: number }>>();
+  for (const p of productos) {
+    const lista = porCategoria.get(p.category) ?? [];
+    lista.push({ name: p.name, totalQty: Number(p.totalQty), totalRevenue: p.totalRevenue ?? 0 });
+    porCategoria.set(p.category, lista);
   }
 
   res.json({
-    categories: Array.from(catMap.entries())
-      .map(([category, data]) => ({
-        category,
-        totalSold: data.totalSold,
-        totalRevenue: data.totalRevenue,
-        topProducts: data.products.sort((a, b) => b.totalQty - a.totalQty).slice(0, 10),
-      }))
-      .sort((a, b) => b.totalRevenue - a.totalRevenue),
+    categories: categorias.map((c) => ({
+      category: c.category,
+      totalSold: Number(c.totalSold),
+      totalRevenue: c.totalRevenue ?? 0,
+      topProducts: porCategoria.get(c.category) ?? [],
+    })),
   });
 });
 

@@ -8,8 +8,8 @@ import {
   Play, StopCircle, Globe,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { apiRes } from '@/lib/api';
 
-const API = '';
 
 // ─── Diagnóstico de impresión ────────────────────────────────────────────────
 // Los problemas de impresora solo se reproducen en el local del cliente, así que el
@@ -184,11 +184,6 @@ function getNextStatus(order: Order): OrderStatus | undefined {
   return STATUS_CONFIG[order.status].next;
 }
 
-function apiHeaders() {
-  const token = localStorage.getItem('token');
-  return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-}
-
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 }
@@ -214,7 +209,7 @@ export default function OrdersPage() {
 
   const loadService = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/api/services/active`, { headers: apiHeaders() });
+      const res = await apiRes(`/api/services/active`);
       if (!res.ok) throw new Error();
       const data = await res.json();
       setService(data.service);
@@ -229,7 +224,7 @@ export default function OrdersPage() {
       if (filterStatus !== 'ALL') params.set('status', filterStatus);
       params.set('limit', String(pageSize));
       const qs = params.toString() ? `?${params.toString()}` : '';
-      const res = await fetch(`${API}/api/orders${qs}`, { headers: apiHeaders() });
+      const res = await apiRes(`/api/orders${qs}`);
       if (!res.ok) throw new Error('Error cargando pedidos');
       const data = await res.json();
       const TERMINAL = new Set(['DELIVERED', 'CANCELLED']);
@@ -255,7 +250,7 @@ export default function OrdersPage() {
   useEffect(() => { loadOrders(); }, [loadOrders]);
 
   useEffect(() => {
-    fetch(`${API}/api/settings`, { headers: apiHeaders() })
+    apiRes(`/api/settings`)
       .then((r) => r.ok ? r.json() : null)
       .then((s) => { if (s?.printerMode) setPrinterMode(s.printerMode); })
       .catch(() => {});
@@ -269,10 +264,7 @@ export default function OrdersPage() {
   async function startService() {
     setServiceLoading(true);
     try {
-      const res = await fetch(`${API}/api/services/start`, {
-        method: 'POST',
-        headers: apiHeaders(),
-      });
+      const res = await apiRes(`/api/services/start`, { method: 'POST' });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error ?? 'Error iniciando servicio');
@@ -292,10 +284,7 @@ export default function OrdersPage() {
     setConfirmEndService(false);
     setServiceLoading(true);
     try {
-      const res = await fetch(`${API}/api/services/end`, {
-        method: 'POST',
-        headers: apiHeaders(),
-      });
+      const res = await apiRes(`/api/services/end`, { method: 'POST' });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error ?? 'Error finalizando servicio');
@@ -316,11 +305,7 @@ export default function OrdersPage() {
     if (!next) return;
     setUpdating(order.id);
     try {
-      const res = await fetch(`${API}/api/orders/${order.id}/status`, {
-        method: 'PATCH',
-        headers: apiHeaders(),
-        body: JSON.stringify({ status: next }),
-      });
+      const res = await apiRes(`/api/orders/${order.id}/status`, { method: 'PATCH', body: { status: next } });
       if (!res.ok) throw new Error('Error actualizando estado');
       toast.success(`Pedido → ${STATUS_CONFIG[next].label}`);
       loadOrders();
@@ -335,10 +320,7 @@ export default function OrdersPage() {
     setPrinting(id);
     try {
       printLog('iniciando impresión, modo:', printerMode);
-      const res = await fetch(`${API}/api/orders/${id}/print`, {
-        method: 'POST',
-        headers: apiHeaders(),
-      });
+      const res = await apiRes(`/api/orders/${id}/print`, { method: 'POST' });
       if (!res.ok) throw new Error('Error generando comanda');
       const buffer = new Uint8Array(await res.arrayBuffer());
       printLog(`buffer recibido (${buffer.length} bytes) → ${printerMode === 'bluetooth' ? 'Bluetooth' : 'WebUSB'}`);
@@ -351,7 +333,7 @@ export default function OrdersPage() {
 
       // Se confirma solo tras un envío correcto: si el transporte falla, el pedido sigue
       // constando como pendiente de imprimir y el agente local puede recogerlo.
-      await fetch(`${API}/api/orders/${id}/printed`, { method: 'POST', headers: apiHeaders() })
+      await apiRes(`/api/orders/${id}/printed`, { method: 'POST' })
         .catch(() => printLog('no se pudo confirmar la impresión'));
 
       toast.success('¡Comanda enviada a la impresora!', { icon: '🖨️' });
@@ -365,11 +347,7 @@ export default function OrdersPage() {
   async function cancelOrder(id: string) {
     setUpdating(id);
     try {
-      const res = await fetch(`${API}/api/orders/${id}/status`, {
-        method: 'PATCH',
-        headers: apiHeaders(),
-        body: JSON.stringify({ status: 'CANCELLED' }),
-      });
+      const res = await apiRes(`/api/orders/${id}/status`, { method: 'PATCH', body: { status: 'CANCELLED' } });
       if (!res.ok) throw new Error();
       toast.success('Pedido cancelado');
       loadOrders();
@@ -384,10 +362,7 @@ export default function OrdersPage() {
     if (!confirmDelete) return;
     setDeleting(true);
     try {
-      const res = await fetch(`${API}/api/orders/${confirmDelete.id}`, {
-        method: 'DELETE',
-        headers: apiHeaders(),
-      });
+      const res = await apiRes(`/api/orders/${confirmDelete.id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
       toast.success('Pedido eliminado y stock restaurado');
       setConfirmDelete(null);

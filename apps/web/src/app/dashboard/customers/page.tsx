@@ -7,8 +7,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+import { apiRes } from '@/lib/api';
 
-const API = '';
 
 interface Customer {
   id: string;
@@ -27,11 +27,6 @@ interface PendingAccount {
   email: string;
   address: string;
   createdAt: string;
-}
-
-function apiHeaders() {
-  const token = localStorage.getItem('token');
-  return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
 }
 
 const EMPTY_FORM = { name: '', phone: '', email: '', address: '', notes: '' };
@@ -55,8 +50,8 @@ export default function CustomersPage() {
       params.set('limit', '50');
 
       const [cusRes, pendRes] = await Promise.all([
-        fetch(`${API}/api/customers?${params}`, { headers: apiHeaders() }),
-        fetch(`${API}/api/customers/pending-online`, { headers: apiHeaders() }),
+        apiRes(`/api/customers?${params}`),
+        apiRes(`/api/customers/pending-online`),
       ]);
       if (!cusRes.ok) throw new Error();
       const data = await cusRes.json();
@@ -94,10 +89,10 @@ export default function CustomersPage() {
     setSaving(true);
     try {
       const body = { name: form.name, phone: form.phone, email: form.email || undefined, address: form.address || undefined, notes: form.notes || undefined };
-      const url    = editTarget ? `${API}/api/customers/${editTarget.id}` : `${API}/api/customers`;
+      const url    = editTarget ? `/api/customers/${editTarget.id}` : `/api/customers`;
       const method = editTarget ? 'PUT' : 'POST';
 
-      const res = await fetch(url, { method, headers: apiHeaders(), body: JSON.stringify(body) });
+      const res = await apiRes(url, { method, body });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Error guardando');
 

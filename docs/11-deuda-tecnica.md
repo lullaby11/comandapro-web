@@ -221,22 +221,38 @@ la raíz del repositorio.
 
 ## P2 — Refactor estructural
 
-### <a id="p2-cliente-api"></a>P2-1. No hay cliente de API en el frontend
+### <a id="p2-cliente-api"></a>P2-1. No hay cliente de API en el frontend — ✅ corregido
 
 `apiHeaders()` y `const API = ''` están **copiados en todas las páginas** del dashboard, y
 cada página maneja los errores a su manera. No hay redirección consistente a `/login` ante
 un 401.
 
-**Arreglo:** `apps/web/src/lib/api.ts` con `apiFetch<T>()`, manejo central de 401, tipos de
-respuesta y `AbortController`.
+**Arreglo aplicado:** `apps/web/src/lib/api.ts`. Las 51 llamadas del panel pasan por él y
+**el 401 se trata en un solo sitio**: cierra la sesión y lleva al login conservando a dónde
+se iba. Antes, con la sesión caducada, las pantallas se quedaban vacías sin explicar nada.
 
-### P2-2. `packages/shared-types` está vacío
+Se expone `apiRes()`, que devuelve la `Response` cruda con la autenticación puesta, además
+de `api<T>()`. Migrar de golpe las pantallas que ya tienen su propia lógica de `res.ok` y
+sus mensajes habría sido reescribir su manejo de errores, y eso es un cambio de
+comportamiento, no una limpieza.
+
+### P2-2. `packages/shared-types` está vacío — ✅ corregido
 
 Las interfaces (`Order`, `Product`, `Customer`…) se redeclaran a mano en cada página del
 frontend y pueden desincronizarse del backend en silencio.
 
-**Arreglo:** exportar tipos derivados de Prisma (`Prisma.OrderGetPayload<...>`) y los
-esquemas Zod compartidos desde el paquete.
+**Arreglo aplicado**, pero **no** derivando de Prisma: habría sido introducir un error
+nuevo. Prisma serializa los `Decimal` como string y las fechas como texto ISO, así que sus
+tipos no describen lo que viaja por HTTP —de hecho el frontend declaraba `total: number`
+recibiendo un string, y de ahí los `Number(...)` defensivos repartidos por el código—.
+
+El paquete define dos niveles: los tipos `…DTO` describen el formato de cable, y los de
+dominio lo que usa la interfaz. **La conversión ocurre una sola vez**, en el cliente de API.
+
+Se consume por `paths` de TypeScript y no como dependencia de npm: son tipos puros que
+desaparecen al compilar, así que encajan con el `npm install --no-workspaces` de cada app.
+Verificado que el build de Amplify lo resuelve, que es donde este tipo de cambio ha roto
+antes.
 
 ### P2-3. Páginas monolíticas
 
@@ -260,12 +276,18 @@ Tailwind v4 instalado + variables CSS + estilos inline masivos. Decide uno.
 Recomendación: clases utilitarias sobre las variables ya definidas, migrando página a
 página, sin big bang.
 
-### P2-5. Estadísticas calculadas en memoria
+### P2-5. Estadísticas calculadas en memoria — ✅ corregido
 
 `GET /stats/product/:id` y `/stats/categories` traen todos los `orderItem` del histórico y
 agregan en JavaScript, con búsquedas `orders.find()` dentro de bucles.
 
-**Arreglo:** SQL agregado con `GROUP BY` y filtro de fechas obligatorio.
+**Arreglo aplicado:** ambas consultas pasan a SQL agregado. La de producto tenía un
+`orders.find()` dentro de un bucle —cuadrático— y la de categorías traía todos los items
+del histórico para agruparlos con dos `Map`. Los diez productos más vendidos de cada
+categoría salen ahora de una función de ventana, en una sola consulta.
+
+Se añaden 7 tests que fijan el resultado —agrupación, orden, exclusión de cancelados y
+borrados, y aislamiento entre locales—, que antes no existían.
 
 ### P2-6. Polling en lugar de push
 
@@ -274,10 +296,10 @@ en aparecer y se generan peticiones constantes por cada local abierto.
 
 **Arreglo:** SSE (`GET /api/orders/stream`) — más simple que WebSocket y suficiente aquí.
 
-### P2-7. Dependencias muertas
+### P2-7. Dependencias muertas — ✅ corregido
 
-En `apps/api/package.json`: `cors`, `multer` y `thermal-printer-encoder` **no se usan**
-(el CORS es manual y no hay subida de ficheros). Eliminar.
+En `apps/api/package.json`: `cors`, `multer` y `thermal-printer-encoder` **no se usaban**
+(el CORS es manual y no hay subida de ficheros). Eliminadas, junto con sus `@types`.
 
 ### ~~P2-8. Estado de Terraform en local~~ — no aplica
 

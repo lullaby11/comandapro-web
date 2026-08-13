@@ -7,13 +7,8 @@ import {
   PlusCircle, ArrowRight, Clock, CheckCircle2, ChefHat, Navigation,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { apiRes } from '@/lib/api';
 
-const API = '';
-
-function apiHeaders() {
-  const token = localStorage.getItem('token');
-  return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-}
 
 interface DashboardStats {
   todayOrders: number;
@@ -48,9 +43,9 @@ export default function DashboardPage() {
     async function loadStats() {
       try {
         const [ordersRes, customersRes, productsRes] = await Promise.all([
-          fetch(`${API}/api/orders?limit=5`, { headers: apiHeaders() }),
-          fetch(`${API}/api/customers?limit=1`, { headers: apiHeaders() }),
-          fetch(`${API}/api/products?active=true`, { headers: apiHeaders() }),
+          apiRes(`/api/orders?limit=5`),
+          apiRes(`/api/customers?limit=1`),
+          apiRes(`/api/products?active=true`),
         ]);
 
         if (!ordersRes.ok || !customersRes.ok || !productsRes.ok) return;

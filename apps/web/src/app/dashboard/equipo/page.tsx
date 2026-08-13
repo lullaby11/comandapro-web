@@ -3,13 +3,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Users, UserPlus, Mail, Shield, X, Check, Trash2, Clock, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { apiRes } from '@/lib/api';
 
-const API = '';
-
-function apiHeaders() {
-  const token = localStorage.getItem('token');
-  return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-}
 
 type Rol = 'OWNER' | 'ADMIN' | 'STAFF';
 
@@ -65,7 +60,7 @@ export default function EquipoPage() {
 
   const cargar = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/api/users`, { headers: apiHeaders() });
+      const res = await apiRes(`/api/users`);
       if (res.status === 403) {
         setSinPermiso(true);
         return;
@@ -87,11 +82,7 @@ export default function EquipoPage() {
     e.preventDefault();
     setInvitando(true);
     try {
-      const res = await fetch(`${API}/api/users/invite`, {
-        method: 'POST',
-        headers: apiHeaders(),
-        body: JSON.stringify({ email: nuevoEmail.trim(), role: nuevoRol }),
-      });
+      const res = await apiRes(`/api/users/invite`, { method: 'POST', body: { email: nuevoEmail.trim(), role: nuevoRol } });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'No se pudo enviar la invitación');
 
@@ -108,11 +99,7 @@ export default function EquipoPage() {
 
   async function cambiarRol(miembro: Miembro, rol: Rol) {
     try {
-      const res = await fetch(`${API}/api/users/${miembro.id}`, {
-        method: 'PATCH',
-        headers: apiHeaders(),
-        body: JSON.stringify({ role: rol }),
-      });
+      const res = await apiRes(`/api/users/${miembro.id}`, { method: 'PATCH', body: { role: rol } });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'No se pudo cambiar el rol');
       toast.success(`${miembro.name} ahora es ${ROLES[rol].etiqueta.toLowerCase()}`);
@@ -125,11 +112,7 @@ export default function EquipoPage() {
   async function alternarAcceso(miembro: Miembro) {
     const desactivar = miembro.disabledAt === null;
     try {
-      const res = await fetch(`${API}/api/users/${miembro.id}`, {
-        method: 'PATCH',
-        headers: apiHeaders(),
-        body: JSON.stringify({ disabled: desactivar }),
-      });
+      const res = await apiRes(`/api/users/${miembro.id}`, { method: 'PATCH', body: { disabled: desactivar } });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'No se pudo cambiar el acceso');
       toast.success(desactivar ? `Acceso de ${miembro.name} desactivado` : `Acceso de ${miembro.name} reactivado`);
@@ -141,7 +124,7 @@ export default function EquipoPage() {
 
   async function quitar(miembro: Miembro) {
     try {
-      const res = await fetch(`${API}/api/users/${miembro.id}`, { method: 'DELETE', headers: apiHeaders() });
+      const res = await apiRes(`/api/users/${miembro.id}`, { method: 'DELETE' });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? 'No se pudo quitar del equipo');
@@ -156,7 +139,7 @@ export default function EquipoPage() {
 
   async function revocarInvitacion(inv: Invitacion) {
     try {
-      const res = await fetch(`${API}/api/users/invitations/${inv.id}`, { method: 'DELETE', headers: apiHeaders() });
+      const res = await apiRes(`/api/users/invitations/${inv.id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
       toast.success('Invitación revocada');
       cargar();
