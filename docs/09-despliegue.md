@@ -378,6 +378,58 @@ aws amplify list-jobs --app-id d33spjlfz445rx --branch-name main --region eu-wes
 
 Si un despliegue incluye cambios de interfaz, **comprobar esto además del workflow**.
 
+## 3 quater. Crear un administrador de plataforma
+
+El panel de `/plataforma` da acceso transversal a todos los locales. Quién lo tiene se
+gestiona con estos comandos, que necesitan alcanzar la base de datos:
+
+```bash
+cd apps/api
+npm run platform:list
+npm run platform:grant  -- persona@ejemplo.com
+npm run platform:revoke -- persona@ejemplo.com
+```
+
+No crean usuarios: elevan una cuenta que ya existe.
+
+### El primero, cuando no hay ninguno
+
+Problema del huevo y la gallina: nadie puede conceder el primero desde la interfaz, y RDS
+está en subred privada sin bastión, así que los comandos de arriba no llegan desde fuera.
+
+Lo resuelve `POST /api/platform/bootstrap`, que **solo funciona mientras no exista ningún
+administrador** —después responde 409 para siempre— y exige un secreto que vive en SSM.
+
+```bash
+# 1. Generar y guardar el secreto
+aws ssm put-parameter --name "/comandapro/prod/PLATFORM_BOOTSTRAP_TOKEN" \
+  --value "$(openssl rand -hex 32)" --type SecureString --overwrite --region eu-west-1
+
+# 2. Declararlo en infra/ssm.tf, referenciarlo desde runtime_environment_secrets en
+#    apprunner.tf y añadirlo a la política apprunner_ssm_read en iam.tf. Después:
+cd infra && terraform apply
+
+# 3. Conceder el acceso (el token se lee de SSM sobre la marcha)
+curl -sS -X POST https://api.olyda.app/api/platform/bootstrap \
+  -H "Content-Type: application/json" \
+  -d "{\"token\":\"$(aws ssm get-parameter --name /comandapro/prod/PLATFORM_BOOTSTRAP_TOKEN \
+       --with-decryption --region eu-west-1 --query Parameter.Value --output text)\",\
+       \"email\":\"persona@ejemplo.com\"}"
+
+# 4. RETIRARLO: deshacer los cambios de Terraform del paso 2 y aplicar.
+#    Sin la variable, el endpoint responde 404 como si no existiera.
+```
+
+> **Si creas el parámetro con `put-parameter` antes de aplicar Terraform**, este intentará
+> crearlo de nuevo y chocará. Impórtalo primero:
+> `terraform import aws_ssm_parameter.platform_bootstrap_token "/comandapro/prod/PLATFORM_BOOTSTRAP_TOKEN"`,
+> y comprueba en el plan que `ignore_changes` protege el valor —solo deberían cambiar las
+> etiquetas—.
+
+**Comprobación útil:** llamar al endpoint con un token cualquiera distingue el estado sin
+revelar nada. `404` = no está configurado · `409` = ya hay administrador · `401` = no hay
+ninguno y el token es incorrecto.
+
 ## 4. Rollback
 
 ### Aplicación

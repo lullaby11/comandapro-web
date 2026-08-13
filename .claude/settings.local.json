@@ -84,7 +84,12 @@
       "Bash(psql \"postgresql://juanma@localhost:5432/postgres\" -c \"DROP DATABASE IF EXISTS shadow_rgpd;\" -c \"CREATE DATABASE shadow_rgpd OWNER comandapro;\")",
       "Bash(mkdir -p prisma/migrations/20260813100000_rgpd)",
       "Bash(psql \"postgresql://juanma@localhost:5432/postgres\" -c \"DROP DATABASE IF EXISTS shadow_rgpd;\")",
-      "Bash(psql \"postgresql://juanma@localhost:5432/postgres\" -c \"DROP DATABASE IF EXISTS shadow_plat;\" -c \"CREATE DATABASE shadow_plat OWNER comandapro;\")"
+      "Bash(psql \"postgresql://juanma@localhost:5432/postgres\" -c \"DROP DATABASE IF EXISTS shadow_plat;\" -c \"CREATE DATABASE shadow_plat OWNER comandapro;\")",
+      "Bash(terraform plan *)",
+      "Bash(terraform import *)",
+      "Bash(curl -sS -X POST https://api.olyda.app/api/platform/bootstrap -H 'Content-Type: application/json' -d '{\"token\":\"comprobacion\",\"email\":\"x@ejemplo.com\"}' -w '\\\\n  HTTP %{http_code}\\\\n')",
+      "Bash(terraform fmt *)",
+      "Bash(terraform validate *)"
     ]
   }
 }

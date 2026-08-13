@@ -24,24 +24,8 @@ resource "aws_ssm_parameter" "jwt_secret" {
 # Amazon SES autorizada por el rol de instancia de App Runner (ver ses.tf), así que no
 # existe contraseña que guardar, rotar ni filtrar.
 
-# ── Token de arranque del primer administrador de plataforma ──────────────────
-# Solo sirve mientras NO exista ningún administrador: el endpoint se autodesactiva en
-# cuanto hay uno. Aun así va como SecureString y no como variable en claro, por coherencia
-# con el resto de secretos.
-#
-# El valor real se escribe una sola vez, fuera del estado de Terraform:
-#   aws ssm put-parameter --name "/comandapro/prod/PLATFORM_BOOTSTRAP_TOKEN" \
-#     --value "$(openssl rand -hex 32)" --type SecureString --overwrite --region eu-west-1
-#
-# Conviene retirar el parámetro y la variable de App Runner una vez usado.
-resource "aws_ssm_parameter" "platform_bootstrap_token" {
-  name  = "/${var.project_name}/${var.environment}/PLATFORM_BOOTSTRAP_TOKEN"
-  type  = "SecureString"
-  value = "PENDIENTE-escribir-con-aws-ssm-put-parameter"
-
-  lifecycle {
-    ignore_changes = [value]
-  }
-
-  tags = { Name = "${var.project_name}-platform-bootstrap" }
-}
+# NOTA: el token de arranque del primer administrador de plataforma existió aquí entre el
+# 13/08/2026 y ese mismo día. Se retiró en cuanto se creó el administrador. El endpoint
+# POST /api/platform/bootstrap sigue en el código pero queda inerte sin esta variable: si
+# algún día hace falta levantar un entorno nuevo, se vuelve a crear el parámetro, se usa y
+# se retira. Ver docs/09-despliegue.md.

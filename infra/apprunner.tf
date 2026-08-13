@@ -55,8 +55,6 @@ resource "aws_apprunner_service" "api" {
         runtime_environment_secrets = {
           DATABASE_URL = aws_ssm_parameter.db_url.arn
           JWT_SECRET   = aws_ssm_parameter.jwt_secret.arn
-          # Retirar esta línea una vez creado el primer administrador de plataforma
-          PLATFORM_BOOTSTRAP_TOKEN = aws_ssm_parameter.platform_bootstrap_token.arn
         }
       }
     }
