@@ -3,6 +3,16 @@ import { prisma } from '../prisma/client';
 
 const router = Router();
 
+/**
+ * Cuánto sigue siendo consultable un pedido por su enlace público.
+ *
+ * El token viaja impreso en el ticket y por correo, y muestra nombre y dirección del
+ * cliente sin pedir contraseña. Que no caducara nunca convertía cada ticket viejo en una
+ * filtración latente: basta con encontrar uno en un cajón. 30 días cubre de sobra
+ * cualquier reclamación sobre un pedido.
+ */
+const DIAS_DE_SEGUIMIENTO = 30;
+
 // GET /tracking/:token — Ruta PÚBLICA de seguimiento (sin auth)
 router.get('/:token', async (req, res) => {
   const order = await prisma.order.findUnique({
@@ -18,6 +28,17 @@ router.get('/:token', async (req, res) => {
 
   if (!order) {
     res.status(404).json({ error: 'Pedido no encontrado' });
+    return;
+  }
+
+  const caducaEl = new Date(order.createdAt);
+  caducaEl.setDate(caducaEl.getDate() + DIAS_DE_SEGUIMIENTO);
+
+  if (new Date() > caducaEl) {
+    res.status(410).json({
+      error: 'Este enlace de seguimiento ha caducado',
+      expired: true,
+    });
     return;
   }
 

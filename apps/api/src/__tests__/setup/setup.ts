@@ -1,5 +1,6 @@
 import { beforeAll, afterEach, afterAll } from 'vitest';
 import { prisma } from '../../prisma/client';
+import { reiniciarLimitadores } from '../../middleware/rate-limit.middleware';
 
 // Las variables de entorno se fijan en vitest.config.ts (bloque `test.env`), no aquí:
 // los módulos del servidor las leen al importarse, antes de que este fichero corra.
@@ -32,6 +33,7 @@ beforeAll(async () => {
 // que falla no arrastra a los siguientes.
 afterEach(async () => {
   await limpiarBaseDeDatos();
+  reiniciarLimitadores();
 });
 
 afterAll(async () => {

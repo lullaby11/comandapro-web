@@ -197,16 +197,33 @@ final. Eso es un tratamiento de datos personales en toda regla.
 
 | Obligación | Estado |
 |------------|--------|
-| Base legal y política de privacidad | ❌ No hay textos legales en la app |
-| Consentimiento en el registro online | ❌ No hay casilla ni enlace |
-| Derecho de acceso / portabilidad | ❌ No hay exportación |
-| Derecho de supresión | ❌ No hay borrado de clientes ni de cuentas |
-| Minimización | ⚠️ El tracking público expone dirección |
+| Base legal y política de privacidad | ⚠️ **Borrador** publicado en `/legal/privacidad` y `/legal/terminos`, marcado como pendiente de revisión jurídica |
+| Consentimiento en el registro online | ✅ Casilla obligatoria, desmarcada por defecto, con `acceptedTermsAt` para acreditarlo |
+| Derecho de acceso / portabilidad | ✅ `GET /api/export` descarga todos los datos del local en JSON |
+| Derecho de supresión | ✅ `DELETE /api/customers/:id` anonimiza en los tres sitios donde vive el dato |
+| Minimización | ✅ El enlace de seguimiento caduca a los 30 días |
 | Cifrado en reposo | ✅ RDS con `storage_encrypted = true` |
 | Cifrado en tránsito | ✅ HTTPS en Amplify y App Runner |
 | Encargado del tratamiento | ⚠️ Al vender como SaaS, hace falta contrato con cada local |
 
-**Antes de comercializar es obligatorio cerrar este bloque.** Va en el roadmap de v1.2.
+### Lo técnico está hecho; lo jurídico no
+
+La parte de código está cubierta y con tests. **Lo que sigue bloqueando la comercialización
+no es técnico:**
+
+1. **Los textos legales necesitan un abogado.** Los borradores de `/legal/` describen con
+   exactitud qué hace el sistema con los datos —que es lo que un jurista no puede saber sin
+   leer el código— y marcan con `[PENDIENTE]` lo que requiere decisión profesional: razón
+   social, canal para ejercer derechos, plazos, ley aplicable y cómo aplica el derecho de
+   desistimiento a comida preparada.
+2. **Falta el contrato de encargado del tratamiento con cada local.** Olyda trata datos de
+   los clientes de sus locales: sin ese contrato firmado, el local incumple al usarnos.
+3. **Verifactu / Ley Antifraude sigue sin resolverse.** Si el producto se considera software
+   de facturación, hay obligaciones concretas. Es una calificación jurídica, no técnica.
+
+**El aviso de borrador de las páginas legales no se quita hasta que un abogado valide el
+contenido.** Publicar una política inventada es peor que no tener ninguna: aparenta un
+cumplimiento que no existe.
 
 ## 5. Checklist de revisión de seguridad para cada PR
 

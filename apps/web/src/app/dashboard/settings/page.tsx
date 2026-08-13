@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Printer, Globe, Layers, Truck, Plus, Trash2, Pencil, Check, X, ShoppingBag, Copy, ExternalLink } from 'lucide-react';
+import {
+  Save, Printer, Globe, Layers, Truck, Plus, Trash2, Pencil, Check, X, ShoppingBag, Copy, ExternalLink, Download,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiRes } from '@/lib/api';
 
@@ -107,6 +109,36 @@ export default function SettingsPage() {
       toast.success(data?.deactivated ? data.message : 'Tarifa eliminada');
     } catch {
       toast.error('Error eliminando tarifa');
+    }
+  }
+
+  const [exportando, setExportando] = useState(false);
+
+  /**
+   * Portabilidad (RGPD art. 20). Se descarga en el navegador en lugar de abrir una
+   * pestaña porque el endpoint necesita la cabecera de autenticación.
+   */
+  async function exportarDatos() {
+    setExportando(true);
+    try {
+      const res = await apiRes('/api/export');
+      if (!res.ok) throw new Error('No se pudo generar la exportación');
+
+      const blob = await res.blob();
+      const nombre = res.headers.get('content-disposition')?.match(/filename="([^"]+)"/)?.[1] ?? 'olyda-export.json';
+
+      const url = URL.createObjectURL(blob);
+      const enlace = document.createElement('a');
+      enlace.href = url;
+      enlace.download = nombre;
+      enlace.click();
+      URL.revokeObjectURL(url);
+
+      toast.success('Exportación descargada');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Error al exportar');
+    } finally {
+      setExportando(false);
     }
   }
 
@@ -409,6 +441,23 @@ export default function SettingsPage() {
           {saving ? 'Guardando…' : 'Guardar ajustes'}
         </button>
       </form>
+
+      {/* ── Tus datos ─────────────────────────────────────────────────────────── */}
+      <div className="card" style={{ padding: '1.25rem', marginTop: '1.5rem', maxWidth: 720 }}>
+        <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.375rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Download size={17} style={{ color: 'hsl(var(--primary))' }} />
+          Tus datos
+        </h2>
+        <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted))', lineHeight: 1.6, marginBottom: '1rem' }}>
+          Descarga todo lo que tu local tiene en Olyda —productos, clientes, pedidos, servicios y
+          equipo— en un fichero JSON, legible y sin depender de nosotros. Contiene datos personales
+          de tus clientes: guárdalo en un sitio seguro.
+        </p>
+        <button type="button" className="btn btn-ghost" onClick={exportarDatos} disabled={exportando}>
+          <Download size={15} />
+          {exportando ? 'Preparando…' : 'Descargar mis datos'}
+        </button>
+      </div>
 
       {/* ── Tarifas de envío ── */}
       <div className="card" style={{ marginTop: '2rem' }}>

@@ -34,10 +34,22 @@ interface Counter {
   resetAt: number;
 }
 
+/**
+ * Los contadores viven en el proceso, así que en la suite de tests se comparten entre
+ * ficheros y un test acaba agotando el cupo de otro. Se registran aquí para poder
+ * reiniciarlos entre tests sin tocar el comportamiento de producción.
+ */
+const contadoresRegistrados: Array<Map<string, unknown>> = [];
+
+export function reiniciarLimitadores(): void {
+  for (const c of contadoresRegistrados) c.clear();
+}
+
 export function createRateLimiter(options: RateLimitOptions) {
   const { windowMs, max, keyGenerator, message, skipSuccessfulRequests = false } = options;
 
   const counters = new Map<string, Counter>();
+  contadoresRegistrados.push(counters);
   let lastSweep = Date.now();
 
   /** Elimina contadores caducados. Se ejecuta como mucho una vez por ventana. */

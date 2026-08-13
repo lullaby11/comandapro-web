@@ -152,6 +152,10 @@ model Customer {
   email      String?
   address    String?
   notes      String?
+  // Derecho de supresión (RGPD art. 17). La ficha NO se borra: sus pedidos deben
+  // conservarse por obligación contable. Se vacían los datos personales y se marca aquí,
+  // de modo que quede constancia de que el borrado se ejecutó y cuándo.
+  anonymizedAt DateTime?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -335,6 +339,10 @@ model CustomerAccount {
   passwordHash    String
   address         String
   emailVerified   Boolean   @default(false)
+  // Consentimiento informado en el registro (RGPD art. 7): hay que poder demostrar
+  // cuándo se dio. Sin esto, el consentimiento no es acreditable.
+  acceptedTermsAt DateTime?
+  anonymizedAt    DateTime?
   verifyToken     String?   @unique
   verifyExpiresAt DateTime?
   createdAt       DateTime  @default(now())

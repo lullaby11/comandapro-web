@@ -28,7 +28,7 @@ describe('Reply-To al buzón del local', () => {
 
     await request(app)
       .post(`/api/public/${business.slug}/auth/register`)
-      .send({ name: 'Cliente', phone: '600100200', email: 'cliente1@ejemplo.com', address: 'Calle 1', password: 'contrasena' })
+      .send({ name: 'Cliente', phone: '600100200', email: 'cliente1@ejemplo.com', address: 'Calle 1', password: 'contrasena', acceptTerms: true })
       .expect(201);
 
     const correo = await esperarCorreo('cliente1@ejemplo.com');
@@ -40,7 +40,7 @@ describe('Reply-To al buzón del local', () => {
 
     await request(app)
       .post(`/api/public/${business.slug}/auth/register`)
-      .send({ name: 'Cliente', phone: '600100201', email: 'cliente2@ejemplo.com', address: 'Calle 1', password: 'contrasena' })
+      .send({ name: 'Cliente', phone: '600100201', email: 'cliente2@ejemplo.com', address: 'Calle 1', password: 'contrasena', acceptTerms: true })
       .expect(201);
 
     const correo = await esperarCorreo('cliente2@ejemplo.com');

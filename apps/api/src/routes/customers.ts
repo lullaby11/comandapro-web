@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../prisma/client';
-import { authMiddleware, AuthenticatedRequest } from '../middleware/auth.middleware';
+import { authMiddleware, requireAdmin, AuthenticatedRequest } from '../middleware/auth.middleware';
+import { anonimizarCliente } from '../services/rgpd.service';
 
 const router = Router();
 router.use(authMiddleware);
@@ -116,6 +117,41 @@ router.put('/:id', async (req: AuthenticatedRequest, res) => {
   });
 
   res.json(customer);
+});
+
+// ──────────────────────────────────────────────
+// DELETE /customers/:id — Ejercer el derecho de supresión
+// ──────────────────────────────────────────────
+// No borra la ficha: sus pedidos deben conservarse por obligación contable, y la base de
+// datos tampoco lo permitiría. Vacía el dato personal en los tres sitios donde vive —la
+// ficha, la cuenta de la tienda online y los propios pedidos— y regenera los tokens de
+// seguimiento, que son enlaces públicos con nombre y dirección.
+router.delete('/:id', requireAdmin, async (req: AuthenticatedRequest, res) => {
+  const existe = await prisma.customer.findFirst({
+    where: { id: req.params.id, businessId: req.businessId! },
+  });
+
+  if (!existe) {
+    res.status(404).json({ error: 'Cliente no encontrado' });
+    return;
+  }
+
+  if (existe.anonymizedAt) {
+    res.status(409).json({ error: 'Los datos de este cliente ya se eliminaron' });
+    return;
+  }
+
+  const resultado = await prisma.$transaction((tx) =>
+    anonimizarCliente(tx, req.businessId!, existe.id)
+  );
+
+  res.json({
+    anonymized: true,
+    ...resultado,
+    message:
+      `Se han eliminado los datos personales. Sus ${resultado.pedidosAfectados} pedido(s) ` +
+      'se conservan sin datos identificativos, por obligación contable.',
+  });
 });
 
 export default router;

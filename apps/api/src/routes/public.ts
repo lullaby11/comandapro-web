@@ -74,6 +74,11 @@ const registerSchema = z.object({
   email:    z.string().email(),
   address:  z.string().min(3).max(300),
   password: z.string().min(6),
+  // Consentimiento informado (RGPD art. 7). Debe ser una acción afirmativa explícita:
+  // por eso se exige `true` y no se acepta la ausencia del campo.
+  acceptTerms: z.literal(true, {
+    errorMap: () => ({ message: 'Debes aceptar la política de privacidad para registrarte' }),
+  }),
 });
 
 router.post('/:slug/auth/register', registerRateLimiter, async (req, res) => {
@@ -122,6 +127,8 @@ router.post('/:slug/auth/register', registerRateLimiter, async (req, res) => {
     data: {
       businessId: business.id,
       name, phone, email, address, passwordHash,
+      // Se guarda CUÁNDO se aceptó: el consentimiento hay que poder acreditarlo
+      acceptedTermsAt: new Date(),
       verifyToken,
       verifyExpiresAt: new Date(Date.now() + 24 * 3600_000),
     },

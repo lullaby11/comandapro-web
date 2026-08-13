@@ -80,7 +80,10 @@
       "Bash(mkdir -p prisma/migrations/20260812200000_p1_correcciones)",
       "Bash(npx next *)",
       "Bash(grep -rn \"apiHeaders\\\\|\\\\${API}\" src/app/dashboard --include=page.tsx)",
-      "Bash(grep -rn \"fetch\\(\\\\`/api\\\\|fetch\\('/api\" apps/web/src/app/dashboard/)"
+      "Bash(grep -rn \"fetch\\(\\\\`/api\\\\|fetch\\('/api\" apps/web/src/app/dashboard/)",
+      "Bash(psql \"postgresql://juanma@localhost:5432/postgres\" -c \"DROP DATABASE IF EXISTS shadow_rgpd;\" -c \"CREATE DATABASE shadow_rgpd OWNER comandapro;\")",
+      "Bash(mkdir -p prisma/migrations/20260813100000_rgpd)",
+      "Bash(psql \"postgresql://juanma@localhost:5432/postgres\" -c \"DROP DATABASE IF EXISTS shadow_rgpd;\")"
     ]
   }
 }

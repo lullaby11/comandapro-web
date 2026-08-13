@@ -167,8 +167,8 @@ describe('P1-8 · Los correos no se pierden si falla el proveedor', () => {
         phone: '600111333',
         email: 'buzon@ejemplo.com',
         address: 'Calle X 1',
-        password: 'contrasena',
-      })
+        password: 'contrasena', acceptTerms: true },
+      )
       .expect(201);
 
     // El envío es fire-and-forget: la respuesta HTTP vuelve antes de que el correo salga,

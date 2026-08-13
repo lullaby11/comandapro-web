@@ -81,6 +81,9 @@ export default function PublicStorePage() {
   const [step, setStep]               = useState<Step>(1);
   const [authView, setAuthView]       = useState<AuthView>('login');
   const [session, setSession]         = useState<CustomerSession | null>(null);
+  // Consentimiento informado: tiene que ser una acción afirmativa del cliente, así que
+  // la casilla nace desmarcada y sin ella la API rechaza el registro.
+  const [aceptaPolitica, setAceptaPolitica] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   // Register form
@@ -198,12 +201,13 @@ export default function PublicStorePage() {
     e.preventDefault();
     if (reg.password !== reg.confirm) { toast.error('Las contraseñas no coinciden'); return; }
     if (reg.password.length < 6) { toast.error('La contraseña debe tener al menos 6 caracteres'); return; }
+    if (!aceptaPolitica) { toast.error('Debes aceptar la política de privacidad para registrarte'); return; }
     setAuthLoading(true);
     try {
       const res = await fetch(`${apiPublic(slug)}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: reg.name, phone: reg.phone, email: reg.email, address: reg.address, password: reg.password }),
+        body: JSON.stringify({ name: reg.name, phone: reg.phone, email: reg.email, address: reg.address, password: reg.password, acceptTerms: true }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -515,10 +519,32 @@ export default function PublicStorePage() {
                     />
                   </div>
 
+                  {/* Consentimiento informado: desmarcada por defecto y obligatoria.
+                      Una casilla premarcada no es consentimiento válido (RGPD art. 7). */}
+                  <label style={{ display: 'flex', gap: '0.625rem', alignItems: 'flex-start', cursor: 'pointer', margin: '0.25rem 0 0.5rem' }}>
+                    <input
+                      type="checkbox"
+                      checked={aceptaPolitica}
+                      onChange={(e) => setAceptaPolitica(e.target.checked)}
+                      style={{ width: 18, height: 18, marginTop: 2, flexShrink: 0, accentColor: 'hsl(262 80% 55%)' }}
+                    />
+                    <span style={{ fontSize: '0.8125rem', lineHeight: 1.5, color: 'hsl(220 15% 45%)' }}>
+                      He leído y acepto la{' '}
+                      <a href="/legal/privacidad" target="_blank" rel="noopener noreferrer" style={{ color: 'hsl(262 80% 55%)', textDecoration: 'underline' }}>
+                        política de privacidad
+                      </a>
+                      {' '}y los{' '}
+                      <a href="/legal/terminos" target="_blank" rel="noopener noreferrer" style={{ color: 'hsl(262 80% 55%)', textDecoration: 'underline' }}>
+                        términos del servicio
+                      </a>
+                      . Mis datos se usarán para gestionar mis pedidos en este local.
+                    </span>
+                  </label>
+
                   <button
                     type="submit"
-                    disabled={authLoading}
-                    style={{ background: 'hsl(262 80% 55%)', color: 'white', border: 'none', borderRadius: 10, padding: '0.875rem', fontWeight: 600, fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                    disabled={authLoading || !aceptaPolitica}
+                    style={{ background: aceptaPolitica ? 'hsl(262 80% 55%)' : 'hsl(220 15% 75%)', color: 'white', border: 'none', borderRadius: 10, padding: '0.875rem', fontWeight: 600, fontSize: '1rem', cursor: aceptaPolitica ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
                   >
                     {authLoading ? <span style={{ width: 18, height: 18, border: '2px solid white', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} /> : 'Crear cuenta y continuar'}
                   </button>

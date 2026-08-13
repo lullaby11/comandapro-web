@@ -2,8 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import {
-  Search, UserPlus, Phone, MapPin, FileText,
-  Users, ShoppingBag, X, Check, Edit2, Clock,
+  Search, UserPlus, Phone, MapPin, FileText, Users, ShoppingBag, X, Check, Edit2, Clock, Trash2, AlertCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
@@ -17,6 +16,7 @@ interface Customer {
   email?: string;
   address?: string;
   notes?: string;
+  anonymizedAt?: string | null;
   createdAt: string;
 }
 
@@ -76,6 +76,27 @@ export default function CustomersPage() {
     setEdit(null);
     setForm(EMPTY_FORM);
     setShowForm(true);
+  }
+
+  // Derecho de supresión: se pide confirmación explícita porque es irreversible y
+  // afecta a datos que el cliente ha pedido borrar.
+  const [confirmarBorrado, setConfirmarBorrado] = useState<Customer | null>(null);
+  const [borrando, setBorrando] = useState(false);
+
+  async function ejercerSupresion(c: Customer) {
+    setBorrando(true);
+    try {
+      const res = await apiRes(`/api/customers/${c.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'No se pudieron eliminar los datos');
+      toast.success(data.message, { duration: 6000 });
+      setConfirmarBorrado(null);
+      loadCustomers();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Error');
+    } finally {
+      setBorrando(false);
+    }
   }
 
   function openEdit(c: Customer) {
@@ -264,6 +285,16 @@ export default function CustomersPage() {
                 >
                   <Edit2 size={13} />
                 </button>
+                {!c.anonymizedAt && (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setConfirmarBorrado(c)}
+                    title="Eliminar datos personales (RGPD)"
+                    style={{ padding: '0.3rem 0.6rem', color: 'hsl(var(--danger))' }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -271,6 +302,40 @@ export default function CustomersPage() {
       )}
 
       {/* ── Modal ── */}
+      {confirmarBorrado && (
+        <div
+          onClick={() => setConfirmarBorrado(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+        >
+          <div onClick={(e) => e.stopPropagation()} className="card" style={{ padding: '1.5rem', maxWidth: 460, width: '100%' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem' }}>
+              <AlertCircle size={20} style={{ color: 'hsl(var(--danger))', flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+                  Eliminar los datos de {confirmarBorrado.name}
+                </h2>
+                <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted))', lineHeight: 1.6, marginBottom: '0.625rem' }}>
+                  Se borrarán su nombre, teléfono, correo, dirección y notas, aquí y en todos sus
+                  pedidos. Los enlaces de seguimiento que hayas impreso dejarán de funcionar.
+                </p>
+                <p style={{ fontSize: '0.8125rem', color: 'hsl(var(--muted))', lineHeight: 1.6 }}>
+                  <strong>Sus pedidos no se borran:</strong> se conservan sin datos identificativos,
+                  porque hay obligación contable de guardarlos. <strong>Es irreversible.</strong>
+                </p>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button className="btn btn-ghost" onClick={() => setConfirmarBorrado(null)} style={{ flex: 1 }}>
+                Cancelar
+              </button>
+              <button className="btn btn-danger" disabled={borrando} onClick={() => ejercerSupresion(confirmarBorrado)} style={{ flex: 1 }}>
+                {borrando ? 'Eliminando…' : 'Eliminar datos'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showForm && (
         <div
           style={{
