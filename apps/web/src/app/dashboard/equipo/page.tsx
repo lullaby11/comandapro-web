@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { apiRes } from '@/lib/api';
 
 
-type Rol = 'OWNER' | 'ADMIN' | 'STAFF';
+type Rol = 'OWNER' | 'ADMIN' | 'STAFF' | 'DELIVERY';
 
 interface Miembro {
   id: string;
@@ -43,6 +43,11 @@ const ROLES: Record<Rol, { etiqueta: string; descripcion: string; badge: string 
     descripcion: 'Toma pedidos, cambia estados e imprime comandas',
     badge: 'badge-muted',
   },
+  DELIVERY: {
+    etiqueta: 'Repartidor',
+    descripcion: 'Solo ve los pedidos que se le asignan, con la dirección y el importe a cobrar. No entra en la gestión del local',
+    badge: 'badge-warning',
+  },
 };
 
 export default function EquipoPage() {
@@ -53,7 +58,7 @@ export default function EquipoPage() {
 
   const [mostrarInvitar, setMostrarInvitar] = useState(false);
   const [nuevoEmail, setNuevoEmail] = useState('');
-  const [nuevoRol, setNuevoRol] = useState<'ADMIN' | 'STAFF'>('STAFF');
+  const [nuevoRol, setNuevoRol] = useState<'ADMIN' | 'STAFF' | 'DELIVERY'>('STAFF');
   const [invitando, setInvitando] = useState(false);
 
   const [confirmarQuitar, setConfirmarQuitar] = useState<Miembro | null>(null);
@@ -325,7 +330,7 @@ export default function EquipoPage() {
               Rol
             </label>
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-              {(['STAFF', 'ADMIN'] as const).map((r) => (
+              {(['STAFF', 'ADMIN', 'DELIVERY'] as const).map((r) => (
                 <button
                   key={r}
                   type="button"

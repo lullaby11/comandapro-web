@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   PlusCircle, Search, Clock, ChefHat, CheckCircle2,
   Truck, XCircle, RefreshCw, Eye, MessageCircle, Store, Printer, Navigation, Trash2,
-  Play, StopCircle, Globe,
+  Play, StopCircle, Globe, Bike,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiRes } from '@/lib/api';
@@ -13,6 +13,8 @@ import { imprimirComanda, printLog } from '@/lib/impresion';
 
 
 type OrderStatus = 'RECEIVED_ONLINE' | 'PENDING' | 'PREPARING' | 'READY' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
+
+interface Repartidor { id: string; name: string; soloReparto: boolean }
 
 interface Service {
   id: string;
@@ -31,6 +33,7 @@ interface Order {
   paymentMethod: 'CASH' | 'CARD' | null;
   cashGiven: number | null;
   customer: { name: string; phone: string };
+  assignedTo: { id: string; name: string } | null;
   items: Array<{ product: { name: string }; quantity: number }>;
 }
 
@@ -70,6 +73,7 @@ export default function OrdersPage() {
   const [deleting, setDeleting]         = useState(false);
   const [serviceLoading, setServiceLoading] = useState(false);
   const [confirmEndService, setConfirmEndService] = useState(false);
+  const [repartidores, setRepartidores] = useState<Repartidor[]>([]);
   const [printerMode, setPrinterMode]   = useState<string>('webusb');
 
   const loadService = useCallback(async () => {
@@ -119,12 +123,39 @@ export default function OrdersPage() {
       .then((r) => r.ok ? r.json() : null)
       .then((s) => { if (s?.printerMode) setPrinterMode(s.printerMode); })
       .catch(() => {});
+
+    apiRes(`/api/users/repartidores`)
+      .then((r) => r.ok ? r.json() : [])
+      .then(setRepartidores)
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
     const iv = setInterval(loadOrders, 30_000);
     return () => clearInterval(iv);
   }, [loadOrders]);
+
+  async function asignarRepartidor(orderId: string, repartidorId: string) {
+    // Optimista: en pleno servicio el desplegable tiene que responder al instante. Si la
+    // API rechaza, se recarga y el valor vuelve solo a lo que dice el servidor.
+    setOrders((prev) => prev.map((o) => o.id === orderId
+      ? { ...o, assignedTo: repartidores.find((r) => r.id === repartidorId) ?? null }
+      : o));
+
+    try {
+      const res = await apiRes(`/api/orders/${orderId}/assign`, {
+        method: 'PATCH',
+        body: { repartidorId: repartidorId || null },
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? 'No se pudo asignar');
+      }
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo asignar');
+      loadOrders();
+    }
+  }
 
   async function startService() {
     setServiceLoading(true);
@@ -537,6 +568,32 @@ export default function OrdersPage() {
                       {order.items.slice(0, 3).map((i) => `${i.quantity}× ${i.product.name}`).join(', ')}
                       {order.items.length > 3 && ` +${order.items.length - 3} más`}
                     </div>
+
+                    {/* Reparto. No aparece en los pedidos de recogida ni en los ya
+                        cerrados, que es justo cuando la API rechaza la asignación. */}
+                    {!order.isPickup && repartidores.length > 0
+                      && order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.4rem' }}>
+                        <Bike size={13} style={{ color: order.assignedTo ? 'hsl(var(--primary))' : 'hsl(207 20% 45%)' }} />
+                        <select
+                          value={order.assignedTo?.id ?? ''}
+                          onChange={(e) => asignarRepartidor(order.id, e.target.value)}
+                          aria-label="Repartidor asignado"
+                          style={{
+                            background: 'hsl(var(--surface2))',
+                            border: `1px solid ${order.assignedTo ? 'hsl(var(--primary) / 0.5)' : 'hsl(var(--border))'}`,
+                            color: order.assignedTo ? 'hsl(var(--text))' : 'hsl(207 20% 55%)',
+                            borderRadius: 6, padding: '0.15rem 0.4rem',
+                            fontSize: '0.75rem', cursor: 'pointer', maxWidth: 170,
+                          }}
+                        >
+                          <option value="">Sin asignar</option>
+                          {repartidores.map((r) => (
+                            <option key={r.id} value={r.id}>{r.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
 
                   {/* Time + Total + Payment */}

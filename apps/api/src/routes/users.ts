@@ -22,6 +22,30 @@ async function contarDuenosActivos(businessId: string): Promise<number> {
 }
 
 // ──────────────────────────────────────────────
+// GET /users/repartidores — Quién puede llevar un pedido
+// ──────────────────────────────────────────────
+// Lo consume el selector del listado de pedidos, así que no exige rol de administración:
+// asignar reparto es una tarea de mostrador. Devuelve lo mínimo para pintar un desplegable.
+//
+// Incluye a los roles de gestión además de a los repartidores porque en un local pequeño
+// el dueño o el personal salen a repartir a menudo. Ver authReparto en auth.middleware.ts.
+router.get('/repartidores', async (req: AuthenticatedRequest, res) => {
+  const miembros = await prisma.businessUser.findMany({
+    where: { businessId: req.businessId!, disabledAt: null },
+    select: { role: true, user: { select: { id: true, name: true } } },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  res.json(
+    miembros.map((m) => ({
+      id: m.user.id,
+      name: m.user.name,
+      soloReparto: m.role === 'DELIVERY',
+    })),
+  );
+});
+
+// ──────────────────────────────────────────────
 // GET /users — Equipo del local
 // ──────────────────────────────────────────────
 router.get('/', requireAdmin, async (req: AuthenticatedRequest, res) => {
@@ -59,7 +83,7 @@ router.get('/', requireAdmin, async (req: AuthenticatedRequest, res) => {
 router.post('/invite', requireAdmin, async (req: AuthenticatedRequest, res) => {
   const schema = z.object({
     email: z.string().email(),
-    role: z.enum(['ADMIN', 'STAFF']), // no se invita como OWNER: se transfiere después
+    role: z.enum(['ADMIN', 'STAFF', 'DELIVERY']), // no se invita como OWNER: se transfiere después
   });
 
   const parsed = schema.safeParse(req.body);
@@ -142,7 +166,7 @@ router.delete('/invitations/:id', requireAdmin, async (req: AuthenticatedRequest
 // ──────────────────────────────────────────────
 router.patch('/:id', requireAdmin, async (req: AuthenticatedRequest, res) => {
   const schema = z.object({
-    role: z.enum(['OWNER', 'ADMIN', 'STAFF']).optional(),
+    role: z.enum(['OWNER', 'ADMIN', 'STAFF', 'DELIVERY']).optional(),
     disabled: z.boolean().optional(),
   });
 

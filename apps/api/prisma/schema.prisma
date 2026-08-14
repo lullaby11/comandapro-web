@@ -69,6 +69,7 @@ model User {
 
   businesses BusinessUser[]
   platformAdmin PlatformAdmin?
+  pedidosAsignados Order[] @relation("PedidosAsignados")
 
   @@map("users")
 }
@@ -161,6 +162,10 @@ enum Role {
   OWNER
   ADMIN
   STAFF
+  // Reparto. A diferencia de los demás roles, DELIVERY no da acceso al dashboard: solo
+  // a /api/delivery, y ahí únicamente a los pedidos que tenga asignados. El repartidor
+  // suele ser personal rotativo, así que no ve productos, clientes, precios ni caja.
+  DELIVERY
 }
 
 // ─────────────────────────────────────────────
@@ -235,6 +240,11 @@ model Order {
   isPickup            Boolean       @default(false)
   deliveryAddress     String?
   estimatedDeliveryAt DateTime?
+  // Repartidor asignado. Solo para pedidos a domicilio: un pedido de recogida nunca se
+  // asigna. Se permite asignar antes de que el pedido esté listo, pero la salida a
+  // reparto la sigue gobernando la máquina de estados.
+  assignedToId        String?
+  assignedAt          DateTime?
   paymentMethod       PaymentMethod @default(CASH)
   cashGiven           Decimal?      @db.Decimal(10, 2)
   // Momento en que se pidió el buffer ESC/POS. No implica que saliera papel: el
@@ -259,8 +269,11 @@ model Order {
   items           OrderItem[]
   shippingRate    ShippingRate?    @relation(fields: [shippingRateId], references: [id])
   service         Service?         @relation(fields: [serviceId], references: [id])
+  assignedTo      User?            @relation("PedidosAsignados", fields: [assignedToId], references: [id])
 
   @@index([businessId])
+  // La pantalla del repartidor filtra por «mis pedidos activos» en cada refresco
+  @@index([businessId, assignedToId, status])
   @@index([businessId, status])
   @@index([businessId, serviceId])
   // El listado de pedidos y las estadísticas por periodo ordenan y filtran por fecha
