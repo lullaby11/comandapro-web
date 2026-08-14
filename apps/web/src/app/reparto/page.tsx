@@ -59,9 +59,11 @@ export default function RepartoPage() {
   async function cambiarEstado(pedido: PedidoDeReparto, status: 'OUT_FOR_DELIVERY' | 'DELIVERED') {
     setEnviando(pedido.id);
     try {
+      // `body` va como objeto: apiRes ya lo serializa. Pasarlo serializado aquí lo
+      // convertía en una cadena JSON, que la API no puede interpretar como pedido.
       const res = await apiRes(`/api/delivery/orders/${pedido.id}/status`, {
         method: 'PATCH',
-        body: JSON.stringify({ status }),
+        body: { status },
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

@@ -99,8 +99,12 @@ app.use((req, res, next) => {
 
 // ─── Seguridad & Middleware ───────────────────────────────────────────────────
 app.use(helmet());
-app.use(express.json({ limit: '10mb' }));
+// El registro va ANTES de parsear el cuerpo. Al revés, una petición con un cuerpo
+// malformado moría en el parseo y no aparecía en el log: en producción se vio un 500 en
+// el navegador sin ni una línea en CloudWatch, y pareció que la petición no había
+// llegado siquiera al servidor.
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+app.use(express.json({ limit: '10mb' }));
 
 // ─── Rutas ────────────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
@@ -129,6 +133,21 @@ app.use(
     res: express.Response,
     _next: express.NextFunction
   ) => {
+    // Un cuerpo mal formado o demasiado grande es culpa de quien llama, no del servidor:
+    // body-parser marca esos errores con su propio `status` (400, 413…). Devolverlos como
+    // 500 mandaba a buscar la causa en el sitio equivocado, y además los cuenta como
+    // errores del servidor en cualquier alarma que se monte sobre la tasa de 5xx.
+    const codigo = (err as { status?: number; statusCode?: number }).status
+      ?? (err as { statusCode?: number }).statusCode
+      ?? 500;
+    const esDelCliente = codigo >= 400 && codigo < 500;
+
+    if (esDelCliente) {
+      console.warn('[Petición inválida]', codigo, err.message);
+      res.status(codigo).json({ error: 'Petición mal formada' });
+      return;
+    }
+
     console.error('[Error]', err.message, err.stack);
     res.status(500).json({
       error: process.env.NODE_ENV === 'production' ? 'Error interno del servidor' : err.message,
