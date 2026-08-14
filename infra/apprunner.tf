@@ -1,15 +1,28 @@
 # ── VPC Connector: permite a App Runner salir hacia el VPC (RDS) ──────────────
 
 resource "aws_apprunner_vpc_connector" "api" {
-  vpc_connector_name = "${var.project_name}-vpc-connector"
-  # Subnets públicas: App Runner necesita salida a internet para llegar a ECR y SSM.
-  # Con subnets privadas (sin NAT) el servicio no arranca.
-  # App Runner sigue accediendo a RDS (subnet privada) porque están en el mismo VPC
-  # y el security group de RDS permite inbound desde este conector.
-  subnets         = aws_subnet.public[*].id
-  security_groups = [aws_security_group.apprunner_connector.id]
+  # El sufijo forma parte del nombre porque los conectores son inmutables: cambiar de
+  # subredes obliga a crear uno nuevo, y el nombre no puede repetirse mientras conviven.
+  vpc_connector_name = "${var.project_name}-vpc-connector-2"
+
+  # Subredes PRIVADAS, con salida por el NAT gateway (ver vpc.tf).
+  #
+  # Antes estaban las públicas, con este comentario: «App Runner necesita salida a
+  # internet para llegar a ECR y SSM». Era falso, y costó caro: la imagen y los secretos
+  # los resuelve la infraestructura de App Runner por su cuenta, fuera del conector, así
+  # que el servicio arrancaba bien y parecía correcto. Pero las ENI del conector no
+  # reciben IP pública, y un Internet Gateway no encamina tráfico sin ella: la aplicación
+  # se quedó sin ninguna salida a internet, y el correo llevaba desde el principio
+  # fallando con `connect ETIMEDOUT` sin que nadie lo mirara.
+  subnets         = aws_subnet.private[*].id
+  security_groups = [aws_security_group.apprunner_connector_2.id]
 
   tags = { Name = "${var.project_name}-vpc-connector" }
+
+  # El servicio tiene que apuntar al nuevo antes de que se pueda borrar el viejo
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # ── App Runner Service ────────────────────────────────────────────────────────

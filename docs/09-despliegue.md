@@ -430,6 +430,53 @@ curl -sS -X POST https://api.olyda.app/api/platform/bootstrap \
 revelar nada. `404` = no está configurado · `409` = ya hay administrador · `401` = no hay
 ninguno y el token es incorrecto.
 
+### 🚨 La aplicación no tenía salida a internet (14/08/2026)
+
+Una invitación al equipo no llegaba. El correo **sí se intentaba**, y fallaba así:
+
+```
+[email] Intento 1/5 fallido: TimeoutError: connect ETIMEDOUT 51.44.107.195:443
+```
+
+No era SES —cuenta sana, fuera de sandbox, envío habilitado—. Eran **dos bloqueos
+independientes**, cualquiera de los cuales bastaba para el timeout:
+
+1. **El conector VPC estaba en las subredes públicas.** El comentario que lo justificaba
+   decía que App Runner necesita esas subredes «para llegar a ECR y SSM». Es falso: la
+   imagen y los secretos los resuelve la infraestructura de App Runner por su cuenta,
+   fuera del conector. Y **las ENI de un conector VPC nunca reciben IP pública**, así que
+   un Internet Gateway —que solo encamina tráfico de máquinas que la tienen— descartaba
+   los paquetes en silencio.
+2. **El grupo de seguridad solo permitía salir a `10.0.0.0/16:5432`.** Todo el HTTPS
+   saliente moría ahí aunque hubiera NAT.
+
+**Por qué no se detectó antes:** el servicio arrancaba bien, RDS respondía y el dashboard
+funcionaba, porque nada de eso necesita internet. Lo único que lo necesitaba era el correo,
+y los correos de prueba con los que se dio por buena la tubería **se enviaron desde una
+máquina de desarrollo, no desde la API**. El registro de eventos de SES tenía dos eventos
+en toda su historia, ambos de aquella prueba manual.
+
+**Arreglo:** NAT gateway con IP elástica en una subred pública, tabla de rutas privada con
+`0.0.0.0/0 → NAT`, egress 443 en el grupo de seguridad y el conector movido a las subredes
+privadas. Coste aproximado: 35 $/mes más tráfico.
+
+> **Los conectores VPC son inmutables.** Cambiar sus subredes obliga a crear uno nuevo, con
+> `create_before_destroy` y **nombre distinto**. Además App Runner rechaza un conector nuevo
+> si ya existe otro con la **misma combinación de grupos de seguridad**, aunque las subredes
+> difieran: hace falta un grupo propio para el nuevo (`apprunner-connector-2`).
+
+**Cómo comprobar que hay salida a internet**, sin esperar a que falle un correo:
+
+```bash
+# La ENI del conector debe estar en una subred privada cuya ruta 0.0.0.0/0 sea un NAT
+aws ec2 describe-route-tables --filters "Name=association.subnet-id,Values=<subred>" \
+  --query 'RouteTables[0].Routes[?DestinationCidrBlock==`0.0.0.0/0`]'
+# Y el SG del conector debe permitir egress 443 a 0.0.0.0/0
+```
+
+**Señal de alarma útil:** `AWS/SES` métrica `Send` a 0 durante un periodo con actividad
+significa que no sale ni un correo. Ver el apartado de observabilidad del roadmap.
+
 ## 4. Rollback
 
 ### Aplicación
