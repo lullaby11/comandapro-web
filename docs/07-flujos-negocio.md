@@ -118,6 +118,28 @@ cambio        = cashGiven − total                 (solo se calcula al imprimir
 | Dirección | `deliveryAddress` o la del cliente | no aplica |
 | Tarifa de envío | seleccionable | no se aplica |
 | Estados | … → `READY` → `OUT_FOR_DELIVERY` → `DELIVERED` | … → `READY` → `DELIVERED` |
+| Repartidor | asignable | **nunca**: `/assign` devuelve `409` |
+
+### Quién mueve el pedido en el tramo final
+
+Un pedido a domicilio se puede asignar a un repartidor desde el listado de pedidos, en
+cualquier momento antes de cerrarse. Asignar **no** cambia el estado: sirve para repartir
+el trabajo mientras cocina todavía está preparando.
+
+A partir de ahí el tramo final lo conduce el repartidor desde `/reparto`:
+
+```
+  (mostrador asigna)         (repartidor)          (repartidor)
+        │                         │                      │
+     PREPARING ──► READY ──► OUT_FOR_DELIVERY ──► DELIVERED
+```
+
+El mostrador conserva las mismas transiciones que antes —puede sacar y entregar un pedido
+él mismo, por ejemplo si el repartidor se queda sin batería—. Lo que **no** puede hacer el
+repartidor es cancelar, devolver el pedido a cocina ni tocar pedidos que no sean suyos.
+
+Reasignar en caliente funciona: el pedido desaparece de la pantalla del anterior y aparece
+en la del nuevo en el siguiente refresco (20 s).
 
 ## 6. Venta online
 

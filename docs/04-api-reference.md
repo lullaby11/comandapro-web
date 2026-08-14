@@ -12,11 +12,15 @@ Tres niveles:
 | Nivel | Cabecera | Middleware | Contenido del JWT |
 |-------|----------|-----------|-------------------|
 | **Staff** | `Authorization: Bearer <jwt>` | `authMiddleware` | `{ userId, businessId, role }`, 7 días |
+| **Reparto** | `Authorization: Bearer <jwt>` | `authReparto` | igual que staff |
+| **Plataforma** | `Authorization: Bearer <jwt>` | `platformAuthMiddleware` | `{ userId, scope: 'platform' }`, 8 h |
 | **Cliente online** | `Authorization: Bearer <jwt>` | `customerAuthMiddleware` | `{ customerAccountId, businessId }`, 30 días |
 | **Público** | — | — | — |
 
 `authMiddleware` revalida en BD que el `BusinessUser` existe y **usa el rol de la BD**, no
-el del token. `customerAuthMiddleware` solo verifica la firma (no comprueba que la cuenta
+el del token. Rechaza además el rol `DELIVERY` con **403** (`soloReparto: true`): las rutas
+de gestión están cerradas al reparto por defecto y solo `/api/delivery/*` usa `authReparto`,
+que sí lo admite. Ver [10-seguridad.md](10-seguridad.md#roles). `customerAuthMiddleware` solo verifica la firma (no comprueba que la cuenta
 siga existiendo o verificada).
 
 ### Errores
@@ -142,14 +146,36 @@ Errores: **409** `{ error: "No hay ningún servicio activo..." }` ·
 ```
 Enum: `RECEIVED_ONLINE | PENDING | PREPARING | READY | OUT_FOR_DELIVERY | DELIVERED | CANCELLED`.
 
-**No hay validación de transiciones**: se puede saltar de `PENDING` a `DELIVERED`.
-Efecto lateral: al pasar `RECEIVED_ONLINE → PENDING`, si el pedido tiene `customerAccount`,
-se envía email de confirmación (fire-and-forget).
+Las transiciones **se validan en el servidor** (`409` con `from`, `to` y `allowed` si no
+es válida). No se puede saltar de `PENDING` a `DELIVERED`, ni resucitar un pedido cancelado
+—que ya devolvió su stock—. Repetir el estado actual se acepta, para tolerar el doble clic.
 
-### `DELETE /api/orders/:id`
+Efectos laterales: al pasar `RECEIVED_ONLINE → PENDING`, si el pedido tiene
+`customerAccount`, se envía email de confirmación (por buzón de salida, con reintento). Al
+pasar a `CANCELLED` se restaura el stock una sola vez (`stockRestoredAt`).
 
-Borrado **físico** del pedido y sus items, restaurando el stock. **204**.
-No verifica el estado ni conserva histórico → afecta a las estadísticas retroactivamente.
+### `DELETE /api/orders/:id` 🔒 ADMIN/OWNER
+
+Borrado **lógico** (`deletedAt`, `deletedBy`), restaurando el stock si no se había
+restaurado ya. **204**. El pedido desaparece de listados y estadísticas pero conserva el
+histórico contable y el rastro de quién lo borró.
+
+### `PATCH /api/orders/:id/assign`
+
+```json
+{ "repartidorId": "cuid" }   // null para desasignar
+```
+
+Asigna, reasigna o desasigna el repartidor. No exige rol de administración: repartir el
+trabajo es tarea de mostrador.
+
+| Código | Cuándo |
+|--------|--------|
+| `404` | El pedido no existe, o el repartidor no pertenece al local / está desactivado |
+| `409` | El pedido es de recogida (`isPickup`), o ya está entregado o cancelado |
+
+Se permite asignar antes de que el pedido esté listo; la salida a reparto la sigue
+gobernando la máquina de estados.
 
 ### `POST /api/orders/:id/print`
 
@@ -232,7 +258,83 @@ Todas excluyen pedidos `CANCELLED`. `GET /period` usa SQL crudo con `DATE_TRUNC`
 
 ---
 
-## 9. `/api/tracking/:token` 🔓 público
+## 9. `/api/delivery` 🔒 reparto
+
+Las **únicas** rutas que alcanza el rol `DELIVERY`. Abiertas también al resto de roles, a
+propósito: en un local pequeño el dueño reparte. Lo que las protege no es el rol, sino que
+solo devuelven pedidos asignados a quien pregunta.
+
+### `GET /api/delivery/orders`
+
+Los pedidos asignados a quien llama, en `READY` u `OUT_FOR_DELIVERY`. Con `?historico=1`
+incluye además los de hoy ya cerrados.
+
+Devuelve una **proyección explícita**, no el pedido entero: `id`, `status`, `total`,
+`paymentMethod`, `deliveryAddress`, `notes`, `estimatedDeliveryAt`, `assignedAt`,
+`createdAt`, `customer { name, phone }` e `items[] { quantity, notes, product { name } }`.
+
+Ni `trackingToken`, ni `customerAccountId`, ni márgenes. Es deliberado: al ser una lista
+blanca, un campo nuevo en `Order` no se filtra solo a la calle. Hay un test que lo fija.
+
+### `PATCH /api/delivery/orders/:id/status`
+
+```json
+{ "status": "OUT_FOR_DELIVERY" }
+```
+
+Enum: **solo** `OUT_FOR_DELIVERY | DELIVERED`. El repartidor no cancela ni devuelve el
+pedido a cocina; cualquier otro valor es `400`.
+
+| Código | Cuándo |
+|--------|--------|
+| `404` | No existe, es de otro local **o es de otro repartidor** — nunca 403, que confirmaría su existencia |
+| `409` | `OUT_FOR_DELIVERY` sin estar en `READY`, o `DELIVERED` sin haber salido |
+
+Repetir el estado actual devuelve `200`: en la calle se pulsa dos veces.
+
+## 10. `/api/users` 🔒 ADMIN/OWNER
+
+| Ruta | Notas |
+|------|-------|
+| `GET /api/users/repartidores` | **Sin `requireAdmin`** — lo consume el selector del listado de pedidos. Devuelve `{ id, name, soloReparto }` de los miembros activos |
+| `GET /api/users` | Equipo del local e invitaciones pendientes |
+| `POST /api/users/invite` | `{ email, role }` con `role` ∈ `ADMIN \| STAFF \| DELIVERY`. No se invita como `OWNER`: se transfiere después |
+| `PATCH /api/users/:id` | Cambia rol o desactiva. Solo un `OWNER` reparte el rol de `OWNER` |
+| `DELETE /api/users/:id` | Saca a alguien del local |
+| `DELETE /api/users/invitations/:id` | Revoca una invitación pendiente |
+
+No se puede degradar ni desactivar al **último `OWNER` activo**, ni a uno mismo.
+
+## 11. `/api/invitations` 🔓 público (con token)
+
+| Ruta | Notas |
+|------|-------|
+| `GET /api/invitations/:token` | Datos de la invitación para pintar la pantalla |
+| `POST /api/invitations/:token/accept` | Crea la cuenta si hace falta y **devuelve sesión iniciada**. Limitado a 30/h/IP |
+
+El token se valida **antes** que el cuerpo: al revés, un token caducado devolvía errores de
+validación confusos.
+
+## 12. `/api/export` 🔒 ADMIN/OWNER
+
+`GET /api/export` — portabilidad RGPD: todos los datos del local en JSON.
+
+## 13. `/api/platform` 🔒 plataforma
+
+Panel de superadministrador, **eje de identidad separado** del de los locales: JWT con
+`scope: 'platform'`, 8 h, y sin `businessSlug` en el login. Toda acción queda en
+`platform_audit_log`.
+
+| Ruta | Notas |
+|------|-------|
+| `POST /api/platform/auth/login` | `401` uniforme, sin distinguir causa |
+| `POST /api/platform/bootstrap` | Crea el **primer** administrador. `409` en cuanto existe uno; `404` si no hay `PLATFORM_BOOTSTRAP_TOKEN`. Ver [09-despliegue.md](09-despliegue.md) |
+| `GET /api/platform/metrics` | Altas, pedidos y actividad agregada |
+| `GET /api/platform/businesses` | Locales con su actividad |
+| `POST /api/platform/businesses/:id/suspend` · `/reactivate` | La suspensión corta el acceso a todo el equipo en la siguiente petición |
+| `GET /api/platform/audit` | Registro de auditoría |
+
+## 14. `/api/tracking/:token` 🔓 público
 
 Devuelve una proyección segura del pedido (sin datos internos):
 
@@ -249,7 +351,7 @@ enlace ve nombre y dirección del cliente**. No caduca.
 
 ---
 
-## 10. `/api/public/:slug` — tienda online
+## 15. `/api/public/:slug` — tienda online
 
 | Método | Ruta | Auth | Notas |
 |--------|------|------|-------|
@@ -268,13 +370,13 @@ automáticamente a partir de los datos de la cuenta.
 
 ---
 
-## 11. `/health` 🔓
+## 16. `/health` 🔓
 
 `{ "status": "ok", "ts": "2026-08-11T..." }`. Lo usa App Runner como health check.
 
 ---
 
-## 12. Huecos conocidos de la API
+## 17. Huecos conocidos de la API
 
 - No hay `GET /api/users` ni endpoints para invitar staff.
 - No hay `DELETE`/`PATCH` de clientes ni de cuentas online.
