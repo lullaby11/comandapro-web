@@ -37,7 +37,9 @@ export default function LoginPage() {
       localStorage.setItem('user', JSON.stringify(data.user));
 
       toast.success(`¡Bienvenido, ${data.user.name}!`);
-      router.push('/dashboard/orders/new');
+      // Una cuenta de reparto no tiene acceso al dashboard: la API le devolvería 403 en
+      // todas las pantallas. Va directa a lo suyo.
+      router.push(data.user.role === 'DELIVERY' ? '/reparto' : '/dashboard/orders/new');
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Error de conexión');
     } finally {

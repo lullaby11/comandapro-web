@@ -197,3 +197,23 @@ Y la comprobación manual mínima según lo tocado:
 | Prisma no encuentra el cliente | Falta `npx prisma generate` (se ejecuta en `db push`) |
 | Emails que "se envían" pero no llegan | En local usa el transporte `log`: el mensaje y sus enlaces salen por consola. Los fallos reales se tragan con `.catch(console.error)` |
 | Cambios de esquema que no aparecen | Se usó `db push` en una máquina y `migrate` en otra: revisa `prisma/migrations` |
+| `P3014: could not create the shadow database` | El rol de la BD no tiene `CREATEDB`, que Prisma necesita para su base sombra: `ALTER ROLE comandapro CREATEDB;` |
+| Los cambios en la BD no se ven / permisos que no surten efecto | **Puede haber dos PostgreSQL en el 5432.** Ver abajo |
+
+### ⚠️ Un PostgreSQL nativo puede tapar al del contenedor
+
+Si hay un PostgreSQL instalado en el sistema (Homebrew, Postgres.app), se queda con
+`127.0.0.1:5432` y **`docker-compose up -d` levanta un segundo servidor que no usa nadie**:
+Docker publica en `*:5432`, pero el nativo gana en `localhost`. Todo parece funcionar
+—porque el nativo también tiene la base— hasta que se toca algo por `docker compose exec`
+y no surte efecto, o los datos no cuadran entre una sesión y otra.
+
+Para saber a cuál estás hablando de verdad:
+
+```bash
+lsof -nP -iTCP:5432 -sTCP:LISTEN
+```
+
+Si aparece un `postgres` que no es `com.docker`, ese es el que usa la aplicación. Aplica
+ahí los cambios (`psql -h 127.0.0.1 …`), o para el servicio nativo si prefieres el
+contenedor.

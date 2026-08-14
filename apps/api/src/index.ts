@@ -14,6 +14,7 @@ import morgan from 'morgan';
 
 import authRoutes from './routes/auth';
 import ordersRoutes from './routes/orders';
+import deliveryRoutes from './routes/delivery';
 import productsRoutes from './routes/products';
 import customersRoutes from './routes/customers';
 import settingsRoutes from './routes/settings';
@@ -106,6 +107,7 @@ app.get('/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOS
 
 app.use('/api/auth', authRoutes);
 app.use('/api/orders', ordersRoutes);
+app.use('/api/delivery', deliveryRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/customers', customersRoutes);
 app.use('/api/settings', settingsRoutes);

@@ -16,11 +16,27 @@ react-hot-toast. Salida `standalone`, desplegado en AWS Amplify con SSR.
 /dashboard/customers           Clientes del local + cuentas online pendientes
 /dashboard/stats               Estadísticas: servicios, clientes, productos, categorías, periodos
 /dashboard/settings            Configuración del local, impresión, tarifas de envío
+/dashboard/equipo              Equipo del local: invitaciones, roles, acceso
+/reparto                       📱 Pantalla del repartidor (fuera del layout del dashboard)
+/plataforma                    Panel de superadministrador (sesión aparte)
+/invitacion/[token]            🔓 Aceptar una invitación al equipo
+/legal/privacidad · /terminos  🔓 Textos legales
 /tracking/[token]              🔓 Seguimiento público del pedido (destino del QR)
 /[slug]/pedidos                🔓 Tienda online del local (catálogo + cuenta de cliente)
 ```
 
 `/dashboard/*` comparte `layout.tsx` con la barra lateral. Las rutas públicas no.
+
+**`/reparto` está fuera de ese layout a propósito.** Una cuenta con rol `DELIVERY` recibe
+`403` en todas las rutas del dashboard, así que compartir el layout solo serviría para
+enseñar una barra lateral cuyos enlaces fallan todos. El login y la aceptación de
+invitación llevan ahí directamente según el rol, y el layout del dashboard redirige a
+`/reparto` si alguien llega por su cuenta — cosmético: quien manda es el 403 del servidor.
+
+La pantalla está pensada para un móvil en la calle: objetivos táctiles de 44 px o más,
+dirección que abre el mapa, teléfono que llama, e importe en efectivo destacado porque es
+dinero que el repartidor lleva de vuelta. Se refresca sola cada 20 s y un fallo de red no
+vacía la lista: la cobertura va y viene y el siguiente ciclo lo arregla.
 
 ## 2. Patrones vigentes (importante antes de tocar código)
 

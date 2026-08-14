@@ -121,16 +121,50 @@ Se valoró moverla a SSM, pero se optó por eliminarla: ver el arreglo aplicado 
 
 </details>
 
-### 🟠 A3 — Autorización insuficiente por rol
+### <a id="roles"></a>✅ A3 — Autorización por rol *(resuelto)*
 
-`requireAdmin` solo se aplica en `settings` y `shipping-rates`. Un `STAFF` puede:
+Un `STAFF` podía editar precios y borrar pedidos definitivamente. Hoy la autorización de
+productos es **por campo** —repone stock, no toca precios—, el borrado es lógico y exige
+`ADMIN`/`OWNER`, y existe un cuarto rol.
 
-- crear, modificar y desactivar productos y precios;
-- **borrar pedidos definitivamente** (`DELETE /api/orders/:id`), lo que altera las
-  estadísticas y elimina el rastro.
+#### `DELIVERY` deniega por defecto
 
-**Arreglo:** exigir `ADMIN`/`OWNER` para el borrado de pedidos y para la escritura de
-productos, o introducir un rol intermedio.
+El resto de roles limitan *qué* puede hacer alguien dentro del local. `DELIVERY` es
+distinto: saca a la persona del local por completo. Importa porque un repartidor suele ser
+personal rotativo o externo, y hasta este rol **cualquier miembro autenticado alcanzaba
+cualquier ruta del dashboard** — el rol solo se miraba en puntos sueltos.
+
+La protección no es una lista de rutas prohibidas, que habría que acordarse de mantener,
+sino la dirección del bloqueo:
+
+| Middleware | Quién pasa | Lo usan |
+|------------|-----------|---------|
+| `authMiddleware` | Todos **menos** `DELIVERY` | Todas las rutas de gestión |
+| `authReparto` | Todos, `DELIVERY` incluido | Solo `/api/delivery/*` |
+
+Como cada router de gestión hace `router.use(authMiddleware)`, **una ruta nueva nace
+cerrada al reparto** sin que su autor tenga que saber que el rol existe. Abrirla es un
+acto explícito.
+
+`authReparto` no se limita a `DELIVERY` a propósito: en un local pequeño el dueño reparte
+a menudo, y obligarle a mantener dos cuentas sería absurdo. Lo que protege esas rutas no
+es el rol sino que **solo devuelven pedidos asignados a quien pregunta**, con el filtro
+por `assignedToId` dentro de la consulta y no en una comprobación posterior.
+
+Dos detalles que sostienen el aislamiento:
+
+- El pedido de otro repartidor devuelve **404, no 403**: un 403 confirmaría que existe.
+- `GET /api/delivery/orders` devuelve una **proyección explícita y corta** —dirección,
+  teléfono, importe a cobrar—, no el pedido entero. Si mañana se añaden campos al modelo,
+  no se filtran solos a la calle. Un test fija que no salen `trackingToken` ni
+  `customerAccountId`.
+- Al asignar se comprueba que el repartidor **pertenezca a ese local y siga activo**. Sin
+  eso, pasar el id de un usuario de otro local por el cuerpo se lo mostraría en su
+  pantalla: fuga entre locales por el cuerpo de la petición, justo lo que prohíbe la
+  regla 1 de `CLAUDE.md`.
+
+El rol se lee de la base de datos en cada petición, no del token: degradar a alguien a
+repartidor le cierra el dashboard de inmediato, sin esperar a que caduque su sesión.
 
 ### 🟠 A4 — Enumeración de cuentas
 

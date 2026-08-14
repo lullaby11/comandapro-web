@@ -75,7 +75,8 @@ export default function AceptarInvitacionPage() {
       localStorage.setItem('business', JSON.stringify(data.business));
 
       toast.success(`¡Bienvenida a ${data.business.name}!`);
-      router.push('/dashboard');
+      // Igual que en el login: una cuenta de reparto no tiene acceso al dashboard
+      router.push(data.user.role === 'DELIVERY' ? '/reparto' : '/dashboard');
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Error al aceptar');
       setEnviando(false);

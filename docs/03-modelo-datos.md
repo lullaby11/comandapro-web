@@ -52,14 +52,17 @@ pertenecer a varios `Business` con un `Role` distinto en cada uno.
 ```
 User ──< BusinessUser >── Business
               │
-              └─ role: OWNER | ADMIN | STAFF
+              └─ role: OWNER | ADMIN | STAFF | DELIVERY
 ```
 
 - **Login** requiere `email + password + businessSlug`: el usuario elige explícitamente el
   local. No existe pantalla de "elegir local" tras autenticarse.
-- **No hay endpoint para invitar/crear usuarios adicionales.** El único `User` que se crea
-  es el `OWNER` en `POST /api/auth/register`. Añadir un `STAFF` hoy requiere tocar la BD.
-  Es el gap funcional más grande para vender a locales con varios empleados.
+- **Se invita por correo** desde `POST /api/users/invite` (pantalla *Equipo*). El `OWNER`
+  inicial se crea en `POST /api/auth/register`; el resto entra por invitación.
+- El acceso se **desactiva** (`disabledAt`) en lugar de borrarse, para conservar el rastro
+  de quién trabajó en el local. `authMiddleware` lo comprueba en cada petición, así que
+  surte efecto de inmediato aunque el token siga vigente.
+- **`DELIVERY` no da acceso al dashboard.** Ver [10-seguridad.md](10-seguridad.md#roles).
 
 ### `Product`
 
@@ -99,6 +102,12 @@ User ──< BusinessUser >── Business
 
 > ⚠️ **No hay índice sobre `createdAt`**, y `GET /api/orders` y `/api/stats/period` ordenan
 > y filtran por esa columna.
+
+**Reparto.** `assignedToId` (→ `User`, `ON DELETE SET NULL`) y `assignedAt` guardan qué
+repartidor lleva el pedido. Nullable: los pedidos de recogida no se asignan nunca, y
+borrar la cuenta de un repartidor deja el pedido sin asignar en vez de borrarlo. El índice
+`(businessId, assignedToId, status)` sirve la consulta que la pantalla de reparto repite
+en cada refresco.
 
 ### `OrderItem`
 

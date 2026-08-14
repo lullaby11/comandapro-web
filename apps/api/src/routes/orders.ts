@@ -72,6 +72,7 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
         items: {
           include: { product: { select: { name: true } } },
         },
+        assignedTo: { select: { id: true, name: true } },
       },
       orderBy: { createdAt: 'desc' },
       skip: (Number(page) - 1) * Number(limit),
@@ -356,6 +357,80 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res) => {
       order.business.email,
     ).catch(console.error);
   }
+
+  res.json(updated);
+});
+
+// ──────────────────────────────────────────────
+// PATCH /orders/:id/assign — Asignar repartidor
+// ──────────────────────────────────────────────
+// Asigna, reasigna (mismo endpoint) o desasigna (`repartidorId: null`). No exige rol de
+// administración: en pleno servicio quien está en el mostrador es quien reparte el
+// trabajo, y bloquearlo obligaría a llamar al dueño para cada pedido.
+router.patch('/:id/assign', async (req: AuthenticatedRequest, res) => {
+  const schema = z.object({
+    repartidorId: z.string().min(1).nullable(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten() });
+    return;
+  }
+
+  const order = await prisma.order.findFirst({
+    where: { id: req.params.id, businessId: req.businessId!, deletedAt: null },
+    select: { id: true, isPickup: true, status: true },
+  });
+
+  if (!order) {
+    res.status(404).json({ error: 'Pedido no encontrado' });
+    return;
+  }
+
+  if (order.isPickup) {
+    res.status(409).json({ error: 'Un pedido de recogida en el local no se asigna a reparto' });
+    return;
+  }
+
+  if (order.status === 'DELIVERED' || order.status === 'CANCELLED') {
+    res.status(409).json({ error: 'El pedido ya está cerrado' });
+    return;
+  }
+
+  const { repartidorId } = parsed.data;
+
+  if (repartidorId !== null) {
+    // Que pertenezca a ESTE local y siga activo. Sin esta comprobación se podría asignar
+    // un pedido al usuario de otro local pasando su id, y ese usuario lo vería en su
+    // pantalla de reparto: una fuga de datos entre locales por el cuerpo de la petición.
+    const miembro = await prisma.businessUser.findFirst({
+      where: {
+        userId: repartidorId,
+        businessId: req.businessId!,
+        disabledAt: null,
+      },
+      select: { id: true },
+    });
+
+    if (!miembro) {
+      res.status(404).json({ error: 'Ese repartidor no pertenece al local' });
+      return;
+    }
+  }
+
+  const updated = await prisma.order.update({
+    where: { id: order.id },
+    data: {
+      assignedToId: repartidorId,
+      assignedAt: repartidorId === null ? null : new Date(),
+    },
+    select: {
+      id: true,
+      assignedToId: true,
+      assignedAt: true,
+      assignedTo: { select: { id: true, name: true } },
+    },
+  });
 
   res.json(updated);
 });

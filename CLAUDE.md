@@ -31,7 +31,14 @@ npx tsc --noEmit -p apps/api/tsconfig.json             # comprobación de tipos
 ```
 
 Seed: `admin@pizzeria-bella.com` / `admin1234`, local `pizzeria-bella`.
-**No hay tests.** Ver [`docs/13-testing.md`](docs/13-testing.md).
+
+```bash
+npm test --workspace=api    # necesita DATABASE_URL_TEST
+```
+
+> Si tienes un PostgreSQL instalado en el sistema, **se queda con el 5432 y el contenedor
+> queda inservible sin que lo notes**. Compruébalo con `lsof -nP -iTCP:5432 -sTCP:LISTEN`.
+> Ver [`docs/08-entorno-desarrollo.md`](docs/08-entorno-desarrollo.md).
 
 ## Reglas que no se negocian
 
@@ -44,7 +51,10 @@ Seed: `admin@pizzeria-bella.com` / `admin1234`, local `pizzeria-bella`.
 4. **Precios del servidor:** el importe se calcula en la API con los precios de la base de
    datos y se congela en `OrderItem.unitPrice`.
 5. **Idioma:** interfaz y mensajes en español; código en inglés.
-6. **Despliegue:** un merge a `main` que toque `apps/api/**` **despliega a producción**.
+6. **Roles:** `authMiddleware` deniega el rol `DELIVERY`. Una ruta de gestión nueva nace
+   cerrada al reparto y así debe quedarse; solo `/api/delivery/*` usa `authReparto`. Ver
+   [`docs/10-seguridad.md`](docs/10-seguridad.md#roles).
+7. **Despliegue:** un merge a `main` que toque `apps/api/**` **despliega a producción**.
    Trabaja en ramas y abre PR.
 
 ## Cosas que sorprenden si no las sabes
@@ -54,12 +64,17 @@ Seed: `admin@pizzeria-bella.com` / `admin1234`, local `pizzeria-bella`.
 - `NEXT_PUBLIC_*` se lee **en tiempo de build**: cambiarla exige recompilar.
 - `APP_URL` (backend) apunta al **frontend**, no a la API: se usa en el QR y en los emails.
 - La impresión genera el buffer ESC/POS **en el servidor**; el navegador solo lo empuja por
-  WebUSB/Bluetooth. Ver [`docs/06-impresion.md`](docs/06-impresion.md).
+  WebUSB/Bluetooth, desde `src/lib/impresion.ts`. El endpoint USB **se busca en el
+  descriptor** del dispositivo: no está siempre en la interfaz 0. Ver
+  [`docs/06-impresion.md`](docs/06-impresion.md).
 - `printer.service.ts` elimina tildes y ñ a propósito (`sanitize`): muchas impresoras
   genéricas no respetan la página de códigos.
-- Cancelar un pedido **no** devuelve el stock; borrarlo sí. Es un bug conocido (P1-1).
-- Las páginas del dashboard son monolíticas (900–1100 líneas) y duplican `apiHeaders()`.
-  `src/lib/` y `src/components/` existen pero están **vacías**.
+- Las páginas del dashboard son monolíticas (900–1100 líneas). `src/lib/` ya tiene
+  `api.ts` e `impresion.ts`; `src/components/` sigue **vacía**. Cuando algo esté duplicado
+  en dos páginas, sácalo a `src/lib/` en vez de copiarlo: las dos copias del transporte de
+  impresión divergieron y una acabó rota.
+- `/reparto` no comparte layout con el dashboard, y es a propósito: un repartidor recibe
+  403 en todas esas pantallas.
 - El estilo real se escribe con variables CSS de `globals.css` + estilos inline. Tailwind
   está instalado pero apenas se usa: **imita el fichero que estés tocando**.
 

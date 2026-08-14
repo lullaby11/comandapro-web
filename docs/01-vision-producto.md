@@ -30,12 +30,14 @@ flujo por uno digital, con tres promesas:
 |-----|----------|--------------------|
 | `OWNER` | Dueño del local | Todo, incluida configuración y tarifas |
 | `ADMIN` | Encargado | Configuración, tarifas, productos, pedidos |
-| `STAFF` | Persona que atiende el teléfono / cocina | Toma pedidos, cambia estados, imprime |
+| `STAFF` | Persona que atiende el teléfono / cocina | Toma pedidos, cambia estados, imprime. No toca precios |
+| `DELIVERY` | Repartidor | **Solo** ve los pedidos que se le asignan. No entra en la gestión del local |
 | Cliente final (`CustomerAccount`) | Comensal que compra online | Se registra, pide y sigue su pedido |
 | Cliente del local (`Customer`) | Ficha de cliente del negocio | No accede a la app; existe como dato |
 
-> ⚠️ Hoy `requireAdmin` solo se aplica en `settings` y `shipping-rates`. Un `STAFF` puede
-> crear/editar productos y **borrar pedidos**. Ver [11-deuda-tecnica.md](11-deuda-tecnica.md#p1-permisos).
+> `DELIVERY` funciona al revés que los demás roles: no limita lo que alguien puede hacer
+> dentro del local, lo saca del local entero. Es el rol para personal rotativo o externo.
+> Ver [10-seguridad.md](10-seguridad.md#roles) para cómo se sostiene esa separación.
 
 ## 4. Recorridos principales
 

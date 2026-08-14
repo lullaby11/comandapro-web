@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -35,6 +36,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const user = typeof window !== 'undefined'
     ? JSON.parse(localStorage.getItem('user') ?? '{}')
     : {};
+
+  // Una cuenta de reparto no tiene nada que hacer aquí: la API le responde 403 en todas
+  // estas pantallas, así que sin esto vería un dashboard lleno de errores. Quien manda
+  // es el servidor; esto solo evita enseñar una pantalla rota.
+  useEffect(() => {
+    if (user.role === 'DELIVERY') router.replace('/reparto');
+  }, [user.role, router]);
 
   return (
     <div style={{ display: 'flex', minHeight: '100dvh' }}>

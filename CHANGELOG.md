@@ -10,6 +10,14 @@ A partir de ahora, **cada release se anota aquí antes de desplegar**.
 ## [No publicado]
 
 ### Añadido
+- **Rol de repartidor con pantalla propia.** Los pedidos a domicilio se asignan a un
+  repartidor desde el listado, y es él quien los saca a reparto y los marca como
+  entregados desde `/reparto`, pensada para el móvil: dirección que abre el mapa, teléfono
+  que llama e importe en efectivo destacado. Se da de alta por invitación desde *Equipo*,
+  como cualquier otro miembro.
+- El rol `DELIVERY` **no da acceso a la gestión del local**: ni productos, ni clientes, ni
+  estadísticas, ni el listado de pedidos. Solo ve los pedidos que tiene asignados, y de
+  cada uno solo lo que necesita para entregarlo.
 - **Trazabilidad por mensaje del correo enviado.** Conjunto de configuración de SES
   (`comandapro-prod`) con destino de eventos a CloudWatch Logs vía EventBridge: cada envío
   registra entrega, rebote con su motivo, queja, retraso y la respuesta SMTP del servidor
@@ -18,6 +26,15 @@ A partir de ahora, **cada release se anota aquí antes de desplegar**.
   dirección y detalle del pedido.
 
 ### Corregido
+- **La impresión fallaba con impresoras nuevas** con el error «The specified endpoint is
+  not part of a claimed and selected alternate interface». Las dos pantallas que imprimen
+  tenían implementaciones distintas y habían divergido: la de crear pedido usaba interfaz 0
+  y endpoint 1 fijos, que solo funciona si la impresora los coloca justo ahí. Ahora ambas
+  usan la misma implementación, que busca el endpoint en el descriptor del dispositivo.
+- **Al crear un pedido se imprimía siempre por USB**, ignorando el modo configurado en
+  Ajustes: un local en Bluetooth no podía imprimir desde esa pantalla.
+- **Un pedido podía marcarse como impreso sin que saliera el papel.** El envío por USB no
+  lanza error cuando la impresora rechaza los datos, devuelve un estado que no se miraba.
 - **Los correos incluyen alternativa en texto plano.** Iban solo en HTML, que es una señal
   de spam clásica y penaliza la entregabilidad en dominios sin histórico de envío. También
   mejora la accesibilidad y los clientes que bloquean HTML.

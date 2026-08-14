@@ -93,6 +93,19 @@ Plan (BASIC | PRO | CHAIN)
 - Middleware de plan: bloquear funciones fuera del plan y avisar antes de bloquear.
 - Prueba gratuita de 14 días sin tarjeta.
 
+### Reparto
+
+- ✅ **Rol de repartidor** con pantalla propia en `/reparto`, asignación de pedidos desde
+  el listado y transiciones acotadas a su tramo (`READY` → `OUT_FOR_DELIVERY` →
+  `DELIVERED`). El rol no da acceso a la gestión del local.
+- ⏳ **Seguimiento en vivo del repartidor** en la página pública de tracking: depende de
+  geolocalización en el móvil y de tiempo real (SSE, v1.3). Antes de construirlo hay que
+  decidir qué se le cuenta al cliente y qué implica en protección de datos: la posición de
+  un empleado es dato personal suyo, no del pedido.
+- ⏳ **Rendimiento por repartidor** (entregas, tiempo medio): fácil con `assignedAt` y el
+  cambio a `DELIVERED`, pero conviene hablarlo antes con los locales. Medir a las personas
+  cambia cómo trabajan, y no siempre a mejor.
+
 ### Administración de la plataforma
 
 - ✅ **Panel de superadministrador** en `/plataforma`: listado de locales con su actividad,
@@ -132,7 +145,9 @@ sin que nadie del equipo intervenga.
 - **Impresión automática** de pedidos online aceptados a través del `print-agent`, con
   tokens de dispositivo revocables en lugar de credenciales de usuario.
 - **Asistente de impresora**: página de diagnóstico que prueba la conexión, imprime un
-  ticket de test y guarda el par interfaz/endpoint que funcionó para ese local.
+  ticket de test y guarda el par interfaz/endpoint que funcionó para ese local. Ahora el
+  endpoint se busca en el descriptor en cada impresión; recordarlo ahorraría los intentos
+  fallidos y daría un sitio donde diagnosticar sin depender de `localStorage.debugPrint`.
 - **Refactor del frontend**: `lib/api.ts`, componentes extraídos, tipos compartidos desde
   `packages/shared-types` (P2-1 a P2-3).
 - **Observabilidad**: registro estructurado, Sentry para errores de frontend y backend,
