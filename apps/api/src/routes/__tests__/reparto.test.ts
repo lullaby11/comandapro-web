@@ -314,3 +314,38 @@ describe('Asignación desde el local', () => {
     expect(res.status).toBe(409);
   });
 });
+
+describe('Un cuerpo mal formado es culpa de quien llama, no del servidor', () => {
+  // Esto salió de un fallo real: la pantalla de reparto serializaba el cuerpo dos veces,
+  // así que enviaba una cadena JSON en lugar de un objeto. La API respondía 500 y la
+  // petición ni siquiera aparecía en el log de acceso, porque el registro se montaba
+  // después del parseo del cuerpo. Buscamos la causa en el servidor durante un buen rato.
+  it('un cuerpo que es una cadena JSON, y no un objeto, da 400 y no 500', async () => {
+    const e = await escenario();
+    const pedido = await e.pedido({ assignedToId: e.ana.id, status: 'READY' });
+
+    const res = await request(app)
+      .patch(`/api/delivery/orders/${pedido.id}/status`)
+      .set(e.anaAuth)
+      .set('Content-Type', 'application/json')
+      .send(JSON.stringify(JSON.stringify({ status: 'OUT_FOR_DELIVERY' })));
+
+    expect(res.status).toBe(400);
+
+    const sinTocar = await prisma.order.findUniqueOrThrow({ where: { id: pedido.id } });
+    expect(sinTocar.status).toBe('READY');
+  });
+
+  it('un JSON sintácticamente roto también da 400', async () => {
+    const e = await escenario();
+    const pedido = await e.pedido({ assignedToId: e.ana.id, status: 'READY' });
+
+    const res = await request(app)
+      .patch(`/api/delivery/orders/${pedido.id}/status`)
+      .set(e.anaAuth)
+      .set('Content-Type', 'application/json')
+      .send('{"status":');
+
+    expect(res.status).toBe(400);
+  });
+});
