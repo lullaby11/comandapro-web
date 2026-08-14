@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiRes } from '@/lib/api';
+import { imprimirComanda } from '@/lib/impresion';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Customer     { id: string; name: string; phone: string; address?: string }
@@ -15,18 +16,6 @@ interface Product      { id: string; name: string; price: number; stock: number;
 interface CartItem     extends Product { quantity: number }
 interface ShippingRate { id: string; name: string; price: number; active: boolean }
 type Step = 1 | 2 | 3;
-
-// ─── API Helper ───────────────────────────────────────────────────────────────
-// ─── WebUSB Print ─────────────────────────────────────────────────────────────
-async function printViaWebUSB(buffer: Uint8Array) {
-  if (!navigator.usb) throw new Error('WebUSB no soportado. Usa Chrome o Edge.');
-  const device = await navigator.usb.requestDevice({ filters: [{ classCode: 0x07 }] });
-  await device.open();
-  if (device.configuration === null) await device.selectConfiguration(1);
-  await device.claimInterface(0);
-  await device.transferOut(1, buffer);
-  await device.close();
-}
 
 // ─── Step Indicator ───────────────────────────────────────────────────────────
 function StepIndicator({ step }: { step: Step }) {
@@ -123,6 +112,7 @@ export default function NewOrderPage() {
   const [submitting, setSubmitting]         = useState(false);
   const [printing, setPrinting]             = useState(false);
   const [orderId, setOrderId]               = useState<string | null>(null);
+  const [printerMode, setPrinterMode]       = useState<string>('webusb');
   const [orderDone, setOrderDone]           = useState(false);
 
   // Stock modal
@@ -146,6 +136,14 @@ export default function NewOrderPage() {
       }
     }
     checkService();
+
+    // El modo de impresión lo decide el local en Ajustes. Esta página lo ignoraba y
+    // enviaba siempre por WebUSB, así que un local en Bluetooth no podía imprimir al
+    // crear el pedido.
+    apiRes('/api/settings')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s) => { if (s?.printerMode) setPrinterMode(s.printerMode); })
+      .catch(() => { /* se queda el valor por defecto */ });
   }, []);
 
   // ── Load products & shipping rates ───────────────────────────────────────────
@@ -348,7 +346,7 @@ export default function NewOrderPage() {
     try {
       const res = await apiRes(`/api/orders/${id}/print`, { method: 'POST' });
       if (!res.ok) throw new Error('Error generando comanda');
-      await printViaWebUSB(new Uint8Array(await res.arrayBuffer()));
+      await imprimirComanda(new Uint8Array(await res.arrayBuffer()), printerMode);
       // Se confirma solo tras un envío correcto: si el transporte falla, el pedido sigue
       // constando como pendiente y el agente local puede recogerlo.
       await apiRes(`/api/orders/${id}/printed`, { method: 'POST' }).catch(() => {});
