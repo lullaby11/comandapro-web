@@ -33,7 +33,15 @@ resource "aws_iam_policy" "apprunner_ses_send" {
         Action = [
           "ses:SendEmail"
         ]
-        Resource = [local.ses_identity_arn]
+        # ses:SendEmail evalúa DOS recursos: la identidad desde la que se envía y el
+        # conjunto de configuración que se indica en la llamada. Con solo la identidad,
+        # SES responde AccessDeniedException nombrando el conjunto, no la identidad.
+        # Es el mismo patrón que rds:CreateDBSnapshot (ver docs/09-despliegue.md): una
+        # acción que actúa sobre varios recursos necesita permiso sobre todos.
+        Resource = [
+          local.ses_identity_arn,
+          aws_sesv2_configuration_set.main.arn,
+        ]
         # Sin esta condición, el permiso sobre la identidad de dominio permitiría enviar
         # desde CUALQUIER dirección @olyda.app. Se acota al remitente de la plataforma.
         Condition = {

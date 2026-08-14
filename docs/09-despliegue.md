@@ -474,8 +474,37 @@ aws ec2 describe-route-tables --filters "Name=association.subnet-id,Values=<subr
 # Y el SG del conector debe permitir egress 443 a 0.0.0.0/0
 ```
 
+**Y detrás había un tercer fallo**, que el timeout tapaba. En cuanto hubo red, SES
+respondió:
+
+```
+AccessDeniedException: ... is not authorized to perform 'ses:SendEmail'
+on resource '...:configuration-set/comandapro-prod'
+```
+
+`ses:SendEmail` evalúa **dos recursos**: la identidad desde la que se envía y el conjunto de
+configuración indicado en la llamada. La política solo concedía la identidad. **Es el mismo
+patrón que `rds:CreateDBSnapshot`, documentado más arriba** — y aun estando escrito, se
+repitió al añadir el conjunto de configuración. Cuando una acción nombra un recurso que no
+esperabas en el mensaje de error, sospecha de esto antes que de nada.
+
+> ⚠️ **El simulador de IAM da un falso negativo aquí.** Con el ARN del conjunto de
+> configuración literalmente en `Resource`, y con el envío real funcionando,
+> `simulate-principal-policy` sigue devolviendo `implicitDeny`. Sirve para descartar, no
+> para confirmar: la única prueba válida es el envío.
+
 **Señal de alarma útil:** `AWS/SES` métrica `Send` a 0 durante un periodo con actividad
 significa que no sale ni un correo. Ver el apartado de observabilidad del roadmap.
+
+**Verificación de extremo a extremo**, la única que vale:
+
+```bash
+# 1. ¿SES aceptó algo?
+aws cloudwatch get-metric-statistics --namespace AWS/SES --metric-name Send \
+  --start-time ... --end-time ... --period 1800 --statistics Sum --region eu-west-3
+# 2. ¿Llegó al servidor del destinatario?
+aws logs filter-log-events --log-group-name /aws/events/comandapro/ses --region eu-west-3
+```
 
 ## 4. Rollback
 
