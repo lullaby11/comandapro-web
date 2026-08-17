@@ -26,6 +26,10 @@ A partir de ahora, **cada release se anota aquí antes de desplegar**.
   dirección y detalle del pedido.
 
 ### Corregido
+- **El repartidor no veía la dirección de entrega.** La pantalla mostraba la del pedido,
+  que casi siempre está vacía porque la toma de comandas no la envía; ahora usa la de la
+  ficha del cliente como respaldo. Además el enlace abre la navegación de Google Maps
+  directamente, en lugar de una búsqueda, y si no hay ninguna dirección lo dice.
 - **La impresión fallaba con impresoras nuevas** con el error «The specified endpoint is
   not part of a claimed and selected alternate interface». Las dos pantallas que imprimen
   tenían implementaciones distintas y habían divergido: la de crear pedido usaba interfaz 0

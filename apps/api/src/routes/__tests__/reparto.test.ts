@@ -349,3 +349,95 @@ describe('Un cuerpo mal formado es culpa de quien llama, no del servidor', () =>
     expect(res.status).toBe(400);
   });
 });
+
+describe('El repartidor siempre sabe a dónde ir', () => {
+  // La pantalla de nueva comanda no envía `deliveryAddress` nunca, así que en la práctica
+  // ese campo del pedido está casi siempre vacío y la dirección real vive en la ficha del
+  // cliente. Sin respaldo, el repartidor no veía ninguna dirección en ningún pedido.
+  it('usa la dirección del cliente cuando el pedido no trae una propia', async () => {
+    const business = await crearLocal();
+    const service  = await abrirServicio(business.id);
+    const customer = await crearCliente(business.id, { address: 'Avenida del Puerto 12' });
+    const { user: ana } = await crearUsuario(business.id, { role: 'DELIVERY' });
+
+    await prisma.order.create({
+      data: {
+        businessId: business.id, serviceId: service.id, customerId: customer.id,
+        status: 'READY', isPickup: false, assignedToId: ana.id,
+        deliveryAddress: null,
+        total: 10, subtotal: 10, tax: 0,
+      },
+    });
+
+    const res = await request(app).get('/api/delivery/orders')
+      .set(cabeceraAuth(ana.id, business.id, 'DELIVERY'));
+
+    expect(res.body[0].deliveryAddress).toBe('Avenida del Puerto 12');
+  });
+
+  it('la del pedido manda sobre la de la ficha', async () => {
+    const business = await crearLocal();
+    const service  = await abrirServicio(business.id);
+    const customer = await crearCliente(business.id, { address: 'Su casa' });
+    const { user: ana } = await crearUsuario(business.id, { role: 'DELIVERY' });
+
+    await prisma.order.create({
+      data: {
+        businessId: business.id, serviceId: service.id, customerId: customer.id,
+        status: 'READY', isPickup: false, assignedToId: ana.id,
+        deliveryAddress: 'Hoy en la oficina, calle Colon 4',
+        total: 10, subtotal: 10, tax: 0,
+      },
+    });
+
+    const res = await request(app).get('/api/delivery/orders')
+      .set(cabeceraAuth(ana.id, business.id, 'DELIVERY'));
+
+    expect(res.body[0].deliveryAddress).toBe('Hoy en la oficina, calle Colon 4');
+  });
+
+  it('sin ninguna de las dos, devuelve null en vez de romper', async () => {
+    const business = await crearLocal();
+    const service  = await abrirServicio(business.id);
+    const customer = await crearCliente(business.id, { address: undefined });
+    await prisma.customer.update({ where: { id: customer.id }, data: { address: null } });
+    const { user: ana } = await crearUsuario(business.id, { role: 'DELIVERY' });
+
+    await prisma.order.create({
+      data: {
+        businessId: business.id, serviceId: service.id, customerId: customer.id,
+        status: 'READY', isPickup: false, assignedToId: ana.id,
+        deliveryAddress: null,
+        total: 10, subtotal: 10, tax: 0,
+      },
+    });
+
+    const res = await request(app).get('/api/delivery/orders')
+      .set(cabeceraAuth(ana.id, business.id, 'DELIVERY'));
+
+    expect(res.status).toBe(200);
+    expect(res.body[0].deliveryAddress).toBeNull();
+  });
+
+  it('la dirección del cliente no viaja como campo suelto', async () => {
+    const business = await crearLocal();
+    const service  = await abrirServicio(business.id);
+    const customer = await crearCliente(business.id, { address: 'Calle Uno 1' });
+    const { user: ana } = await crearUsuario(business.id, { role: 'DELIVERY' });
+
+    await prisma.order.create({
+      data: {
+        businessId: business.id, serviceId: service.id, customerId: customer.id,
+        status: 'READY', isPickup: false, assignedToId: ana.id,
+        total: 10, subtotal: 10, tax: 0,
+      },
+    });
+
+    const res = await request(app).get('/api/delivery/orders')
+      .set(cabeceraAuth(ana.id, business.id, 'DELIVERY'));
+
+    expect(res.body[0].customer.address).toBeUndefined();
+    expect(res.body[0].customer.name).toBeTruthy();
+    expect(res.body[0].customer.phone).toBeTruthy();
+  });
+});
