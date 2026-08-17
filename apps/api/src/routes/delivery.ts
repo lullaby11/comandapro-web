@@ -25,7 +25,10 @@ const CAMPOS_VISIBLES = {
   estimatedDeliveryAt: true,
   assignedAt: true,
   createdAt: true,
-  customer: { select: { name: true, phone: true } },
+  // La dirección de la ficha del cliente hace de respaldo: `Order.deliveryAddress` solo
+  // se rellena cuando alguien escribe una distinta, y la pantalla de nueva comanda no lo
+  // envía nunca. Sin este respaldo el repartidor no veía a dónde ir en ningún pedido.
+  customer: { select: { name: true, phone: true, address: true } },
   items: {
     select: {
       quantity: true,
@@ -60,7 +63,16 @@ router.get('/orders', async (req: AuthenticatedRequest, res) => {
     orderBy: [{ status: 'desc' }, { createdAt: 'asc' }],
   });
 
-  res.json(orders);
+  // La dirección se resuelve aquí, no en la pantalla: así el repartidor recibe un único
+  // campo ya decidido y la interfaz no tiene que conocer de dónde sale cada una. De paso,
+  // `customer.address` no viaja como campo suelto.
+  res.json(
+    orders.map(({ customer, ...pedido }) => ({
+      ...pedido,
+      deliveryAddress: pedido.deliveryAddress ?? customer.address ?? null,
+      customer: { name: customer.name, phone: customer.phone },
+    })),
+  );
 });
 
 // ──────────────────────────────────────────────
