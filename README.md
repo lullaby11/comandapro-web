@@ -1,39 +1,54 @@
 # ComandaPro / Olyda 🍕
 
-> SaaS multi-tenant de gestión de pedidos a domicilio con impresión térmica ESC/POS real,
-> tienda online por local y seguimiento público por QR.
+> Multi-tenant SaaS for delivery order management, with real ESC/POS thermal printing,
+> an online store per restaurant and public order tracking via QR code.
 
-📚 **La documentación completa está en [`docs/`](docs/README.md).** Este README solo cubre
-la puesta en marcha. Antes de desarrollar, lee [`CLAUDE.md`](CLAUDE.md) y
+📚 **Full documentation lives in [`docs/`](docs/README.md)** (currently in Spanish). This README
+only covers getting started. Before developing, read [`CLAUDE.md`](CLAUDE.md) and
 [`docs/08-entorno-desarrollo.md`](docs/08-entorno-desarrollo.md).
 
 ## Stack
 
-| Capa | Tecnología |
-|------|-----------|
-| Frontend | Next.js 16 (App Router) + React 19 + Tailwind v4 |
-| Backend | Node.js 20 + Express + TypeScript |
-| ORM | Prisma 5 |
-| Base de datos | PostgreSQL 16 |
-| Impresión | `@point-of-sale/receipt-printer-encoder` (ESC/POS) + WebUSB / Web Bluetooth / CUPS |
-| QR e imágenes | `qrcode` + `jimp` |
-| Email | `nodemailer` |
-| Despliegue frontend | AWS Amplify (SSR) |
-| Despliegue backend | AWS App Runner (Docker + ECR) |
-| Base de datos gestionada | AWS RDS PostgreSQL en subred privada |
-| Infraestructura como código | Terraform (`infra/`) |
+| Layer                    | Technology                                                                         |
+| ------------------------ | ---------------------------------------------------------------------------------- |
+| Frontend                 | Next.js 16 (App Router) + React 19 + Tailwind v4                                   |
+| Backend                  | Node.js 20 + Express + TypeScript                                                  |
+| ORM                      | Prisma 5                                                                           |
+| Database                 | PostgreSQL 16                                                                      |
+| Printing                 | `@point-of-sale/receipt-printer-encoder` (ESC/POS) + WebUSB / Web Bluetooth / CUPS |
+| QR codes and images      | `qrcode` + `jimp`                                                                  |
+| Email                    | Amazon SES (IAM role, no stored credentials)                                       |
+| Frontend deployment      | AWS Amplify (SSR)                                                                  |
+| Backend deployment       | AWS App Runner (Docker + ECR)                                                      |
+| Managed database         | AWS RDS PostgreSQL in a private subnet                                             |
+| Infrastructure as code   | Terraform (`infra/`), remote state in S3 with DynamoDB locking                     |
+| CI/CD                    | GitHub Actions, authenticated to AWS via OIDC (no long-lived keys)                 |
 
-## Inicio rápido (desarrollo local)
+## Architecture
 
-Requisitos: Node.js ≥ 20, Docker Desktop, Chrome o Edge (para WebUSB).
+```mermaid
+flowchart TB
+  GH["GitHub main"] -->|deploy-api workflow · OIDC| ECR["ECR: Docker image"]
+  GH -->|Amplify connection| AMP["Amplify — Next.js SSR"]
+  ECR --> AR["App Runner — API :4000"]
+  AR -->|VPC connector · private subnets + NAT| RDS[("RDS PostgreSQL 16<br/>private subnet")]
+  AR -->|IAM role| SSM["SSM Parameter Store<br/>encrypted secrets"]
+  AR -->|IAM role| SES["Amazon SES"]
+  AMP -->|rewrite /api/*| AR
+  LOCAL["print-agent at the restaurant"] --> AR
+```
+
+## Quick start (local development)
+
+Requirements: Node.js ≥ 20, Docker Desktop, Chrome or Edge (for WebUSB).
 
 ```bash
-# 1. Base de datos
+# 1. Database
 docker-compose up -d
 
-# 2. Variables de entorno
+# 2. Environment variables
 cp .env.example apps/api/.env
-cp .env.example apps/web/.env.local     # deja solo las NEXT_PUBLIC_*
+cp .env.example apps/web/.env.local     # keep only the NEXT_PUBLIC_* variables
 
 # 3. Backend
 cd apps/api
@@ -42,90 +57,93 @@ npx prisma db push
 npm run db:seed
 npm run dev            # → http://localhost:4000
 
-# 4. Frontend (otra terminal)
+# 4. Frontend (in another terminal)
 cd apps/web
 npm install --no-workspaces
 npm run dev            # → http://localhost:3000
 ```
 
-Tras el seed:
+After seeding you get:
 
-- 🏪 Local **Pizzería Bella Italia** (`slug: pizzeria-bella`)
-- 👤 `admin@pizzeria-bella.com` / `admin1234`
-- 🍕 13 productos (uno agotado) y 3 clientes de prueba
+- 🏪 Restaurant **Pizzería Bella Italia** (`slug: pizzeria-bella`)
+- 👤 `admin@pizzeria-bella.com` / `admin1234` (local development only)
+- 🍕 13 products (one out of stock) and 3 test customers
 
-> ⚠️ **El seed no abre ningún servicio.** Entra en *Pedidos → Iniciar servicio* antes de
-> crear una comanda, o la API responderá `409`.
+> ⚠️ **The seed does not open a service.** Go to *Pedidos → Iniciar servicio* (Orders → Start
+> service) before creating an order, or the API will respond with `409`.
 
-## Estructura
+## Structure
 
 ```
 comandaPro/
 ├── apps/
 │   ├── api/            Express + Prisma  (routes, services, middleware, prisma)
 │   ├── web/            Next.js           (login, register, dashboard, tracking, [slug]/pedidos)
-│   └── print-agent/    Agente local de impresión vía CUPS
-├── packages/shared-types/   (vacío — pendiente)
-├── infra/              Terraform + guía de despliegue
-├── docker/             init.sql de PostgreSQL
+│   └── print-agent/    Local printing agent via CUPS
+├── packages/shared-types/   (empty — pending)
+├── infra/              Terraform + deployment guide
+├── docker/             PostgreSQL init.sql
 ├── scripts/rollback.sh
-├── docs/               📚 Documentación (fuente de verdad)
+├── docs/               📚 Documentation (source of truth)
 └── CHANGELOG.md
 ```
 
-## Impresión térmica
+## Thermal printing
 
-El backend genera el buffer ESC/POS completo (logo, cliente, artículos, totales, QR de
-seguimiento y corte) y el cliente lo transporta a la impresora:
+The backend generates the complete ESC/POS buffer (logo, customer, items, totals, tracking
+QR code and paper cut) and the client transports it to the printer:
 
-| Modo | Transporte | Requisitos |
-|------|-----------|------------|
-| `webusb` | `navigator.usb` desde el navegador | Chrome/Edge de escritorio, HTTPS o localhost |
-| `bluetooth` | Web Bluetooth (BLE serie) | Chrome; ⚠️ ver bug conocido en `docs/11-deuda-tecnica.md` |
-| `printserver` | `apps/print-agent` → `lp -o raw` | CUPS instalado en el local |
+| Mode          | Transport                          | Requirements                                                 |
+| ------------- | ---------------------------------- | ------------------------------------------------------------ |
+| `webusb`      | `navigator.usb` from the browser   | Desktop Chrome/Edge, HTTPS or localhost                      |
+| `bluetooth`   | Web Bluetooth (BLE serial)         | Chrome; ⚠️ see known bug in `docs/11-deuda-tecnica.md`       |
+| `printserver` | `apps/print-agent` → `lp -o raw`   | CUPS installed at the restaurant                             |
 
-| Papel | Caracteres/línea | Dots |
-|-------|-----------------|------|
-| 58 mm | 32 | 384 |
-| 80 mm | 48 | 576 |
+| Paper | Characters per line | Dots |
+| ----- | ------------------- | ---- |
+| 58 mm | 32                  | 384  |
+| 80 mm | 48                  | 576  |
 
-Detalles y resolución de incidencias: [`docs/06-impresion.md`](docs/06-impresion.md).
+Details and troubleshooting: [`docs/06-impresion.md`](docs/06-impresion.md).
 
-## Multi-tenant
+## Multi-tenancy
 
-Cada `Business` tiene un `slug` único y todos los datos están aislados por `businessId`.
-El JWT incluye el `businessId` y `authMiddleware` revalida en cada petición que el usuario
-sigue teniendo acceso al local. Ver [`docs/10-seguridad.md`](docs/10-seguridad.md).
+Each `Business` has a unique `slug`, and all data is isolated by `businessId`. The JWT
+includes the `businessId`, and `authMiddleware` re-validates on every request that the user
+still has access to that business. See [`docs/10-seguridad.md`](docs/10-seguridad.md).
 
-## Despliegue
+## Deployment
 
-Push a `main` que toque `apps/api/**` → GitHub Actions crea un snapshot de RDS, construye
-la imagen, la sube a ECR y despliega en App Runner. El frontend lo compila Amplify desde el
-mismo repositorio.
+A push to `main` that touches `apps/api/**` triggers GitHub Actions, which assumes an IAM
+role via OIDC, takes an RDS snapshot, builds the image, pushes it to ECR tagged with the
+commit SHA and deploys it to App Runner. App Runner only switches traffic once the new
+version passes its health check. Amplify builds the frontend from the same repository.
 
-Guía completa, rollback y runbooks: [`docs/09-despliegue.md`](docs/09-despliegue.md).
+Rollback of the application, or of the application and database, is scripted in
+`scripts/rollback.sh`.
+
+Full guide, rollback procedures, runbooks, post-mortems and cost model:
+[`docs/09-despliegue.md`](docs/09-despliegue.md).
 
 ## API
 
-Resumen de familias de endpoints (referencia completa en
-[`docs/04-api-reference.md`](docs/04-api-reference.md)):
+Summary of endpoint families (full reference in [`docs/04-api-reference.md`](docs/04-api-reference.md)):
 
-| Prefijo | Auth | Contenido |
-|---------|------|-----------|
-| `/api/auth` | 🔓 | Login y alta de local |
-| `/api/services` | 🔒 | Abrir y cerrar turno |
-| `/api/orders` | 🔒 | Pedidos, estados, borrado e **impresión ESC/POS** |
-| `/api/products` | 🔒 | Catálogo y stock |
-| `/api/customers` | 🔒 | Clientes del local |
-| `/api/shipping-rates` | 🔒 | Tarifas de envío (escritura: admin) |
-| `/api/settings` | 🔒 | Configuración del local (escritura: admin) |
-| `/api/stats` | 🔒 | Estadísticas por servicio, cliente, producto, categoría y periodo |
-| `/api/tracking/:token` | 🔓 | Seguimiento público del pedido |
-| `/api/public/:slug` | 🔓 / 🔒 cliente | Tienda online: catálogo, cuentas y pedidos |
-| `/health` | 🔓 | Estado del servicio |
+| Prefix                 | Auth              | Content                                                          |
+| ---------------------- | ----------------- | ---------------------------------------------------------------- |
+| `/api/auth`            | 🔓                | Login and business sign-up                                       |
+| `/api/services`        | 🔒                | Open and close a service shift                                   |
+| `/api/orders`          | 🔒                | Orders, statuses, deletion and **ESC/POS printing**              |
+| `/api/products`        | 🔒                | Catalogue and stock                                              |
+| `/api/customers`       | 🔒                | Business customers                                               |
+| `/api/shipping-rates`  | 🔒                | Delivery rates (write: admin)                                    |
+| `/api/settings`        | 🔒                | Business settings (write: admin)                                 |
+| `/api/stats`           | 🔒                | Statistics by service, customer, product, category and period    |
+| `/api/tracking/:token` | 🔓                | Public order tracking                                            |
+| `/api/public/:slug`    | 🔓 / 🔒 customer   | Online store: catalogue, accounts and orders                     |
+| `/health`              | 🔓                | Service health                                                   |
 
-## Estado y siguientes pasos
+## Status and next steps
 
-Consulta [`docs/11-deuda-tecnica.md`](docs/11-deuda-tecnica.md) (problemas conocidos
-priorizados) y [`docs/12-roadmap.md`](docs/12-roadmap.md) (plan de versiones hasta poder
-comercializarlo).
+See [`docs/11-deuda-tecnica.md`](docs/11-deuda-tecnica.md) (prioritised known issues) and
+[`docs/12-roadmap.md`](docs/12-roadmap.md) (release plan up to commercial launch).
