@@ -103,8 +103,8 @@ resource "aws_iam_policy" "github_actions_s3" {
   })
 }
 
-resource "aws_iam_user_policy_attachment" "github_actions_s3" {
-  user       = aws_iam_user.github_actions.name
+resource "aws_iam_role_policy_attachment" "github_actions_s3" {
+  role       = aws_iam_role.github_actions.name
   policy_arn = aws_iam_policy.github_actions_s3.arn
 }
 

@@ -169,24 +169,30 @@ Esto actualiza:
 
 ---
 
-## Paso 6 — Configurar GitHub Secrets para CI/CD
+## Paso 6 — Configurar GitHub para CI/CD (OIDC, sin claves de larga duración)
+
+GitHub Actions no usa un usuario IAM con access key: asume `aws_iam_role.github_actions`
+(`infra/github-oidc.tf`) por federación OIDC. El proveedor OIDC y el rol se crean con el
+`terraform apply` del Paso 4; solo falta decirle al workflow qué rol asumir.
 
 ```bash
 cd infra
-terraform output -raw github_actions_access_key_id
-terraform output -raw github_actions_secret_access_key
-terraform output -raw ecr_repository_url
+terraform output -raw github_actions_role_arn
 terraform output -raw apprunner_service_arn
 ```
 
-Añádelas en GitHub → tu repo → **Settings → Secrets and variables → Actions**:
+En GitHub → tu repo → **Settings → Secrets and variables → Actions**:
 
-| Secret | Valor |
-|---|---|
-| `AWS_ACCESS_KEY_ID` | output `github_actions_access_key_id` |
-| `AWS_SECRET_ACCESS_KEY` | output `github_actions_secret_access_key` |
-| `ECR_REPOSITORY_NAME` | `comandapro/api` |
-| `APPRUNNER_SERVICE_ARN` | output `apprunner_service_arn` |
+| Tipo | Nombre | Valor |
+|---|---|---|
+| Variable | `AWS_ROLE_ARN` | output `github_actions_role_arn` |
+| Secret | `ECR_REPOSITORY_NAME` | `comandapro/api` |
+| Secret | `APPRUNNER_SERVICE_ARN` | output `apprunner_service_arn` |
+| Secret | `RDS_DB_IDENTIFIER` | identificador de la instancia RDS |
+
+`AWS_ROLE_ARN` va como **variable**, no como secreto: no es sensible (el rol solo se puede
+asumir desde `repo:lullaby11/comandapro-web:ref:refs/heads/main`, según la condición
+`sub` de `infra/github-oidc.tf`), y así es visible en los logs del workflow para depurar.
 
 A partir de aquí, cada push a `main` que modifique `apps/api/**` despliega automáticamente.
 
