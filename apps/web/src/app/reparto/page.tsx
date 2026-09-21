@@ -164,17 +164,28 @@ function TarjetaPedido({
         </div>
 
         {/* Dirección y teléfono son enlaces: en el móvil abren el mapa y la llamada. Es
-            lo que más se usa de esta pantalla, así que van arriba y con área grande. */}
-        {pedido.deliveryAddress && (
+            lo que más se usa de esta pantalla, así que van arriba y con área grande.
+
+            `dir/?api=1&destination=` abre la NAVEGACIÓN, no una búsqueda: en el móvil
+            salta a la app de Maps con la ruta ya trazada desde donde esté el repartidor.
+            Es un toque en lugar de tres, que en la calle y con una mano se nota. */}
+        {pedido.deliveryAddress ? (
           <a
-            href={`https://maps.google.com/?q=${encodeURIComponent(pedido.deliveryAddress)}`}
+            href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(pedido.deliveryAddress)}`}
             target="_blank"
             rel="noopener noreferrer"
             style={enlaceAccion}
           >
             <MapPin size={20} style={{ flexShrink: 0, color: 'hsl(var(--primary))' }} />
-            <span>{pedido.deliveryAddress}</span>
+            <span style={{ textDecoration: 'underline' }}>{pedido.deliveryAddress}</span>
           </a>
+        ) : (
+          // Si no hay dirección hay que decirlo, no dejar el hueco en blanco: el
+          // repartidor tiene que saber que le toca llamar para preguntarla.
+          <div style={{ ...enlaceAccion, color: 'hsl(var(--warning))' }}>
+            <MapPin size={20} style={{ flexShrink: 0 }} />
+            <span>Sin dirección — llama al cliente</span>
+          </div>
         )}
 
         <a href={`tel:${pedido.customer.phone}`} style={enlaceAccion}>

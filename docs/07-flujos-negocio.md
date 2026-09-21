@@ -138,6 +138,24 @@ El mostrador conserva las mismas transiciones que antes —puede sacar y entrega
 él mismo, por ejemplo si el repartidor se queda sin batería—. Lo que **no** puede hacer el
 repartidor es cancelar, devolver el pedido a cocina ni tocar pedidos que no sean suyos.
 
+**De dónde sale la dirección que ve el repartidor.** `Order.deliveryAddress` solo se
+rellena cuando alguien escribe una distinta de la habitual; la pantalla de nueva comanda
+no lo envía, así que en la práctica casi siempre está vacío y la dirección real vive en
+`Customer.address`. La API resuelve las dos y devuelve un único campo ya decidido:
+
+```
+Order.deliveryAddress  ??  Customer.address  ??  null
+```
+
+Si no hay ninguna, la pantalla lo dice —«Sin dirección, llama al cliente»— en lugar de
+dejar un hueco en blanco. La dirección enlaza con `maps/dir/?api=1&destination=`, que abre
+la navegación directamente en vez de una búsqueda.
+
+> ⚠️ La dirección **no se congela** en el pedido, a diferencia de `OrderItem.unitPrice`.
+> Si el cliente cambia la suya, los pedidos antiguos pasan a mostrar la nueva. Para el
+> reparto en curso da igual, pero conviene tenerlo presente antes de usar el histórico
+> para cualquier cosa que dependa de dónde se entregó de verdad.
+
 Reasignar en caliente funciona: el pedido desaparece de la pantalla del anterior y aparece
 en la del nuevo en el siguiente refresco (20 s).
 
