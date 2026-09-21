@@ -23,7 +23,7 @@ flowchart TB
 | ECR + política de ciclo de vida | `ecr.tf` | |
 | App Runner + conector VPC | `apprunner.tf` | 0.25 vCPU / 0.5 GB por defecto |
 | Amplify | `amplify.tf` | Conexión con GitHub hecha **a mano** desde la consola |
-| Roles y políticas IAM | `iam.tf` | Acceso a ECR y lectura de SSM |
+| Roles y políticas IAM | `iam.tf`, `github-oidc.tf` | Acceso a ECR y lectura de SSM; rol OIDC para GitHub Actions (§3 quinquies) |
 | Parámetros cifrados | `ssm.tf` | `DATABASE_URL`, `JWT_SECRET` |
 | Bucket S3 | `s3.tf` | Reservado; hoy no se usa desde el código |
 
@@ -114,7 +114,8 @@ Plan: 1 to add, 3 to change, 0 to destroy
 5. **Espera** hasta 5 minutos a que el servicio quede en `RUNNING`.
 6. **Resumen** en GitHub con las órdenes exactas de rollback.
 
-Secretos requeridos en GitHub: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
+El workflow se autentica en AWS por **OIDC** (variable de repo `AWS_ROLE_ARN`, no hay
+claves de acceso — ver §3 quinquies). Secretos adicionales requeridos en GitHub:
 `RDS_DB_IDENTIFIER`, `ECR_REPOSITORY_NAME`, `APPRUNNER_SERVICE_ARN`.
 
 ### Migraciones de base de datos
@@ -506,6 +507,68 @@ aws cloudwatch get-metric-statistics --namespace AWS/SES --metric-name Send \
 aws logs filter-log-events --log-group-name /aws/events/comandapro/ses --region eu-west-3
 ```
 
+## 3 quinquies. GitHub Actions pasa de usuario IAM a rol OIDC (21/09/2026)
+
+Hasta esta fecha, el workflow se autenticaba en AWS con un **usuario IAM**
+(`comandapro-github-actions`) y una access key estática guardada en los secretos
+`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` del repo. Es una credencial de larga
+duración: no expira sola, y si el secreto se filtrase (log mal redactado, fork malicioso
+con `pull_request_target`, etc.) seguiría siendo válida hasta que alguien la rotara a mano.
+
+### Qué cambia
+
+`infra/github-oidc.tf` crea:
+
+- `aws_iam_openid_connect_provider.github` — el proveedor OIDC de
+  `token.actions.githubusercontent.com`, con el `thumbprint` del certificado.
+- `aws_iam_role.github_actions` — el rol que asume el workflow. Su `assume_role_policy`
+  exige `token.actions.githubusercontent.com:aud = sts.amazonaws.com` **y**
+  `token.actions.githubusercontent.com:sub = repo:lullaby11/comandapro-web:ref:refs/heads/main`:
+  solo un workflow corriendo en `main` de este repo puede asumirlo — ni PRs, ni otras ramas,
+  ni otro repositorio, aunque conozcan el ARN.
+
+`infra/iam.tf` ya no declara `aws_iam_user.github_actions` ni su `aws_iam_access_key`: la
+política `aws_iam_policy.github_actions` (permisos de ECR, App Runner y snapshots de RDS)
+se mantiene igual, pero ahora se adjunta al rol en lugar de al usuario. Lo mismo con
+`aws_iam_policy.github_actions_s3` en `infra/s3.tf`.
+
+El workflow (`.github/workflows/deploy-api.yml`) no cambia en esta migración: ya usaba
+`aws-actions/configure-aws-credentials` con `role-to-assume: ${{ vars.AWS_ROLE_ARN }}` y
+`permissions: id-token: write`, preparado para OIDC desde que se escribió.
+
+### Qué hay que hacer a mano (no lo gestiona Terraform)
+
+1. **Repo → Settings → Secrets and variables → Actions → Variables**: crear `AWS_ROLE_ARN`
+   con el output `terraform output -raw github_actions_role_arn`. (Hecho el 21/09/2026.)
+2. `terraform apply` desde `infra/` — destruye `aws_iam_user.github_actions` y su access
+   key, y crea el proveedor OIDC y el rol. (Hecho el 21/09/2026 — confirmado con
+   `aws iam get-user` que el usuario ya no existe.)
+3. **Borrar los secretos `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`** del repo: quedan
+   sin uso tras el `apply`, y dejarlos es la misma superficie de fuga que se quiso eliminar.
+   (No hizo falta: nunca llegaron a configurarse como secretos de repo, solo vivían como
+   outputs de Terraform.)
+
+> **Orden importante:** aplica Terraform *antes* de borrar los secretos antiguos, no
+> después. Si algo falla a mitad del `apply` y el rol OIDC no queda utilizable, el usuario
+> IAM todavía existe como red de seguridad hasta el siguiente intento.
+
+### Secretos y variables vigentes en GitHub
+
+Ya no hacen falta credenciales de AWS como secreto: la autenticación es por OIDC. Lo que
+necesita el workflow hoy:
+
+| Tipo | Nombre | Para qué |
+|---|---|---|
+| Variable | `AWS_ROLE_ARN` | Rol que asume `configure-aws-credentials` por OIDC |
+| Secreto | `RDS_DB_IDENTIFIER` | Snapshot pre-deploy |
+| Secreto | `ECR_REPOSITORY_NAME` | Build y push de la imagen |
+| Secreto | `APPRUNNER_SERVICE_ARN` | Disparar y comprobar el despliegue |
+
+No debe existir `AWS_ACCESS_KEY_ID` ni `AWS_SECRET_ACCESS_KEY` en **Settings → Secrets and
+variables → Actions**. Si aparecen (por ejemplo, restaurados desde una copia antigua del
+repo), bórralos: no los usa nada y son la misma credencial de larga duración que se
+eliminó en esta migración.
+
 ## 4. Rollback
 
 ### Aplicación
@@ -560,10 +623,20 @@ Ver la guía de incidencias en [06-impresion.md §4](06-impresion.md#4-guía-de-
 
 ### Los emails no llegan
 
-`email.service.ts` usa nodemailer con timeouts de 8–10 s y los fallos se registran con
-`console.error` sin reintento. Revisa CloudWatch, las credenciales SMTP y el límite de
-envíos del proveedor. **No hay cola ni reintentos**: si el SMTP estaba caído, ese email se
-perdió para siempre.
+Desde agosto de 2026 producción envía por la **API de Amazon SES** (ver §3 bis), no por
+SMTP: ya no hay credenciales que rotar ni un servidor externo que se caiga. Los envíos sí
+llegan de forma fiable desde entonces — este runbook es para diagnosticar un caso puntual,
+no un fallo general del transporte.
+
+`email.service.ts` registra los fallos con `console.error` **sin reintento ni cola**: si
+una llamada a SES falla (throttling, credenciales del rol de instancia caducadas, etc.),
+ese correo se pierde. Para investigar un envío concreto sigue **"Rastrear un correo
+concreto"** en §3 bis — CloudWatch Logs Insights (`/aws/events/comandapro/ses`,
+eu-west-3) dice si SES lo aceptó, lo entregó, rebotó o el destinatario lo marcó como spam.
+
+Si en logs de App Runner no aparece siquiera `[email] Transporte: ses`, la variable
+`MAIL_TRANSPORT`/`SES_REGION` no llegó al contenedor (cae a `smtp` o `log` según lo que
+detecte) — revisa `apprunner.tf` y que el último despliegue la incluyera.
 
 ### Hay que suspender un local moroso
 

@@ -43,6 +43,12 @@ A partir de ahora, **cada release se anota aquí antes de desplegar**.
   de spam clásica y penaliza la entregabilidad en dominios sin histórico de envío. También
   mejora la accesibilidad y los clientes que bloquean HTML.
 
+### Seguridad
+- **GitHub Actions se autentica en AWS por OIDC, no con access keys.** Se retira el usuario
+  IAM `comandapro-github-actions` y sus credenciales de larga duración; el workflow asume
+  ahora un rol (`infra/github-oidc.tf`) limitado a `main` de este repo. Detalle en
+  [`docs/09-despliegue.md`](docs/09-despliegue.md#3-quinquies-github-actions-pasa-de-usuario-iam-a-rol-oidc-21092026).
+
 ---
 
 ## [1.1.0] — 2026-08-11

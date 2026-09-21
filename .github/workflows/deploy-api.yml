@@ -3,10 +3,12 @@ name: Deploy API → ECR + App Runner
 on:
   push:
     branches: [main]
-    paths:
-      - "apps/api/**"
-      - "apps/api/prisma/**"
-      - ".github/workflows/deploy-api.yml"
+    paths: ['apps/api/**']
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # required to request the OIDC token
+  contents: read
 
 env:
   AWS_REGION: eu-west-1
@@ -30,12 +32,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          role-session-name: gha-deploy-${{ github.run_id }}
+          aws-region: eu-west-1
+
+      - name: Verify identity
+        run: aws sts get-caller-identity
 
       # ── Backup pre-deploy ────────────────────────────────────────────────────
       - name: Create pre-deployment RDS snapshot

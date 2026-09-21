@@ -71,17 +71,9 @@ resource "aws_iam_role_policy_attachment" "apprunner_ssm" {
   policy_arn = aws_iam_policy.apprunner_ssm_read.arn
 }
 
-# ── Rol para GitHub Actions (CI/CD) ──────────────────────────────────────────
-# Usado por el workflow para hacer push a ECR y triggear despliegues
-
-resource "aws_iam_user" "github_actions" {
-  name = "${var.project_name}-github-actions"
-  tags = { Purpose = "CI/CD desde GitHub Actions" }
-}
-
-resource "aws_iam_access_key" "github_actions" {
-  user = aws_iam_user.github_actions.name
-}
+# ── Política para GitHub Actions (CI/CD) ─────────────────────────────────────
+# El workflow asume aws_iam_role.github_actions (infra/github-oidc.tf) vía OIDC,
+# sin credenciales de larga duración. Esta política se adjunta a ese rol.
 
 resource "aws_iam_policy" "github_actions" {
   name        = "${var.project_name}-github-actions"
@@ -156,20 +148,3 @@ resource "aws_iam_policy" "github_actions" {
   })
 }
 
-resource "aws_iam_user_policy_attachment" "github_actions" {
-  user       = aws_iam_user.github_actions.name
-  policy_arn = aws_iam_policy.github_actions.arn
-}
-
-# Las credenciales se muestran en outputs para añadirlas a GitHub Secrets
-output "github_actions_access_key_id" {
-  description = "AWS_ACCESS_KEY_ID para GitHub Secrets"
-  value       = aws_iam_access_key.github_actions.id
-  sensitive   = true
-}
-
-output "github_actions_secret_access_key" {
-  description = "AWS_SECRET_ACCESS_KEY para GitHub Secrets"
-  value       = aws_iam_access_key.github_actions.secret
-  sensitive   = true
-}
