@@ -541,13 +541,33 @@ El workflow (`.github/workflows/deploy-api.yml`) no cambia en esta migración: y
 1. **Repo → Settings → Secrets and variables → Actions → Variables**: crear `AWS_ROLE_ARN`
    con el output `terraform output -raw github_actions_role_arn`. (Hecho el 21/09/2026.)
 2. `terraform apply` desde `infra/` — destruye `aws_iam_user.github_actions` y su access
-   key, y crea el proveedor OIDC y el rol.
+   key, y crea el proveedor OIDC y el rol. (Hecho el 21/09/2026 — confirmado con
+   `aws iam get-user` que el usuario ya no existe.)
 3. **Borrar los secretos `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`** del repo: quedan
    sin uso tras el `apply`, y dejarlos es la misma superficie de fuga que se quiso eliminar.
+   (No hizo falta: nunca llegaron a configurarse como secretos de repo, solo vivían como
+   outputs de Terraform.)
 
 > **Orden importante:** aplica Terraform *antes* de borrar los secretos antiguos, no
 > después. Si algo falla a mitad del `apply` y el rol OIDC no queda utilizable, el usuario
 > IAM todavía existe como red de seguridad hasta el siguiente intento.
+
+### Secretos y variables vigentes en GitHub
+
+Ya no hacen falta credenciales de AWS como secreto: la autenticación es por OIDC. Lo que
+necesita el workflow hoy:
+
+| Tipo | Nombre | Para qué |
+|---|---|---|
+| Variable | `AWS_ROLE_ARN` | Rol que asume `configure-aws-credentials` por OIDC |
+| Secreto | `RDS_DB_IDENTIFIER` | Snapshot pre-deploy |
+| Secreto | `ECR_REPOSITORY_NAME` | Build y push de la imagen |
+| Secreto | `APPRUNNER_SERVICE_ARN` | Disparar y comprobar el despliegue |
+
+No debe existir `AWS_ACCESS_KEY_ID` ni `AWS_SECRET_ACCESS_KEY` en **Settings → Secrets and
+variables → Actions**. Si aparecen (por ejemplo, restaurados desde una copia antigua del
+repo), bórralos: no los usa nada y son la misma credencial de larga duración que se
+eliminó en esta migración.
 
 ## 4. Rollback
 
@@ -603,10 +623,20 @@ Ver la guía de incidencias en [06-impresion.md §4](06-impresion.md#4-guía-de-
 
 ### Los emails no llegan
 
-`email.service.ts` usa nodemailer con timeouts de 8–10 s y los fallos se registran con
-`console.error` sin reintento. Revisa CloudWatch, las credenciales SMTP y el límite de
-envíos del proveedor. **No hay cola ni reintentos**: si el SMTP estaba caído, ese email se
-perdió para siempre.
+Desde agosto de 2026 producción envía por la **API de Amazon SES** (ver §3 bis), no por
+SMTP: ya no hay credenciales que rotar ni un servidor externo que se caiga. Los envíos sí
+llegan de forma fiable desde entonces — este runbook es para diagnosticar un caso puntual,
+no un fallo general del transporte.
+
+`email.service.ts` registra los fallos con `console.error` **sin reintento ni cola**: si
+una llamada a SES falla (throttling, credenciales del rol de instancia caducadas, etc.),
+ese correo se pierde. Para investigar un envío concreto sigue **"Rastrear un correo
+concreto"** en §3 bis — CloudWatch Logs Insights (`/aws/events/comandapro/ses`,
+eu-west-3) dice si SES lo aceptó, lo entregó, rebotó o el destinatario lo marcó como spam.
+
+Si en logs de App Runner no aparece siquiera `[email] Transporte: ses`, la variable
+`MAIL_TRANSPORT`/`SES_REGION` no llegó al contenedor (cae a `smtp` o `log` según lo que
+detecte) — revisa `apprunner.tf` y que el último despliegue la incluyera.
 
 ### Hay que suspender un local moroso
 
